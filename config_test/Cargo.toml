@@ -1,0 +1,15 @@
+[package]
+name = "config_test"
+version = "0.1.0"
+edition = "2021"
+description = "Configuration testing utility for arm configurations"
+
+[dependencies]
+# Workspace dependencies
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+
+# Local shared library
+arm_bot_lib = { path = "../arm_bot_lib" }

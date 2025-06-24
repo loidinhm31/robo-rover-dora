@@ -1,0 +1,57 @@
+# dev-dataflow.yml - Workspace-based dora-rs dataflow configuration
+# Each node is a separate package following dora-rs conventions
+nodes:
+  - id: dora-keyboard
+    build: pip install dora-keyboard
+    path: dora-keyboard
+    inputs:
+      tick: dora/timer/millis/1000
+    outputs:
+      - char
+
+  # Main arm controller - processes keyboard input and generates commands
+  - id: arm-controller
+    build: cargo build -p arm_controller
+    path: target/debug/arm_controller
+    inputs:
+      keyboard: dora-keyboard/char
+      joint_feedback: sim-interface/joint_feedback
+    outputs:
+      - arm_command
+    env:
+      RUST_LOG: info
+      ARM_CONFIG: config/arm_6dof.toml
+
+  # Simulation interface - handles Unity/mock simulation
+  - id: sim-interface
+    build: cargo build -p sim_interface
+    path: target/debug/sim_interface
+    inputs:
+      arm_command: arm-controller/arm_command
+    outputs:
+      - joint_feedback
+    env:
+      RUST_LOG: info
+
+  # Monitor node - logs all dataflow activity for debugging
+  - id: monitor
+    build: cargo build -p monitor
+    path: target/debug/monitor
+    inputs:
+      keyboard: dora-keyboard/char
+      arm_command: arm-controller/arm_command
+      joint_feedback: sim-interface/joint_feedback
+    env:
+      RUST_LOG: debug
+
+  # Optional: Add rerun visualization
+  - id: visualization
+    build: pip install dora-rerun
+    path: dora-rerun
+    inputs:
+      joint_feedback: sim-interface/joint_feedback
+    env:
+      README: |
+        # Robotic Arm Visualization
+        This node visualizes the robotic arm state and trajectory.
+      RERUN_MEMORY_LIMIT: 25%

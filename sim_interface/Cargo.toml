@@ -1,0 +1,21 @@
+[package]
+name = "sim_interface"
+version = "0.1.0"
+edition = "2021"
+description = "Simulation interface node for Unity WebSocket and mock simulation"
+
+[dependencies]
+# Workspace dependencies
+dora-node-api = { workspace = true }
+dora-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+
+# Local shared library
+arm_bot_lib = { path = "../arm_bot_lib" }

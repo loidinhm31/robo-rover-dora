@@ -1,0 +1,13 @@
+[package]
+name = "test_keyboard"
+version = "0.1.0"
+edition = "2021"
+description = "Test keyboard input generator for debugging arm controller"
+
+[dependencies]
+# Workspace dependencies
+dora-node-api = { workspace = true }
+dora-core = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "monitor"
+version = "0.1.0"
+edition = "2021"
+description = "Monitor node for logging all dataflow activity"
+
+[dependencies]
+# Workspace dependencies
+dora-node-api = { workspace = true }
+dora-core = { workspace = true }
+serde_json = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Local shared library for ArmStatus type
+arm_bot_lib = { path = "../arm_bot_lib" }
