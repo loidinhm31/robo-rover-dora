@@ -5,7 +5,7 @@ edition = "2021"
 description = "Simulation interface node for Unity WebSocket and mock simulation"
 
 [dependencies]
-# Workspace dependencies
+# Existing dependencies
 dora-node-api = { workspace = true }
 dora-core = { workspace = true }
 serde = { workspace = true }
@@ -17,5 +17,10 @@ tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true }
 
-# Local shared library
-arm_bot_lib = { path = "../arm_bot_lib" }
+# Add SocketIO server
+socketioxide = "0.12"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+robo_rover_lib = { path = "../robo_rover_lib" }

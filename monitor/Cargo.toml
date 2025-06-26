@@ -14,4 +14,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 # Local shared library for ArmStatus type
-arm_bot_lib = { path = "../arm_bot_lib" }
+robo_rover_lib = { path = "../robo_rover_lib" }

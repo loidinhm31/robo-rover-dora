@@ -1,11 +1,10 @@
 [package]
-name = "arm_controller"
+name = "rover_controller"
 version = "0.1.0"
 edition = "2021"
-description = "Robotic arm controller node for dora-rs dataflow"
+description = "Rover controller node for keyboard input"
 
 [dependencies]
-# Workspace dependencies
 dora-node-api = { workspace = true }
 dora-core = { workspace = true }
 serde = { workspace = true }
@@ -15,5 +14,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 
-# Local shared library
 robo_rover_lib = { path = "../robo_rover_lib" }

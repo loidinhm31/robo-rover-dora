@@ -1,4 +1,4 @@
-use arm_bot_lib::{ArmConfig, SimulationConfig, ForwardKinematics};
+use robo_rover_lib::{ArmConfig, SimulationConfig, ForwardKinematics};
 use clap::Parser;
 use eyre::Result;
 use tracing::info;

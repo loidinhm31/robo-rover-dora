@@ -1,5 +1,5 @@
 [package]
-name = "test_keyboard"
+name = "interactive_keyboard"
 version = "0.1.0"
 edition = "2021"
 description = "Test keyboard input generator for debugging arm controller"

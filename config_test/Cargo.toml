@@ -12,4 +12,4 @@ tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 
 # Local shared library
-arm_bot_lib = { path = "../arm_bot_lib" }
+robo_rover_lib = { path = "../robo_rover_lib" }

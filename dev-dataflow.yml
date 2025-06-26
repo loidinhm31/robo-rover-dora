@@ -9,29 +9,50 @@ nodes:
     outputs:
       - char
 
-  # Main arm controller - processes keyboard input and generates commands
-  - id: arm-controller
-    build: cargo build -p arm_controller
-    path: target/debug/arm_controller
-    inputs:
-      keyboard: dora-keyboard/char
-      joint_feedback: sim-interface/joint_feedback
-    outputs:
-      - arm_command
-    env:
-      RUST_LOG: info
-      ARM_CONFIG: config/arm_6dof.toml
+#  - id: dora-keyboard
+#    build: cargo build -p interactive_keyboard
+#    path: target/debug/interactive_keyboard
+#    args: interactive_keyboard
+#    inputs:
+#      tick: dora/timer/millis/1000
+#    outputs:
+#      - char
+
+  # Main arm controller
+#  - id: arm-controller
+#    build: cargo build -p arm_controller
+#    path: target/debug/arm_controller
+#    inputs:
+#      keyboard: dora-keyboard/char
+#      joint_feedback: sim-interface/joint_feedback
+#    outputs:
+#      - arm_command
+#    env:
+#      RUST_LOG: info
+#      ARM_CONFIG: config/arm_6dof.toml
+#
+#  - id: rover-controller
+#    build: cargo build -p rover_controller
+#    path: target/debug/rover_controller
+#    inputs:
+#      keyboard: dora-keyboard/char
+#    outputs:
+#      - rover_command
+#    env:
+#      RUST_LOG: info
 
   # Simulation interface - handles Unity/mock simulation
-  - id: sim-interface
-    build: cargo build -p sim_interface
-    path: target/debug/sim_interface
-    inputs:
-      arm_command: arm-controller/arm_command
-    outputs:
-      - joint_feedback
-    env:
-      RUST_LOG: info
+#  - id: sim-interface
+#    build: cargo build -p sim_interface
+#    path: target/debug/sim_interface
+#    inputs:
+#      arm_command: arm-controller/arm_command
+#      rover_command: rover-controller/rover_command
+#    outputs:
+#      - joint_feedback    # For arm controller
+#      - rover_telemetry   # For rover controller
+#    env:
+#      RUST_LOG: info
 
   # Monitor node - logs all dataflow activity for debugging
   - id: monitor
@@ -40,18 +61,20 @@ nodes:
     inputs:
       keyboard: dora-keyboard/char
       arm_command: arm-controller/arm_command
+      rover_command: rover-controller/rover_command
       joint_feedback: sim-interface/joint_feedback
+      rover_telemetry: sim-interface/rover_telemetry
     env:
       RUST_LOG: debug
 
   # Optional: Add rerun visualization
-  - id: visualization
-    build: pip install dora-rerun
-    path: dora-rerun
-    inputs:
-      joint_feedback: sim-interface/joint_feedback
-    env:
-      README: |
-        # Robotic Arm Visualization
-        This node visualizes the robotic arm state and trajectory.
-      RERUN_MEMORY_LIMIT: 25%
+#  - id: visualization
+#    build: pip install dora-rerun
+#    path: dora-rerun
+#    inputs:
+#      joint_feedback: sim-interface/joint_feedback
+#    env:
+#      README: |
+#        # Robotic Arm Visualization
+#        This node visualizes the robotic arm state and trajectory.
+#      RERUN_MEMORY_LIMIT: 25%

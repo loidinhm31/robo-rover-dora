@@ -3,10 +3,11 @@ resolver = "2"
 members = [
     "arm_controller",
     "sim_interface",
-    "test_keyboard",
+    "interactive_keyboard",
     "monitor",
     "config_test",
-    "arm_bot_lib"  # Shared library for common types and utilities
+    "robo_rover_lib",  # Shared library for common types and utilities
+    "rover_controller"
 ]
 
 [workspace.dependencies]

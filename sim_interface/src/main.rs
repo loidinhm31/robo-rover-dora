@@ -1,17 +1,45 @@
-use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::{BinaryArray, types::GenericBinaryType}};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
-use futures_util::{SinkExt, StreamExt, TryStreamExt};
-use arm_bot_lib::{ArmCommand, ArmStatus, JointState, ReachabilityStatus, SimulationConfig, CommandMetadata};
-use eyre::Result;
-use tracing::{info, warn, error};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use robo_rover_lib::{ArmCommand, ArmStatus, JointState, ReachabilityStatus, RoverCommand, RoverTelemetry, SimulationConfig};
 use dora_node_api::arrow::array::{Array, AsArray};
+use dora_node_api::{arrow::array::{types::GenericBinaryType, BinaryArray}, dora_core::config::DataId, DoraNode, Event};
+use eyre::Result;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use axum::http::Method;
+use serde_json::Value;
+use socketioxide::{extract::{Data, SocketRef}, SocketIo};
+use tokio;
+use tower::ServiceBuilder;
+use tower_http::cors::{Any, CorsLayer};
+
+// Shared state between SocketIO and dora
+#[derive(Clone)]
+struct SharedState {
+    latest_arm_command: Arc<Mutex<Option<ArmCommand>>>,
+    latest_rover_command: Arc<Mutex<Option<RoverCommand>>>,
+    latest_rover_telemetry: Arc<Mutex<Option<RoverTelemetry>>>,
+    unity_connected: Arc<Mutex<bool>>,
+    operation_mode: Arc<Mutex<String>>, // "arm" or "rover"
+}
+
+impl SharedState {
+    fn new() -> Self {
+        Self {
+            latest_arm_command: Arc::new(Mutex::new(None)),
+            latest_rover_command: Arc::new(Mutex::new(None)),
+            latest_rover_telemetry: Arc::new(Mutex::new(None)),
+            unity_connected: Arc::new(Mutex::new(false)),
+            operation_mode: Arc::new(Mutex::new("arm".to_string())),
+        }
+    }
+}
 
 fn main() -> Result<()> {
     let _guard = init_tracing();
 
-    info!("Starting sim_interface node");
+    println!("Starting Sim Interface Node with SocketIO Server");
 
+    // Use existing pattern from your sim_interface
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
@@ -21,19 +49,10 @@ fn main() -> Result<()> {
     })
 }
 
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
-        )
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
-}
-
 async fn sim_interface_async() -> Result<()> {
     let (mut node, mut events) = DoraNode::init_from_env()?;
-    let output_id = DataId::from("joint_feedback".to_owned());
+    let joint_feedback_output = DataId::from("joint_feedback".to_owned());
+    let rover_telemetry_output = DataId::from("rover_telemetry".to_owned());
 
     // Load simulation configuration
     let sim_config = SimulationConfig::load_from_file("config/simulation.toml")
@@ -43,59 +62,75 @@ async fn sim_interface_async() -> Result<()> {
             physics_timestep: 0.02,
         });
 
-    let ws_url = format!("ws://127.0.0.1:{}/arm_sim", sim_config.unity_websocket_port);
-    info!("Attempting to connect to Unity simulation at: {}", ws_url);
+    let shared_state = SharedState::new();
+    let shared_state_clone = shared_state.clone();
 
-    // Try to connect to Unity simulation
-    let mut unity_connected = false;
-    let mut ws_sender = None;
-    let mut ws_receiver = None;
-
-    // Attempt initial connection
-    match connect_to_unity(&ws_url).await {
-        Ok((sender, receiver)) => {
-            ws_sender = Some(sender);
-            ws_receiver = Some(receiver);
-            unity_connected = true;
-            info!("Connected to Unity simulation");
+    // Start SocketIO server for Unity
+    let socketio_handle = tokio::spawn(async move {
+        if let Err(e) = start_socketio_server(shared_state_clone).await {
+            println!("SocketIO server error: {}", e);
         }
-        Err(e) => {
-            warn!("Failed to connect to Unity simulation: {}. Running in mock mode.", e);
-        }
-    }
+    });
 
-    // Mock simulation state
+    // Mock simulation for arm (existing functionality)
     let mut mock_sim = MockSimulation::new();
 
     let update_interval = Duration::from_secs_f64(1.0 / sim_config.update_rate_hz);
     let mut last_update = std::time::Instant::now();
 
+    println!("Sim interface initialized");
+    println!("SocketIO server running on port 4567 for Unity");
+
     loop {
-        // Handle dora events with recv()
+        // Handle dora events (existing pattern)
         if let Some(event) = events.recv() {
             match event {
-                Event::Input { id, metadata: _, data } => {
+                Event::Input { id, data, .. } => {
                     let id_str = id.as_str();
+
                     if id_str == "arm_command" {
+                        // Handle ARM commands (existing functionality)
                         if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
                             if bytes_array.len() > 0 {
                                 let bytes = bytes_array.value(0);
                                 if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
-                                    if unity_connected {
-                                        if let Some(ref mut sender) = ws_sender {
-                                            let msg = Message::Text(cmd_data.to_string());
-                                            if let Err(e) = sender.send(msg).await {
-                                                error!("Failed to send to Unity: {}", e);
-                                                unity_connected = false;
-                                            }
+                                    println!("Received arm command for Unity");
+
+                                    // Set mode to arm
+                                    if let Ok(mut mode) = shared_state.operation_mode.lock() {
+                                        *mode = "arm".to_string();
+                                    }
+
+                                    // Store for SocketIO to send to Unity
+                                    if let Ok(arm_cmd) = serde_json::from_value::<ArmCommand>(cmd_data.clone()) {
+                                        if let Ok(mut cmd) = shared_state.latest_arm_command.lock() {
+                                            *cmd = Some(arm_cmd);
                                         }
-                                    } else {
-                                        // Use mock simulation
-                                        if let Ok(cmd_with_meta) = serde_json::from_value::<CommandWithMetadata>(cmd_data) {
-                                            if let Some(ref command) = cmd_with_meta.command {
-                                                mock_sim.process_command(command);
-                                            }
-                                        }
+                                    }
+
+                                    // Apply to mock simulation
+                                    mock_sim.apply_command(&cmd_data);
+                                }
+                            }
+                        }
+                    }
+                    else if id_str == "rover_command" {
+                        // Handle ROVER commands (new functionality)
+                        if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
+                            if bytes_array.len() > 0 {
+                                let bytes = bytes_array.value(0);
+                                if let Ok(rover_cmd) = serde_json::from_slice::<RoverCommand>(bytes) {
+                                    println!("Received rover command: throttle={:.2}, brake={:.2}, steer={:.2}",
+                                           rover_cmd.throttle, rover_cmd.brake, rover_cmd.steering_angle);
+
+                                    // Set mode to rover
+                                    if let Ok(mut mode) = shared_state.operation_mode.lock() {
+                                        *mode = "rover".to_string();
+                                    }
+
+                                    // Store for SocketIO to send to Unity
+                                    if let Ok(mut cmd) = shared_state.latest_rover_command.lock() {
+                                        *cmd = Some(rover_cmd);
                                     }
                                 }
                             }
@@ -103,100 +138,239 @@ async fn sim_interface_async() -> Result<()> {
                     }
                 }
                 Event::Stop => {
-                    info!("Simulation interface stopping");
+                    println!("Stopping sim interface");
                     break;
                 }
                 _ => {}
             }
         }
 
-        // Handle Unity messages (non-blocking)
-        if let Some(ref mut receiver) = ws_receiver {
-            match receiver.try_next().await {
-                Ok(Some(msg_result)) => {
-                    match msg_result {
-                        Message::Text(text) => {
-                            if let Ok(status) = serde_json::from_str::<ArmStatus>(&text) {
-                                let serialized = serde_json::to_vec(&status)?;
-                                let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
-                                node.send_output(
-                                    output_id.clone(),
-                                    Default::default(),
-                                    arrow_data
-                                )?;
+        // Send feedback based on current mode
+        let now = std::time::Instant::now();
+        if now.duration_since(last_update) >= update_interval {
+            let current_mode = shared_state.operation_mode.lock().unwrap().clone();
+
+            match current_mode.as_str() {
+                "arm" => {
+                    // Send ARM feedback (existing functionality)
+                    mock_sim.update(update_interval.as_secs_f64());
+                    let status = mock_sim.get_current_status();
+
+                    match serde_json::to_vec(&status) {
+                        Ok(serialized) => {
+                            if let Err(e) = node.send_output(
+                                joint_feedback_output.clone(),
+                                Default::default(),
+                                BinaryArray::from_vec(vec![&*serialized]),
+                            ) {
+                                println!("Failed to send joint feedback: {}", e);
                             }
                         }
-                        Message::Close(_) => {
-                            warn!("Unity disconnected");
-                            unity_connected = false;
-                            ws_sender = None;
-                            ws_receiver = None;
+                        Err(e) => {
+                            println!("Failed to serialize joint feedback: {}", e);
                         }
-                        _ => {}
                     }
                 }
-                Ok(None) => {
-                    unity_connected = false;
-                    ws_sender = None;
-                    ws_receiver = None;
+                "rover" => {
+                    // Send ROVER telemetry
+                    if let Ok(mut telemetry_opt) = shared_state.latest_rover_telemetry.lock() {
+                        if let Some(telemetry) = telemetry_opt.take() {
+                            println!("Forwarding rover telemetry: pos=({:.2}, {:.2}), vel={:.2}",
+                                   telemetry.position.0, telemetry.position.1, telemetry.velocity);
+
+                            match serde_json::to_vec(&telemetry) {
+                                Ok(serialized) => {
+                                    if let Err(e) = node.send_output(
+                                        rover_telemetry_output.clone(),
+                                        Default::default(),
+                                        BinaryArray::from_vec(vec![&*serialized]),
+                                    ) {
+                                        println!("Failed to send rover telemetry: {}", e);
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("Failed to serialize rover telemetry: {}", e);
+                                }
+                            }
+                        }
+                    }
                 }
-                Err(_) => {
-                    // No messages available
-                }
+                _ => {}
             }
-        }
 
-        // Periodic updates for mock simulation
-        if !unity_connected && last_update.elapsed() >= update_interval {
-            let status = mock_sim.get_current_status();
-            let serialized = serde_json::to_vec(&status)?;
-            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
-            node.send_output(
-                output_id.clone(),
-                Default::default(),
-                arrow_data
-            )?;
-            last_update = std::time::Instant::now();
+            last_update = now;
+        } else {
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
-
-        // Attempt reconnection to Unity periodically
-        if !unity_connected && last_update.elapsed() >= Duration::from_secs(5) {
-            match connect_to_unity(&ws_url).await {
-                Ok((sender, receiver)) => {
-                    ws_sender = Some(sender);
-                    ws_receiver = Some(receiver);
-                    unity_connected = true;
-                    info!("Reconnected to Unity simulation");
-                }
-                Err(_) => {
-                    // Silent retry
-                }
-            }
-        }
-
-        // Small delay to prevent busy waiting
-        tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
     }
 
+    socketio_handle.abort();
     Ok(())
 }
 
-async fn connect_to_unity(url: &str) -> Result<(
-    futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
-    futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>
-)> {
-    let (ws_stream, _) = connect_async(url).await?;
-    let (sender, receiver) = ws_stream.split();
-    Ok((sender, receiver))
+async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
+    println!("🌐 Starting SocketIO server on port 4567 (like Python server)");
+
+    // Create SocketIO instance
+    let (layer, io) = SocketIo::new_layer();
+
+    let shared_state_clone = shared_state.clone();
+
+    // Handle Unity connections (matches Python @sio.on patterns)
+    io.ns("/", move |socket: SocketRef| {
+        println!("🔗 Unity connected: {}", socket.id);
+
+        let state = shared_state_clone.clone();
+
+        // Update connection status
+        if let Ok(mut connected) = state.unity_connected.lock() {
+            *connected = true;
+        }
+
+        // Handle telemetry from Unity (matches Python @sio.on('telemetry'))
+        socket.on("telemetry", {
+            let state = state.clone();
+            move |socket: SocketRef, Data::<Value>(data)| {
+                println!("Received telemetry from Unity");
+
+                // Parse rover telemetry (like Python telemetry function)
+                match parse_unity_telemetry(&data) {
+                    Ok(telemetry) => {
+                        if let Ok(mut tel) = state.latest_rover_telemetry.lock() {
+                            *tel = Some(telemetry);
+                        }
+                    }
+                    Err(e) => {
+                        println!("Failed to parse Unity telemetry: {}", e);
+                    }
+                }
+            }
+        });
+
+        // Handle Unity connection request (matches Python @sio.on('connect'))
+        socket.on("connect", {
+            let state = state.clone();
+            move |socket: SocketRef| {
+                println!("Unity SocketIO connected");
+                // Send initial response if needed
+            }
+        });
+
+        // Handle disconnect
+        socket.on_disconnect({
+            let state = state.clone();
+            move |socket: SocketRef| {
+                println!("Unity disconnected: {}", socket.id);
+                if let Ok(mut connected) = state.unity_connected.lock() {
+                    *connected = false;
+                }
+            }
+        });
+
+        // Start command sending loop
+        let socket_clone = socket.clone();
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            command_sender_loop(socket_clone, state_clone).await;
+        });
+    });
+
+    // Create HTTP app with CORS
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(Any);
+
+    let app = axum::Router::new()
+        .layer(ServiceBuilder::new().layer(cors).layer(layer));
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:4567").await?;
+    println!("SocketIO server listening on 127.0.0.1:4567");
+
+    axum::serve(listener, app).await?;
+    Ok(())
 }
 
-#[derive(serde::Deserialize)]
-struct CommandWithMetadata {
-    command: Option<ArmCommand>,
-    metadata: CommandMetadata,
+async fn command_sender_loop(socket: SocketRef, state: SharedState) {
+    let mut interval = tokio::time::interval(Duration::from_millis(50)); // 20 Hz
+
+    loop {
+        interval.tick().await;
+
+        let current_mode = {
+            let mode_guard = state.operation_mode.lock().unwrap();
+            mode_guard.clone()
+        };
+
+        match current_mode.as_str() {
+            "rover" => {
+                // Send rover commands (matches Python send_control function)
+                if let Ok(mut cmd_opt) = state.latest_rover_command.lock() {
+                    if let Some(command) = cmd_opt.take() {
+                        let command_data = serde_json::json!({
+                            "throttle": command.throttle.to_string(),
+                            "brake": command.brake.to_string(),
+                            "steering_angle": command.steering_angle.to_string(),
+                            "inset_image1": "",
+                            "inset_image2": "",
+                        });
+
+                        println!("Sending rover command to Unity via SocketIO");
+
+                        // This matches Python: sio.emit("data", data, skip_sid=True)
+                        if let Err(e) = socket.emit("data", command_data) {
+                            println!("Failed to send rover command to Unity: {}", e);
+                        }
+                    }
+                }
+            }
+            "arm" => {
+                // Send arm commands if needed
+                if let Ok(mut cmd_opt) = state.latest_arm_command.lock() {
+                    if let Some(_command) = cmd_opt.take() {
+                        // Send arm-specific commands to Unity if needed
+                        println!("Arm command handling (implement if needed)");
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        // Check connection status
+        if let Ok(connected) = state.unity_connected.lock() {
+            if !*connected {
+                println!("Unity disconnected, stopping command loop");
+                break;
+            }
+        }
+    }
 }
 
-// Mock simulation implementation
+fn parse_unity_telemetry(data: &Value) -> Result<RoverTelemetry> {
+    // Parse exactly like Python telemetry function
+    Ok(RoverTelemetry {
+        position: (
+            data["x"].as_f64().unwrap_or(0.0),
+            data["y"].as_f64().unwrap_or(0.0),
+        ),
+        yaw: data["yaw"].as_f64().unwrap_or(0.0),
+        pitch: data["pitch"].as_f64().unwrap_or(0.0),
+        roll: data["roll"].as_f64().unwrap_or(0.0),
+        velocity: data["vel"].as_f64().unwrap_or(0.0),
+        nav_angles: data["nav_angles"].as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect()),
+        nav_dists: data["nav_dists"].as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect()),
+        near_sample: data["near_sample"].as_bool().unwrap_or(false),
+        picking_up: data["picking_up"].as_bool().unwrap_or(false),
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64,
+    })
+}
+
+// Mock simulation (existing functionality for arm)
 struct MockSimulation {
     joint_positions: Vec<f64>,
     target_positions: Vec<f64>,
@@ -216,54 +390,28 @@ impl MockSimulation {
         }
     }
 
-    fn process_command(&mut self, command: &ArmCommand) {
-        match command {
-            ArmCommand::JointPosition { joint_angles, .. } => {
-                self.target_positions = joint_angles.clone();
-                self.is_moving = true;
-                self.last_command = Some("JointPosition".to_string());
-            }
-            ArmCommand::RelativeMove { delta_joints } => {
-                for (i, &delta) in delta_joints.iter().enumerate() {
-                    if i < self.target_positions.len() {
-                        self.target_positions[i] += delta;
-                    }
-                }
-                self.is_moving = true;
-                self.last_command = Some("RelativeMove".to_string());
-            }
-            ArmCommand::Home => {
-                self.target_positions = vec![0.0; self.target_positions.len()];
-                self.is_moving = true;
-                self.last_command = Some("Home".to_string());
-            }
-            ArmCommand::Stop | ArmCommand::EmergencyStop => {
-                self.target_positions = self.joint_positions.clone();
-                self.is_moving = false;
-                self.last_command = Some("Stop".to_string());
-            }
-            _ => {
-                self.last_command = Some("CartesianMove".to_string());
-            }
-        }
+    fn apply_command(&mut self, cmd_data: &serde_json::Value) {
+        println!("Applying command to mock simulation");
+        // Mock command application
+        self.is_moving = true;
+        self.last_command = Some("MockCommand".to_string());
     }
 
-    fn get_current_status(&mut self) -> ArmStatus {
-        let mut any_moving = false;
+    fn update(&mut self, _dt: f64) {
+        // Simple physics update
         for i in 0..self.joint_positions.len() {
             let error = self.target_positions[i] - self.joint_positions[i];
             if error.abs() > 0.001 {
                 let step = error * 0.1;
                 self.joint_positions[i] += step;
                 self.joint_velocities[i] = step * 10.0;
-                any_moving = true;
             } else {
                 self.joint_velocities[i] = 0.0;
             }
         }
+    }
 
-        self.is_moving = any_moving;
-
+    fn get_current_status(&self) -> ArmStatus {
         ArmStatus {
             joint_state: JointState {
                 positions: self.joint_positions.clone(),
@@ -282,4 +430,14 @@ impl MockSimulation {
             reachability_status: ReachabilityStatus::Reachable,
         }
     }
+}
+
+fn init_tracing() -> tracing::subscriber::DefaultGuard {
+    let subscriber = tracing_subscriber::fmt()
+        .with_env_filter(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "println".to_string())
+        )
+        .finish();
+
+    tracing::subscriber::set_default(subscriber)
 }

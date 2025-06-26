@@ -1,8 +1,7 @@
-use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray};
+use dora_node_api::{arrow::array::BinaryArray, dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
 use std::error::Error;
 use std::time::{Duration, Instant};
-use tracing::info;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();

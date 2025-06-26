@@ -1,6 +1,6 @@
 use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray, arrow::array::types::GenericBinaryType};
 use dora_node_api::arrow::array::{Array, AsArray};
-use arm_bot_lib::{ArmCommand, ArmStatus, ArmConfig, CommandPriority, CommandMetadata, InputSource, ForwardKinematics};
+use robo_rover_lib::{ArmCommand, ArmStatus, ArmConfig, CommandPriority, CommandMetadata, InputSource, ForwardKinematics};
 use eyre::Result;
 use std::error::Error;
 use tracing::{info, warn, debug};
