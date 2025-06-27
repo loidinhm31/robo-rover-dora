@@ -1,8 +1,9 @@
-use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray, arrow::array::types::GenericBinaryType};
+use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray};
 use dora_node_api::arrow::array::{Array, AsArray};
 use robo_rover_lib::{ArmCommand, ArmStatus, ArmConfig, CommandPriority, CommandMetadata, InputSource, ForwardKinematics};
 use eyre::Result;
 use std::error::Error;
+use dora_node_api::arrow::datatypes::GenericBinaryType;
 use tracing::{info, warn, debug};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -11,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Initializing arm_controller node...");
 
     let (mut node, mut events) = DoraNode::init_from_env()?;
-    let output_id = DataId::from("arm_command".to_owned());
+    let output_id = DataId::from("processed_arm_command".to_owned());
 
     println!("DoraNode initialized successfully");
 
@@ -29,83 +30,70 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut controller = ArmController::new(arm_config)?;
 
     println!("ArmController initialized successfully");
-    println!("Starting event loop - waiting for events...");
+    println!("Waiting for arm commands from interactive-keyboard...");
 
     let mut event_count = 0;
 
-    // Enhanced event loop with debugging
     while let Some(event) = events.recv() {
         event_count += 1;
-        println!("📨 Event #{}: Received event", event_count);
+        println!("Event #{}: Received event", event_count);
 
         match event {
             Event::Input { id, metadata: _, data } => {
                 println!("Input event - ID: '{}', Data size: {} bytes", id.as_str(), data.len());
 
                 match id.as_str() {
-                    "keyboard" => {
-                        println!("⌨️  Processing keyboard input...");
+                    "arm_command" => {
+                        println!("Processing arm command from interactive-keyboard...");
 
                         if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
-                            println!("Bytes array length: {}", bytes_array.len());
-
                             if bytes_array.len() > 0 {
                                 let bytes = bytes_array.value(0);
-                                println!("Raw bytes: {:?}", bytes);
 
-                                if let Ok(char_data) = std::str::from_utf8(bytes) {
-                                    let trimmed_char = char_data.trim();
-                                    println!("Parsed character: '{}'", trimmed_char);
+                                match serde_json::from_slice::<ArmCommandWithMetadata>(bytes) {
+                                    Ok(cmd_with_metadata) => {
+                                        if let Some(ref command) = cmd_with_metadata.command {
+                                            println!("Received ARM command: {:?}", command);
+                                            println!("Command metadata: source={:?}, priority={:?}",
+                                                     cmd_with_metadata.metadata.source,
+                                                     cmd_with_metadata.metadata.priority);
 
-                                    if let Some(command) = controller.map_char_to_command(trimmed_char) {
-                                        println!("Mapped to command: {:?}", command);
+                                            // Execute the command
+                                            controller.execute_command(command.clone())?;
 
-                                        controller.execute_command(command.clone())?;
+                                            // Forward command to simulation interface
+                                            let serialized = serde_json::to_vec(&cmd_with_metadata)?;
+                                            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
 
-                                        // Send command to simulation
-                                        let cmd_with_metadata = CommandWithMetadata {
-                                            command: Some(command),
-                                            metadata: CommandMetadata {
-                                                command_id: uuid::Uuid::new_v4().to_string(),
-                                                timestamp: std::time::SystemTime::now()
-                                                    .duration_since(std::time::UNIX_EPOCH)?
-                                                    .as_millis() as u64,
-                                                source: InputSource::Local,
-                                                priority: CommandPriority::Normal,
-                                            }
-                                        };
+                                            node.send_output(
+                                                output_id.clone(),
+                                                Default::default(),
+                                                arrow_data
+                                            )?;
 
-                                        let serialized = serde_json::to_vec(&cmd_with_metadata)?;
-                                        let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
-
-                                        node.send_output(
-                                            output_id.clone(),
-                                            Default::default(),
-                                            arrow_data
-                                        )?;
-
-                                        println!("Sent command to output: arm_command");
-                                    } else {
-                                        println!("No command mapping for character: '{}'", trimmed_char);
+                                            println!("Processed and forwarded command to simulation");
+                                        } else {
+                                            println!("Received arm command metadata without command");
+                                        }
                                     }
-                                } else {
-                                    println!("Failed to parse UTF-8 from bytes: {:?}", bytes);
+                                    Err(e) => {
+                                        println!("Failed to deserialize arm command: {}", e);
+                                        println!("Raw data: {}", String::from_utf8_lossy(bytes));
+                                    }
                                 }
-                            } else {
-                                println!("Empty bytes array");
                             }
                         } else {
-                            println!("❌ Failed to parse as bytes array");
+                            println!("Failed to parse arm command as binary array");
                         }
                     }
                     "joint_feedback" => {
-                        println!("Processing joint feedback...");
+                        println!("Processing joint feedback from simulation...");
 
                         if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
                             if bytes_array.len() > 0 {
                                 let bytes = bytes_array.value(0);
                                 if let Ok(status) = serde_json::from_slice::<ArmStatus>(bytes) {
-                                    println!("📊 Joint feedback: {} joints, moving: {}, homed: {}",
+                                    debug!("Joint feedback: {} joints, moving: {}, homed: {}",
                                              status.joint_state.positions.len(),
                                              status.is_moving,
                                              status.is_homed
@@ -127,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 break;
             }
             other => {
-                println!("Other event type: {:?}", other);
+                debug!("Other event type: {:?}", other);
             }
         }
 
@@ -141,7 +129,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn init_tracing() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_string())
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
         )
         .finish();
 
@@ -149,7 +137,7 @@ fn init_tracing() -> tracing::subscriber::DefaultGuard {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct CommandWithMetadata {
+struct ArmCommandWithMetadata {
     command: Option<ArmCommand>,
     metadata: CommandMetadata,
 }
@@ -178,59 +166,41 @@ impl ArmController {
         })
     }
 
-    fn map_char_to_command(&mut self, char_input: &str) -> Option<ArmCommand> {
-        let move_scale = 0.01;
-
-        let command = match char_input.to_lowercase().as_str() {
-            "w" => Some(ArmCommand::CartesianMove {
-                x: move_scale, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "s" => Some(ArmCommand::CartesianMove {
-                x: -move_scale, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "a" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: move_scale, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "d" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: -move_scale, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "q" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: 0.0, z: move_scale, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "e" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: 0.0, z: -move_scale, roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            " " | "space" => Some(ArmCommand::Stop),
-            "home" => Some(ArmCommand::Home),
-            _ => None,
-        };
-
-        if let Some(ref cmd) = command {
-            println!("Mapped char '{}' to command: {:?}", char_input, cmd);
-        } else {
-            println!("No mapping found for char '{}'", char_input);
-        }
-
-        command
-    }
-
     fn execute_command(&mut self, command: ArmCommand) -> Result<()> {
-        println!("Executing command: {:?}", command);
+        println!("Executing ARM command: {:?}", command);
 
         match &command {
             ArmCommand::JointPosition { joint_angles, .. } => {
                 if joint_angles.len() != self.config.dof {
-                    println!("❌ Joint angles count doesn't match DOF");
+                    println!("Joint angles count doesn't match DOF");
                     return Ok(());
                 }
                 self.target_joint_positions = joint_angles.clone();
                 println!("Set target joint positions: {:?}", self.target_joint_positions);
+            }
+            ArmCommand::CartesianMove { x, y, z, roll, pitch, yaw, .. } => {
+                println!("Cartesian move: dx={:.3}, dy={:.3}, dz={:.3}, droll={:.3}, dpitch={:.3}, dyaw={:.3}",
+                         x, y, z, roll, pitch, yaw);
+                // In a real implementation, this would use inverse kinematics
+                // For now, we'll simulate some joint movement
+                info!("Cartesian movement command processed");
+            }
+            ArmCommand::RelativeMove { delta_joints } => {
+                if delta_joints.len() != self.config.dof {
+                    println!("Delta joints count doesn't match DOF");
+                    return Ok(());
+                }
+                for (i, delta) in delta_joints.iter().enumerate() {
+                    if i < self.target_joint_positions.len() {
+                        self.target_joint_positions[i] += delta;
+                        // Clamp to joint limits
+                        let limits = &self.config.joint_limits[i];
+                        self.target_joint_positions[i] = self.target_joint_positions[i]
+                            .max(limits.min_angle)
+                            .min(limits.max_angle);
+                    }
+                }
+                println!("Applied relative joint movement: {:?}", delta_joints);
             }
             ArmCommand::Home => {
                 self.target_joint_positions = vec![0.0; self.config.dof];
@@ -238,10 +208,11 @@ impl ArmController {
             }
             ArmCommand::Stop => {
                 self.target_joint_positions = self.current_joint_positions.clone();
-                println!("Stop command issued");
+                println!("Stop command issued - holding current position");
             }
-            _ => {
-                info!("Other command executed: {:?}", command);
+            ArmCommand::EmergencyStop => {
+                self.target_joint_positions = self.current_joint_positions.clone();
+                println!("EMERGENCY STOP - immediate halt");
             }
         }
 
@@ -252,6 +223,6 @@ impl ArmController {
     fn update_current_state(&mut self, status: ArmStatus) {
         self.current_joint_positions = status.joint_state.positions.clone();
         self.current_status = status;
-        println!("Updated current state: {} joints", self.current_joint_positions.len());
+        debug!("Updated current state: {} joints", self.current_joint_positions.len());
     }
 }

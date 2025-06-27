@@ -141,7 +141,6 @@ dependencies = [
  "serde_json",
  "tracing",
  "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -1635,8 +1634,12 @@ dependencies = [
  "dora-core",
  "dora-node-api",
  "eyre",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -2925,7 +2928,6 @@ dependencies = [
  "dora-core",
  "dora-node-api",
  "eyre",
- "futures-util",
  "robo_rover_lib",
  "serde",
  "serde_json",
@@ -2977,6 +2979,19 @@ checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "socketio_test"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "serde_json",
+ "socketioxide",
+ "tokio",
+ "tokio-tungstenite 0.20.1",
+ "tower 0.4.13",
+ "tower-http 0.5.2",
 ]
 
 [[package]]

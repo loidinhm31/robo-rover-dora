@@ -8,7 +8,7 @@ members = [
     "config_test",
     "robo_rover_lib",  # Shared library for common types and utilities
     "rover_controller"
-]
+, "socketio_test"]
 
 [workspace.dependencies]
 # Shared dependencies across all workspace members
@@ -17,8 +17,6 @@ dora-core = "0.3.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
-tokio = { version = "1.24.2", features = ["full"] }
-tokio-tungstenite = "0.20"
 nalgebra = "0.33"
 futures-util = "0.3"
 eyre = "0.6.8"

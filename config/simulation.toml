@@ -1,5 +1,5 @@
 # Unity WebSocket connection settings
-unity_websocket_port = 8080
+unity_websocket_port = 4567
 
 # Simulation update rate in Hz
 update_rate_hz = 60.0

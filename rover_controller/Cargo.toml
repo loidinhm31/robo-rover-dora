@@ -2,7 +2,7 @@
 name = "rover_controller"
 version = "0.1.0"
 edition = "2021"
-description = "Rover controller node for keyboard input"
+description = "Rover controller node for input and command processing"
 
 [dependencies]
 dora-node-api = { workspace = true }
