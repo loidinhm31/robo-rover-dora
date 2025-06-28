@@ -16,7 +16,7 @@ use uuid;
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();
 
-    println!("Starting interactive keyboard dispatcher node");
+    println!("Starting dispatcher keyboard - dispatcher node");
 
     let (mut node, mut events) = DoraNode::init_from_env()?;
 
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut dispatcher = KeyboardDispatcher::new();
 
-    println!("Interactive keyboard dispatcher initialized");
+    println!("Dispatcher keyboard initialized");
     println!("Available commands:");
     println!("  ROVER control (w,a,s,d,q,r):");
     println!("    w/s - Throttle forward/backward");
@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             Event::Stop => {
-                println!("Stop event received - shutting down interactive keyboard dispatcher");
+                println!("Stop event received - shutting down dispatcher keyboard");
                 break;
             }
             _ => {}

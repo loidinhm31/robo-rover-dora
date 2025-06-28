@@ -831,6 +831,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dispatch_keyboard"
+version = "0.1.0"
+dependencies = [
+ "dora-core",
+ "dora-node-api",
+ "eyre",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1626,21 +1641,6 @@ name = "integer-encoding"
 version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bb03732005da905c88227371639bf1ad885cc712789c011c31c5fb3ab3ccf02"
-
-[[package]]
-name = "interactive_keyboard"
-version = "0.1.0"
-dependencies = [
- "dora-core",
- "dora-node-api",
- "eyre",
- "robo_rover_lib",
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
 
 [[package]]
 name = "ipnet"

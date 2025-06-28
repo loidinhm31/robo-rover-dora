@@ -9,9 +9,9 @@ nodes:
       - char
 
   # Central keyboard dispatcher
-  - id: interactive-keyboard
-    build: cargo build -p interactive_keyboard
-    path: target/debug/interactive_keyboard
+  - id: dispatcher-keyboard
+    build: cargo build -p dispatcher_keyboard
+    path: target/debug/dispatcher_keyboard
     inputs:
       keyboard: dora-keyboard/char
     outputs:
@@ -25,7 +25,7 @@ nodes:
     build: cargo build -p arm_controller
     path: target/debug/arm_controller
     inputs:
-      arm_command: interactive-keyboard/arm_command          # From dispatcher
+      arm_command: dispatcher-keyboard/arm_command          # From dispatcher
       joint_feedback: sim-interface/joint_feedback          # From simulation
     outputs:
       - processed_arm_command
@@ -38,7 +38,7 @@ nodes:
     build: cargo build -p rover_controller
     path: target/debug/rover_controller
     inputs:
-      rover_command: interactive-keyboard/rover_command      # From dispatcher
+      rover_command: dispatcher-keyboard/rover_command      # From dispatcher
       rover_telemetry: sim-interface/rover_telemetry        # From simulation
     outputs:
       - processed_rover_command
@@ -64,8 +64,8 @@ nodes:
     path: target/debug/monitor
     inputs:
       keyboard: dora-keyboard/char                           # Original keyboard input
-      dispatcher_arm: interactive-keyboard/arm_command       # Dispatcher arm output
-      dispatcher_rover: interactive-keyboard/rover_command   # Dispatcher rover output
+      dispatcher_arm: dispatcher-keyboard/arm_command       # Dispatcher arm output
+      dispatcher_rover: dispatcher-keyboard/rover_command   # Dispatcher rover output
       arm_processed: arm-controller/processed_arm_command    # Processed arm commands
       rover_processed: rover-controller/processed_rover_command # Processed rover commands
       joint_feedback: sim-interface/joint_feedback          # Simulation feedback

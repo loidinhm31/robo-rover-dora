@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut controller = ArmController::new(arm_config)?;
 
     println!("ArmController initialized successfully");
-    println!("Waiting for arm commands from interactive-keyboard...");
+    println!("Waiting for arm commands from dispatcher-keyboard...");
 
     let mut event_count = 0;
 
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 match id.as_str() {
                     "arm_command" => {
-                        println!("Processing arm command from interactive-keyboard...");
+                        println!("Processing arm command from dispatcher-keyboard...");
 
                         if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
                             if bytes_array.len() > 0 {
