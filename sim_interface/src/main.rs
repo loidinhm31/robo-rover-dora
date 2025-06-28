@@ -5,6 +5,7 @@ use robo_rover_lib::{ArmCommand, ArmStatus, CommandMetadata, JointState, Reachab
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use uuid;
 
 use axum::http::Method;
 use serde_json::Value;
@@ -19,8 +20,6 @@ struct SharedState {
     latest_rover_command: Arc<Mutex<Option<RoverCommand>>>,
     latest_rover_telemetry: Arc<Mutex<Option<RoverTelemetry>>>,
     unity_connected: Arc<Mutex<bool>>,
-    operation_mode: Arc<Mutex<String>>, // "arm" or "rover"
-
     // Debug counters
     commands_sent: Arc<AtomicU64>,
     telemetry_received: Arc<AtomicU64>,
@@ -34,14 +33,24 @@ impl SharedState {
             latest_rover_command: Arc::new(Mutex::new(None)),
             latest_rover_telemetry: Arc::new(Mutex::new(None)),
             unity_connected: Arc::new(Mutex::new(false)),
-            operation_mode: Arc::new(Mutex::new("rover".to_string())), // Default to rover
-
             // Initialize debug counters
             commands_sent: Arc::new(AtomicU64::new(0)),
             telemetry_received: Arc::new(AtomicU64::new(0)),
             connection_count: Arc::new(AtomicU64::new(0)),
         }
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct RoverCommandWithMetadata {
+    command: RoverCommand,
+    metadata: CommandMetadata,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ArmCommandWithMetadata {
+    command: Option<ArmCommand>,
+    metadata: CommandMetadata,
 }
 
 fn main() -> Result<()> {
@@ -157,12 +166,8 @@ async fn sim_interface_async() -> Result<()> {
                                 if bytes_array.len() > 0 {
                                     let bytes = bytes_array.value(0);
                                     if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
-                                        println!("   Raw arm command: {}", cmd_data);
-                                        mock_sim.apply_command(&cmd_data);
-
-                                        // Store for potential Unity forwarding if needed
-                                        if let Ok(mut mode) = shared_state.operation_mode.lock() {
-                                            *mode = "arm".to_string();
+                                        if let Err(e) = debug_arm_command_processing(&shared_state, &cmd_data).await {
+                                            println!("❌ Error processing arm command: {}", e);
                                         }
                                     }
                                 }
@@ -175,20 +180,17 @@ async fn sim_interface_async() -> Result<()> {
                                 if bytes_array.len() > 0 {
                                     let bytes = bytes_array.value(0);
                                     if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
-                                        println!("   Raw rover command: {}", cmd_data);
-
-                                        // Debug rover command processing
                                         if let Err(e) = debug_rover_command_processing(&shared_state, &cmd_data).await {
-                                            println!("   Error processing rover command: {}", e);
+                                            println!("Error processing rover command: {}", e);
                                         }
                                     } else {
-                                        println!("   Failed to parse rover command JSON");
+                                        println!("Failed to parse rover command JSON");
                                     }
                                 } else {
-                                    println!("   Empty rover command data");
+                                    println!("Empty rover command data");
                                 }
                             } else {
-                                println!("   Failed to read rover command bytes");
+                                println!("Failed to read rover command bytes");
                             }
                         }
 
@@ -233,7 +235,7 @@ async fn sim_interface_async() -> Result<()> {
             last_update = now;
         }
 
-        // Print debug stats every 10 seconds (600 * 10ms loops)
+        // Print debug stats every 10 seconds (1000 * 10ms loops)
         if debug_counter % 1000 == 0 && debug_counter > 0 {
             print_debug_stats(&shared_state);
         }
@@ -245,6 +247,69 @@ async fn sim_interface_async() -> Result<()> {
     socketio_handle.abort();
     println!("Sim interface shutdown complete");
     Ok(())
+}
+
+async fn debug_arm_command_processing(shared_state: &SharedState, cmd_data: &serde_json::Value) -> Result<()> {
+    println!("Processing arm command from dora:");
+    println!("   Raw command data: {}", cmd_data);
+
+    // Try to parse as ArmCommandWithMetadata first
+    if let Ok(cmd_with_metadata) = serde_json::from_slice::<ArmCommandWithMetadata>(cmd_data.to_string().as_bytes()) {
+        if let Some(arm_command) = cmd_with_metadata.command {
+            println!("   Successfully parsed ArmCommandWithMetadata:");
+            println!("      Command: {:?}", arm_command);
+            println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
+
+            // Store the command for Unity transmission
+            if let Ok(mut latest_cmd) = shared_state.latest_arm_command.lock() {
+                *latest_cmd = Some(arm_command);
+                println!("   ARM command stored for SocketIO transmission");
+            }
+            // REMOVED: No more mode switching!
+        } else {
+            println!("   ⚠ArmCommandWithMetadata has no command");
+        }
+    } else {
+        println!("   Failed to parse arm command");
+    }
+
+    Ok(())
+}
+
+async fn debug_rover_command_processing(shared_state: &SharedState, cmd_data: &serde_json::Value) -> Result<()> {
+    println!("Processing rover command from dora:");
+    println!("   Raw command data: {}", cmd_data);
+
+    // Try to parse as RoverCommandWithMetadata
+    if let Ok(cmd_with_metadata) = serde_json::from_slice::<RoverCommandWithMetadata>(cmd_data.to_string().as_bytes()) {
+        println!("   Successfully parsed RoverCommandWithMetadata:");
+        println!("      Throttle: {:.3}", cmd_with_metadata.command.throttle);
+        println!("      Brake: {:.3}", cmd_with_metadata.command.brake);
+        println!("      Steering: {:.3}°", cmd_with_metadata.command.steering_angle);
+        println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
+
+        // Store the command
+        if let Ok(mut latest_cmd) = shared_state.latest_rover_command.lock() {
+            *latest_cmd = Some(cmd_with_metadata.command);
+            println!("   ROVER command stored for SocketIO transmission");
+        }
+
+        // REMOVED: No more mode switching!
+    } else {
+        println!("   Failed to parse rover command");
+    }
+
+    Ok(())
+}
+
+fn print_debug_stats(state: &SharedState) {
+    let connected = state.unity_connected.lock().map(|c| *c).unwrap_or(false);
+
+    println!("Debug Stats:");
+    println!("   Commands sent: {}", state.commands_sent.load(Ordering::SeqCst));
+    println!("   Telemetry received: {}", state.telemetry_received.load(Ordering::SeqCst));
+    println!("   Unity connected: {}", connected);
+    println!("   Mode: ALWAYS_FORWARD_BOTH (Fixed!)");
 }
 
 async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()> {
@@ -358,7 +423,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
             listener
         }
         Err(e) => {
-            println!("❌ Failed to bind to 127.0.0.1:4567: {}", e);
+            println!("Failed to bind to 127.0.0.1:4567: {}", e);
             return Err(e.into());
         }
     };
@@ -382,10 +447,9 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
 
 async fn command_sender_loop(socket: SocketRef, state: SharedState) {
     let mut interval = tokio::time::interval(Duration::from_millis(100)); // 10 Hz
-    let mut last_command_time = std::time::Instant::now();
     let mut loop_count = 0u64;
 
-    println!("Starting command sender loop for connection {}", socket.id);
+    println!("Starting FIXED command sender loop for connection {}", socket.id);
 
     loop {
         interval.tick().await;
@@ -405,167 +469,168 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
             break;
         }
 
-        let current_mode = {
-            let mode_guard = state.operation_mode.lock().unwrap();
-            mode_guard.clone()
-        };
+        // FIXED: Always try to send both types - no mode switching!
+        let mut commands_sent = 0;
 
-        match current_mode.as_str() {
-            "rover" => {
-                // Send rover commands
-                if let Ok(mut cmd_opt) = state.latest_rover_command.lock() {
-                    if let Some(command) = cmd_opt.take() {
-                        let count = state.commands_sent.fetch_add(1, Ordering::SeqCst) + 1;
+        // Try to send rover commands
+        if let Ok(mut cmd_opt) = state.latest_rover_command.lock() {
+            if let Some(command) = cmd_opt.take() {
+                let count = state.commands_sent.fetch_add(1, Ordering::SeqCst) + 1;
 
-                        let command_data = serde_json::json!({
-                            "throttle": command.throttle.to_string(),
-                            "brake": command.brake.to_string(),
-                            "steering_angle": command.steering_angle.to_string(),
-                            "inset_image1": "",
-                            "inset_image2": "",
-                            "_debug_count": count.to_string(),
-                            "_timestamp": std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis().to_string(),
-                            "_source": "dora_sim_interface"
-                        });
+                let command_data = serde_json::json!({
+                    "throttle": command.throttle.to_string(),
+                    "brake": command.brake.to_string(),
+                    "steering_angle": command.steering_angle.to_string(),
+                    "inset_image1": "",
+                    "inset_image2": "",
+                    "_command_id": command.command_id,
+                    "_timestamp": command.timestamp,
+                    "_source": "dora_sim_interface"
+                });
 
-                        // Log first few commands and every 10th command
-                        if count <= 10 || count % 10 == 0 {
-                            println!("📤 Sending rover command #{} to Unity via SocketIO:", count);
-                            println!("   Throttle: {:.3}", command.throttle);
-                            println!("   Brake: {:.3}", command.brake);
-                            println!("   Steering: {:.3}°", command.steering_angle);
-                        }
-
-                        match socket.emit("data", command_data) {
-                            Ok(_) => {
-                                if count <= 10 || count % 10 == 0 {
-                                    println!("   ✅ Command sent successfully to Unity");
-                                }
-                                last_command_time = std::time::Instant::now();
-                            }
-                            Err(e) => {
-                                println!("   Failed to send rover command: {}", e);
-                            }
-                        }
-                    }
+                if count <= 10 || count % 20 == 0 {
+                    println!("Sending rover command #{} to Unity", count);
+                    println!("   Data: throttle={:.3}, steering={:.1}°, brake={:.3}",
+                             command.throttle, command.steering_angle, command.brake);
                 }
-            }
-            _ => {
-                // Send periodic heartbeat when no commands
-                if last_command_time.elapsed() > Duration::from_secs(5) {
-                    let heartbeat = serde_json::json!({
-                        "throttle": "0.0",
-                        "brake": "0.0",
-                        "steering_angle": "0.0",
-                        "inset_image1": "",
-                        "inset_image2": "",
-                        "_heartbeat": "true",
-                        "_source": "dora_sim_interface"
-                    });
 
-                    if let Err(e) = socket.emit("data", heartbeat) {
-                        println!("Failed to send heartbeat: {}", e);
-                    } else {
-                        println!("Sent heartbeat to Unity");
+                match socket.emit("data", command_data) {
+                    Ok(_) => {
+                        commands_sent += 1;
                     }
-
-                    last_command_time = std::time::Instant::now();
+                    Err(e) => {
+                        println!("Failed to send rover command: {}", e);
+                    }
                 }
             }
         }
 
-        // Print debug stats every 50 loops (5 seconds)
-        if loop_count % 50 == 0 {
-            let stats_line = format!(
-                "📊 Stats: Commands: {}, Telemetry: {}, Mode: {}, Connected: {}",
-                state.commands_sent.load(Ordering::SeqCst),
-                state.telemetry_received.load(Ordering::SeqCst),
-                current_mode,
-                connected
-            );
-            println!("{}", stats_line);
+        // Try to send arm commands  
+        if let Ok(mut cmd_opt) = state.latest_arm_command.lock() {
+            if let Some(command) = cmd_opt.take() {
+                let count = state.commands_sent.fetch_add(1, Ordering::SeqCst) + 1;
+
+                // Convert Rust ArmCommand to Unity format
+                let unity_command = convert_arm_command_to_unity(&command);
+
+                let command_data = serde_json::json!({
+                    "command": unity_command,
+                    "_command_id": uuid::Uuid::new_v4().to_string(),
+                    "_timestamp": SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64,
+                    "_source": "dora_sim_interface"
+                });
+
+                if count <= 10 || count % 20 == 0 {
+                    println!("Sending arm command #{} to Unity", count);
+                    println!("   Command: {:?}", command);
+                }
+
+                // Send as "arm_command" event to Unity
+                match socket.emit("arm_command", command_data) {
+                    Ok(_) => {
+                        commands_sent += 1;
+                    }
+                    Err(e) => {
+                        println!("Failed to send arm command: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Debug logging
+        if commands_sent > 0 && loop_count % 10 == 0 {
+            println!("Sent {} commands in loop #{}", commands_sent, loop_count);
+        }
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+// Convert Rust ArmCommand to Unity-compatible format
+fn convert_arm_command_to_unity(arm_cmd: &ArmCommand) -> serde_json::Value {
+    match arm_cmd {
+        ArmCommand::CartesianMove { x, y, z, roll, pitch, yaw, max_velocity } => {
+            serde_json::json!({
+                "type": "CartesianMove",
+                "x": x,
+                "y": y,
+                "z": z,
+                "roll": roll,
+                "pitch": pitch,
+                "yaw": yaw,
+                "max_velocity": max_velocity.unwrap_or(1.5)
+            })
+        }
+        ArmCommand::JointPosition { joint_angles, max_velocity } => {
+            serde_json::json!({
+                "type": "JointPosition",
+                "joint_angles": joint_angles,
+                "max_velocity": max_velocity.unwrap_or(2.0)
+            })
+        }
+        ArmCommand::RelativeMove { delta_joints } => {
+            serde_json::json!({
+                "type": "RelativeMove",
+                "delta_joints": delta_joints
+            })
+        }
+        ArmCommand::Stop => {
+            serde_json::json!({
+                "type": "Stop"
+            })
+        }
+        ArmCommand::Home => {
+            serde_json::json!({
+                "type": "Home"
+            })
+        }
+        ArmCommand::EmergencyStop => {
+            serde_json::json!({
+                "type": "EmergencyStop"
+            })
         }
     }
 }
 
-// Enhanced telemetry parsing with debugging
 fn parse_unity_telemetry(data: &Value) -> Result<RoverTelemetry> {
+    let x = data.get("x")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let y = data.get("y")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let yaw = data.get("yaw")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let velocity = data.get("speed")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
     Ok(RoverTelemetry {
-        position: (
-            data["x"].as_f64().unwrap_or(0.0),
-            data["y"].as_f64().unwrap_or(0.0),
-        ),
-        yaw: data["yaw"].as_f64().unwrap_or(0.0),
-        pitch: data["pitch"].as_f64().unwrap_or(0.0),
-        roll: data["roll"].as_f64().unwrap_or(0.0),
-        velocity: data["vel"].as_f64()
-            .or_else(|| data["speed"].as_f64())
-            .unwrap_or(0.0),
-        nav_angles: data["nav_angles"].as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect()),
-        nav_dists: data["nav_dists"].as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect()),
-        near_sample: data["near_sample"].as_str()
-            .map(|s| s == "1" || s.to_lowercase() == "true")
-            .or_else(|| data["near_sample"].as_bool())
-            .unwrap_or(false),
-        picking_up: data["picking_up"].as_str()
-            .map(|s| s == "1" || s.to_lowercase() == "true")
-            .or_else(|| data["picking_up"].as_bool())
-            .unwrap_or(false),
+        position: (x, y),
+        yaw: yaw.to_radians(),
+        pitch: 0.0,
+        roll: 0.0,
+        velocity,
+        nav_angles: None,
+        nav_dists: None,
+        near_sample: false,
+        picking_up: false,
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64,
     })
-}
-
-// Debug rover command processing
-async fn debug_rover_command_processing(
-    shared_state: &SharedState,
-    cmd_data: &serde_json::Value
-) -> Result<()> {
-    println!("Processing rover command from dora:");
-    println!("   Raw command data: {}", cmd_data);
-
-    // Try to parse as RoverCommandWithMetadata
-    if let Ok(cmd_with_metadata) = serde_json::from_value::<RoverCommandWithMetadata>(cmd_data.clone()) {
-        println!("   Successfully parsed as RoverCommandWithMetadata:");
-        println!("      Throttle: {:.3}", cmd_with_metadata.command.throttle);
-        println!("      Brake: {:.3}", cmd_with_metadata.command.brake);
-        println!("      Steering: {:.3}°", cmd_with_metadata.command.steering_angle);
-        println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
-
-        // Store the command
-        if let Ok(mut latest_cmd) = shared_state.latest_rover_command.lock() {
-            *latest_cmd = Some(cmd_with_metadata.command);
-            println!("   Command stored for SocketIO transmission");
-        }
-
-        // Set operation mode to rover
-        if let Ok(mut mode) = shared_state.operation_mode.lock() {
-            *mode = "rover".to_string();
-            println!("   Operation mode set to 'rover'");
-        }
-    } else {
-        println!("   Failed to parse rover command");
-    }
-
-    Ok(())
-}
-
-fn print_debug_stats(state: &SharedState) {
-    let connected = state.unity_connected.lock().map(|c| *c).unwrap_or(false);
-    let mode = state.operation_mode.lock().map(|m| m.clone()).unwrap_or_else(|_| "unknown".to_string());
-
-    println!("📊 Debug Stats:");
-    println!("   Commands sent: {}", state.commands_sent.load(Ordering::SeqCst));
-    println!("   Telemetry received: {}", state.telemetry_received.load(Ordering::SeqCst));
-    println!("   Unity connected: {}", connected);
-    println!("   Current mode: {}", mode);
 }
 
 // Mock simulation (existing functionality for arm)
@@ -638,7 +703,7 @@ impl MockSimulation {
 fn init_tracing() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_string())
         )
         .with_target(false)
         .with_file(false)
@@ -646,10 +711,4 @@ fn init_tracing() -> tracing::subscriber::DefaultGuard {
         .finish();
 
     tracing::subscriber::set_default(subscriber)
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct RoverCommandWithMetadata {
-    command: RoverCommand,
-    metadata: CommandMetadata,
 }

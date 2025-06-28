@@ -32,6 +32,7 @@ nodes:
     env:
       RUST_LOG: info
       ARM_CONFIG: config/arm_6dof.toml
+      ARM_SAFETY_ENABLED: "true"
 
   # Rover controller
   - id: rover-controller
@@ -53,10 +54,13 @@ nodes:
       arm_command: arm-controller/processed_arm_command      # From arm controller
       rover_command: rover-controller/processed_rover_command # From rover controller
     outputs:
-      - joint_feedback    # For arm controller
-      - rover_telemetry   # For rover controller
+      - joint_feedback    # Arm status feedback to arm controller
+      - rover_telemetry   # Rover status feedback to rover controller
+      - arm_telemetry     # Additional arm telemetry for monitoring
     env:
       RUST_LOG: debug
+      SOCKETIO_PORT: 4567
+      UNITY_UPDATE_RATE: 60.0
 
   # Monitor node - observes all dataflow activity for debugging
   - id: monitor
@@ -68,10 +72,13 @@ nodes:
       dispatcher_rover: dispatcher-keyboard/rover_command   # Dispatcher rover output
       arm_processed: arm-controller/processed_arm_command    # Processed arm commands
       rover_processed: rover-controller/processed_rover_command # Processed rover commands
-      joint_feedback: sim-interface/joint_feedback          # Simulation feedback
-      rover_telemetry: sim-interface/rover_telemetry        # Simulation telemetry
+      joint_feedback: sim-interface/joint_feedback          # Arm feedback from Unity
+      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry from Unity
+      arm_telemetry: sim-interface/arm_telemetry            # Additional arm telemetry
     env:
       RUST_LOG: debug
+      MONITOR_ARM_COMMANDS: "true"
+      MONITOR_DETAILED_LOGGING: "true"
 
   # Optional: Add rerun visualization (commented out for now)
   # - id: visualization
@@ -80,8 +87,12 @@ nodes:
   #   inputs:
   #     joint_feedback: sim-interface/joint_feedback
   #     rover_telemetry: sim-interface/rover_telemetry
+  #     arm_telemetry: sim-interface/arm_telemetry
   #   env:
   #     README: |
   #       # Robotic System Visualization
-  #       This node visualizes both arm and rover states and trajectories.
+  #       This node visualizes both arm and rover states, trajectories,
+  #       and joint configurations in real-time.
   #     RERUN_MEMORY_LIMIT: 25%
+  #     VISUALIZE_ARM_WORKSPACE: "true"
+  #     VISUALIZE_JOINT_LIMITS: "true"

@@ -831,7 +831,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dispatch_keyboard"
+name = "dispatcher_keyboard"
 version = "0.1.0"
 dependencies = [
  "dora-core",
@@ -2938,6 +2938,7 @@ dependencies = [
  "tower-http 0.5.2",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

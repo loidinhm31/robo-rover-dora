@@ -1,5 +1,5 @@
 [package]
-name = "dispatch_keyboard"
+name = "dispatcher_keyboard"
 version = "0.1.0"
 edition = "2021"
 description = "Central keyboard dispatcher for arm and rover control commands"

@@ -24,14 +24,6 @@ pub enum ArmCommand {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeyboardInput {
-    pub key: String,
-    pub source: InputSource,
-    pub timestamp: u64,
-    pub modifiers: Vec<String>, // Ctrl, Shift, Alt
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InputSource {
     Local,
     Unity,
@@ -54,28 +46,8 @@ pub enum CommandPriority {
     Emergency,
 }
 
-impl KeyboardInput {
-    pub fn new_local(key: String) -> Self {
-        Self {
-            key,
-            source: InputSource::Local,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            modifiers: Vec::new(),
-        }
-    }
-
-    pub fn new_unity(key: String, modifiers: Vec<String>) -> Self {
-        Self {
-            key,
-            source: InputSource::Unity,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            modifiers,
-        }
-    }
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ArmCommandWithMetadata {
+    pub command: Option<ArmCommand>,
+    pub metadata: CommandMetadata,
 }
