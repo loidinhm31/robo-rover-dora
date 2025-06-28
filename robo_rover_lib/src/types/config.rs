@@ -1,6 +1,6 @@
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use eyre::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArmConfig {

@@ -1,9 +1,9 @@
-use robo_rover_lib::{ArmCommand, ArmStatus, JointState, ReachabilityStatus, RoverCommand, RoverTelemetry, SimulationConfig, CommandMetadata};
 use dora_node_api::arrow::array::{Array, AsArray};
 use dora_node_api::{arrow::array::{types::GenericBinaryType, BinaryArray}, dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
-use std::sync::{Arc, Mutex};
+use robo_rover_lib::{ArmCommand, ArmStatus, CommandMetadata, JointState, ReachabilityStatus, RoverCommand, RoverTelemetry, SimulationConfig};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::http::Method;
@@ -97,10 +97,10 @@ async fn sim_interface_async() -> Result<()> {
     // Start SocketIO server in a separate task
     let shared_state_clone = shared_state.clone();
     let socketio_handle = tokio::spawn(async move {
-        println!("🌐 Starting SocketIO server task...");
+        println!("Starting SocketIO server task...");
         match start_socketio_server_properly(shared_state_clone).await {
             Ok(_) => println!("SocketIO server completed"),
-            Err(e) => println!("❌ SocketIO server error: {}", e),
+            Err(e) => println!("SocketIO server error: {}", e),
         }
     });
 
@@ -301,9 +301,8 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
 
         // Handle connection acknowledgment
         socket.on("connect", {
-            let state = state.clone();
             move |socket: SocketRef| {
-                println!("✅ Unity SocketIO connected and acknowledged");
+                println!("Unity SocketIO connected and acknowledged");
                 // Send test command to verify connection
                 let test_data = serde_json::json!({
                     "throttle": "0.0",
@@ -316,9 +315,9 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
                 });
 
                 if let Err(e) = socket.emit("data", test_data) {
-                    println!("❌ Failed to send connection test: {}", e);
+                    println!("Failed to send connection test: {}", e);
                 } else {
-                    println!("📤 Sent connection test command to Unity");
+                    println!("Sent connection test command to Unity");
                 }
             }
         });
@@ -327,7 +326,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
         socket.on_disconnect({
             let state = state.clone();
             move |socket: SocketRef| {
-                println!("🔴 Unity disconnected: {}", socket.id);
+                println!("Unity disconnected: {}", socket.id);
                 if let Ok(mut connected) = state.unity_connected.lock() {
                     *connected = false;
                 }
@@ -338,7 +337,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
         let socket_clone = socket.clone();
         let state_clone = state.clone();
         tokio::spawn(async move {
-            enhanced_command_sender_loop(socket_clone, state_clone).await;
+            command_sender_loop(socket_clone, state_clone).await;
         });
     });
 
@@ -352,10 +351,10 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
         .layer(ServiceBuilder::new().layer(cors).layer(layer));
 
     // Bind and start server
-    println!("🔍 Attempting to bind to 127.0.0.1:4567...");
+    println!("Attempting to bind to 127.0.0.1:4567...");
     let listener = match tokio::net::TcpListener::bind("127.0.0.1:4567").await {
         Ok(listener) => {
-            println!("✅ Successfully bound to 127.0.0.1:4567");
+            println!("Successfully bound to 127.0.0.1:4567");
             listener
         }
         Err(e) => {
@@ -364,30 +363,29 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
         }
     };
 
-    println!("🚀 SocketIO server listening on 127.0.0.1:4567");
-    println!("🔍 Test with: curl -X GET http://127.0.0.1:4567/socket.io/");
-    println!("🔍 Unity should connect to: http://127.0.0.1:4567");
+    println!("SocketIO server listening on 127.0.0.1:4567");
+    println!("Test with: curl -X GET http://127.0.0.1:4567/socket.io/");
+    println!("Unity should connect to: http://127.0.0.1:4567");
 
     // Start serving
     match axum::serve(listener, app).await {
         Ok(_) => {
-            println!("✅ SocketIO server completed successfully");
+            println!("SocketIO server completed successfully");
             Ok(())
         }
         Err(e) => {
-            println!("❌ SocketIO server error: {}", e);
+            println!("SocketIO server error: {}", e);
             Err(e.into())
         }
     }
 }
 
-// Enhanced command sender with debugging
-async fn enhanced_command_sender_loop(socket: SocketRef, state: SharedState) {
+async fn command_sender_loop(socket: SocketRef, state: SharedState) {
     let mut interval = tokio::time::interval(Duration::from_millis(100)); // 10 Hz
     let mut last_command_time = std::time::Instant::now();
     let mut loop_count = 0u64;
 
-    println!("🔄 Starting command sender loop for connection {}", socket.id);
+    println!("Starting command sender loop for connection {}", socket.id);
 
     loop {
         interval.tick().await;
@@ -403,7 +401,7 @@ async fn enhanced_command_sender_loop(socket: SocketRef, state: SharedState) {
         };
 
         if !connected {
-            println!("🔴 Unity disconnected, stopping command loop for {}", socket.id);
+            println!("Unity disconnected, stopping command loop for {}", socket.id);
             break;
         }
 
@@ -449,7 +447,7 @@ async fn enhanced_command_sender_loop(socket: SocketRef, state: SharedState) {
                                 last_command_time = std::time::Instant::now();
                             }
                             Err(e) => {
-                                println!("   ❌ Failed to send rover command: {}", e);
+                                println!("   Failed to send rover command: {}", e);
                             }
                         }
                     }
@@ -469,9 +467,9 @@ async fn enhanced_command_sender_loop(socket: SocketRef, state: SharedState) {
                     });
 
                     if let Err(e) = socket.emit("data", heartbeat) {
-                        println!("❌ Failed to send heartbeat: {}", e);
+                        println!("Failed to send heartbeat: {}", e);
                     } else {
-                        println!("💓 Sent heartbeat to Unity");
+                        println!("Sent heartbeat to Unity");
                     }
 
                     last_command_time = std::time::Instant::now();
@@ -530,12 +528,12 @@ async fn debug_rover_command_processing(
     shared_state: &SharedState,
     cmd_data: &serde_json::Value
 ) -> Result<()> {
-    println!("🔧 Processing rover command from dora:");
+    println!("Processing rover command from dora:");
     println!("   Raw command data: {}", cmd_data);
 
     // Try to parse as RoverCommandWithMetadata
     if let Ok(cmd_with_metadata) = serde_json::from_value::<RoverCommandWithMetadata>(cmd_data.clone()) {
-        println!("   ✅ Successfully parsed as RoverCommandWithMetadata:");
+        println!("   Successfully parsed as RoverCommandWithMetadata:");
         println!("      Throttle: {:.3}", cmd_with_metadata.command.throttle);
         println!("      Brake: {:.3}", cmd_with_metadata.command.brake);
         println!("      Steering: {:.3}°", cmd_with_metadata.command.steering_angle);
@@ -544,16 +542,16 @@ async fn debug_rover_command_processing(
         // Store the command
         if let Ok(mut latest_cmd) = shared_state.latest_rover_command.lock() {
             *latest_cmd = Some(cmd_with_metadata.command);
-            println!("   ✅ Command stored for SocketIO transmission");
+            println!("   Command stored for SocketIO transmission");
         }
 
         // Set operation mode to rover
         if let Ok(mut mode) = shared_state.operation_mode.lock() {
             *mode = "rover".to_string();
-            println!("   ✅ Operation mode set to 'rover'");
+            println!("   Operation mode set to 'rover'");
         }
     } else {
-        println!("   ❌ Failed to parse rover command");
+        println!("   Failed to parse rover command");
     }
 
     Ok(())
@@ -639,7 +637,9 @@ impl MockSimulation {
 
 fn init_tracing() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
+        .with_env_filter(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
+        )
         .with_target(false)
         .with_file(false)
         .with_line_number(false)

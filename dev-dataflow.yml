@@ -4,7 +4,7 @@ nodes:
     build: pip install dora-keyboard
     path: dora-keyboard
     inputs:
-      tick: dora/timer/millis/1000
+      tick: dora/timer/millis/500
     outputs:
       - char
 

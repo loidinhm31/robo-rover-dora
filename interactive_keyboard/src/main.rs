@@ -1,22 +1,17 @@
 use dora_node_api::{
-    arrow::array::{BinaryArray, Array, AsArray},
+    arrow::array::{Array, AsArray, BinaryArray},
     dora_core::config::DataId,
     DoraNode,
     Event
 };
-use robo_rover_lib::{
-    ArmCommand, RoverCommand, KeyboardInput, CommandMetadata,
-    CommandPriority, InputSource
-};
 use eyre::Result;
+use robo_rover_lib::{
+    ArmCommand, CommandMetadata, CommandPriority,
+    InputSource, RoverCommand
+};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-#[derive(Debug, Clone)]
-enum ControlMode {
-    Arm,
-    Rover,
-}
+use uuid;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();
@@ -33,18 +28,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Interactive keyboard dispatcher initialized");
     println!("Available commands:");
-    println!("  TAB - Switch between ARM and ROVER modes");
-    println!("  ARM mode:");
-    println!("    w/s - Move X axis forward/backward");
-    println!("    a/d - Move Y axis left/right");
-    println!("    q/e - Move Z axis up/down");
-    println!("    space - Stop");
-    println!("    home - Return to home position");
-    println!("  ROVER mode:");
+    println!("  ROVER control (w,a,s,d,q,r):");
     println!("    w/s - Throttle forward/backward");
     println!("    a/d - Steer left/right");
-    println!("    space - Brake");
+    println!("    q - Brake");
     println!("    r - Reset to stopped state");
+    println!("  ARM control (j,k,l,i,u,o,h,space):");
+    println!("    k/j - Move X axis forward/backward");
+    println!("    l/i - Move Y axis right/left");
+    println!("    u/o - Move Z axis up/down");
+    println!("    h - Return to home position");
+    println!("    space - Stop arm movement");
 
     while let Some(event) = events.recv() {
         match event {
@@ -134,7 +128,6 @@ enum DispatchedCommand {
 }
 
 struct KeyboardDispatcher {
-    current_mode: ControlMode,
     move_scale: f64,
     steer_scale: f64,
     throttle_scale: f64,
@@ -146,6 +139,7 @@ struct RoverState {
     throttle: f64,
     brake: f64,
     steering_angle: f64,
+    is_reverse: bool,  // Track if we're in reverse mode
 }
 
 impl Default for RoverState {
@@ -154,6 +148,7 @@ impl Default for RoverState {
             throttle: 0.0,
             brake: 0.0,
             steering_angle: 0.0,
+            is_reverse: false,
         }
     }
 }
@@ -161,7 +156,6 @@ impl Default for RoverState {
 impl KeyboardDispatcher {
     fn new() -> Self {
         Self {
-            current_mode: ControlMode::Rover,
             move_scale: 0.01,        // 1cm for arm movements
             steer_scale: 5.0,        // 5 degrees for steering
             throttle_scale: 0.2,     // 20% throttle increment
@@ -173,149 +167,195 @@ impl KeyboardDispatcher {
         let mut commands = Vec::new();
 
         match input.to_lowercase().as_str() {
-            // Mode switching
-            "\t" | "tab" => {
-                self.switch_mode();
-                return commands; // No command to send, just mode switch
+            // ROVER CONTROLS (w,a,s,d,q,r)
+            "w" => {
+                // Throttle forward (clear reverse and increase forward throttle)
+                self.current_rover_state.brake = 0.0;
+                self.current_rover_state.is_reverse = false;
+                self.current_rover_state.throttle = (self.current_rover_state.throttle + self.throttle_scale).min(1.0);
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                println!("ROVER: Throttle forward ({:.2})", self.current_rover_state.throttle);
+            }
+            "s" => {
+                // Throttle backward (Unity uses negative throttle for reverse)
+                self.current_rover_state.throttle = (self.current_rover_state.throttle - self.throttle_scale).max(-1.0);
+                self.current_rover_state.brake = 0.0;  // Clear brakes for movement
+                self.current_rover_state.is_reverse = self.current_rover_state.throttle < 0.0;
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                if self.current_rover_state.is_reverse {
+                    println!("ROVER: Reverse movement (throttle: {:.2})", self.current_rover_state.throttle);
+                } else {
+                    println!("ROVER: Slowing down (throttle: {:.2})", self.current_rover_state.throttle);
+                }
+            }
+            "a" => {
+                // Steer left (positive steering angle)
+                self.current_rover_state.steering_angle = (self.current_rover_state.steering_angle + self.steer_scale).min(15.0);
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                println!("ROVER: Steer left ({:.1} degrees)", self.current_rover_state.steering_angle);
+            }
+            "d" => {
+                // Steer right (negative steering angle)
+                self.current_rover_state.steering_angle = (self.current_rover_state.steering_angle - self.steer_scale).max(-15.0);
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                println!("ROVER: Steer right ({:.1} degrees)", self.current_rover_state.steering_angle);
+            }
+            "q" => {
+                // Emergency brake (stop everything)
+                self.current_rover_state.throttle = 0.0;
+                self.current_rover_state.brake = 1.0;
+                self.current_rover_state.is_reverse = false;
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                println!("ROVER: Emergency brake applied");
+            }
+            "r" => {
+                // Reset rover to stopped state
+                self.current_rover_state = RoverState::default();
+                let rover_cmd = self.create_rover_command();
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
+                println!("ROVER: Reset to stopped state");
             }
 
-            // Process commands based on current mode
+            // ARM CONTROLS (j,k,l,i,u,o,h) - matching original directional behavior
+            "k" => {
+                // Move X axis forward (like original 'w')
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: self.move_scale,
+                    y: 0.0,
+                    z: 0.0,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move X axis forward ({:.3} m)", self.move_scale);
+            }
+            "j" => {
+                // Move X axis backward (like original 's')
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: -self.move_scale,
+                    y: 0.0,
+                    z: 0.0,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move X axis backward ({:.3} m)", -self.move_scale);
+            }
+            "i" => {
+                // Move Y axis left (like original 'a')
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: 0.0,
+                    y: -self.move_scale,
+                    z: 0.0,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move Y axis left ({:.3} m)", -self.move_scale);
+            }
+            "l" => {
+                // Move Y axis right (like original 'd')
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: 0.0,
+                    y: self.move_scale,
+                    z: 0.0,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move Y axis right ({:.3} m)", self.move_scale);
+            }
+            "u" => {
+                // Move Z axis up
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: 0.0,
+                    y: 0.0,
+                    z: self.move_scale,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move Z axis up ({:.3} m)", self.move_scale);
+            }
+            "o" => {
+                // Move Z axis down
+                let arm_cmd = ArmCommand::CartesianMove {
+                    x: 0.0,
+                    y: 0.0,
+                    z: -self.move_scale,
+                    roll: 0.0,
+                    pitch: 0.0,
+                    yaw: 0.0,
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Move Z axis down ({:.3} m)", -self.move_scale);
+            }
+            "h" | "home" => {
+                // Return to home position
+                let arm_cmd = ArmCommand::JointPosition {
+                    joint_angles: vec![0.0; 6], // Assuming 6 DOF arm
+                    max_velocity: None,
+                };
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Return to home position");
+            }
+            " " | "space" => {
+                // Stop arm movement
+                let arm_cmd = ArmCommand::Stop;
+                let metadata = self.create_metadata();
+                commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
+                println!("ARM: Stop movement");
+            }
+
             _ => {
-                match self.current_mode {
-                    ControlMode::Arm => {
-                        if let Some(arm_cmd) = self.map_to_arm_command(input) {
-                            let metadata = self.create_metadata();
-                            commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                        }
-                    }
-                    ControlMode::Rover => {
-                        if let Some(rover_cmd) = self.map_to_rover_command(input) {
-                            let metadata = self.create_metadata();
-                            commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                        }
-                    }
-                }
+                println!("Unknown command: '{}'. Use w,a,s,d,q,r for rover or k,j,i,l,u,o,h,space for arm", input);
             }
         }
 
         commands
     }
 
-    fn switch_mode(&mut self) {
-        self.current_mode = match self.current_mode {
-            ControlMode::Arm => {
-                println!("Switched to ROVER control mode");
-                ControlMode::Rover
-            }
-            ControlMode::Rover => {
-                println!("Switched to ARM control mode");
-                ControlMode::Arm
-            }
-        };
-    }
-
-    fn map_to_arm_command(&self, input: &str) -> Option<ArmCommand> {
-        match input.to_lowercase().as_str() {
-            "w" => Some(ArmCommand::CartesianMove {
-                x: self.move_scale, y: 0.0, z: 0.0,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "s" => Some(ArmCommand::CartesianMove {
-                x: -self.move_scale, y: 0.0, z: 0.0,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "a" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: self.move_scale, z: 0.0,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "d" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: -self.move_scale, z: 0.0,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "q" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: 0.0, z: self.move_scale,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            "e" => Some(ArmCommand::CartesianMove {
-                x: 0.0, y: 0.0, z: -self.move_scale,
-                roll: 0.0, pitch: 0.0, yaw: 0.0,
-                max_velocity: None
-            }),
-            " " | "space" => Some(ArmCommand::Stop),
-            "home" => Some(ArmCommand::Home),
-            _ => {
-                println!("Unknown ARM command: '{}'", input);
-                None
-            }
-        }
-    }
-
-    fn map_to_rover_command(&mut self, input: &str) -> Option<RoverCommand> {
-        match input.to_lowercase().as_str() {
-            "w" => {
-                // Increase forward throttle
-                self.current_rover_state.throttle =
-                    (self.current_rover_state.throttle + self.throttle_scale).min(1.0);
-                self.current_rover_state.brake = 0.0;
-                Some(self.create_rover_command())
-            }
-            "s" => {
-                // Increase reverse throttle (negative throttle or brake)
-                if self.current_rover_state.throttle > 0.0 {
-                    // If moving forward, apply brakes first
-                    self.current_rover_state.brake =
-                        (self.current_rover_state.brake + self.throttle_scale).min(1.0);
-                    self.current_rover_state.throttle =
-                        (self.current_rover_state.throttle - self.throttle_scale).max(0.0);
-                } else {
-                    // Reverse throttle (implement as negative velocity handling)
-                    self.current_rover_state.throttle =
-                        (self.current_rover_state.throttle - self.throttle_scale).max(-1.0);
-                    self.current_rover_state.brake = 0.0;
-                }
-                Some(self.create_rover_command())
-            }
-            "a" => {
-                // Steer left
-                self.current_rover_state.steering_angle =
-                    (self.current_rover_state.steering_angle + self.steer_scale).min(15.0);
-                Some(self.create_rover_command())
-            }
-            "d" => {
-                // Steer right
-                self.current_rover_state.steering_angle =
-                    (self.current_rover_state.steering_angle - self.steer_scale).max(-15.0);
-                Some(self.create_rover_command())
-            }
-            " " | "space" => {
-                // Emergency brake
-                self.current_rover_state.brake = 1.0;
-                self.current_rover_state.throttle = 0.0;
-                Some(self.create_rover_command())
-            }
-            "r" => {
-                // Reset to stopped state
-                self.current_rover_state = RoverState::default();
-                Some(self.create_rover_command())
-            }
-            _ => {
-                println!("Unknown ROVER command: '{}'", input);
-                None
-            }
-        }
-    }
-
     fn create_rover_command(&self) -> RoverCommand {
-        RoverCommand::new(
-            self.current_rover_state.throttle.abs(), // RoverCommand expects positive throttle
-            self.current_rover_state.brake,
-            self.current_rover_state.steering_angle
-        )
+        // Unity uses negative throttle for reverse movement, so preserve the sign
+        RoverCommand {
+            throttle: self.current_rover_state.throttle.clamp(-1.0, 1.0), // Allow negative for reverse
+            brake: self.current_rover_state.brake.clamp(0.0, 1.0),
+            steering_angle: self.current_rover_state.steering_angle.clamp(-15.0, 15.0),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            command_id: uuid::Uuid::new_v4().to_string(),
+        }
     }
 
     fn create_metadata(&self) -> CommandMetadata {
@@ -336,6 +376,9 @@ fn init_tracing() -> tracing::subscriber::DefaultGuard {
         .with_env_filter(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
         )
+        .with_target(false)
+        .with_file(false)
+        .with_line_number(false)
         .finish();
 
     tracing::subscriber::set_default(subscriber)

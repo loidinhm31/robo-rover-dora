@@ -1,11 +1,10 @@
-use robo_rover_lib::{RoverCommand, RoverTelemetry, CommandMetadata};
-use dora_node_api::arrow::array::{Array, AsArray};
-use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray};
+use dora_node_api::arrow::array::Array;
+use dora_node_api::{arrow::array::BinaryArray, dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
+use robo_rover_lib::{CommandMetadata, RoverCommand, RoverTelemetry};
 use std::collections::HashMap;
 use std::error::Error;
-use dora_node_api::arrow::datatypes::GenericBinaryType;
-use tracing::{info, warn, debug};
+use tracing::{debug, warn};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();
@@ -16,115 +15,81 @@ fn main() -> Result<(), Box<dyn Error>> {
     let output_id = DataId::from("processed_rover_command".to_owned());
 
     println!("Rover controller initialized successfully");
-    println!("Waiting for rover commands from interactive-keyboard...");
+    println!("Ready to process rover commands (supporting reverse movement with negative throttle)");
 
-    let mut controller = RoverController::new();
+    let mut rover_controller = RoverController::new();
     let mut event_count = 0;
     let mut input_stats: HashMap<String, usize> = HashMap::new();
 
     while let Some(event) = events.recv() {
         event_count += 1;
-        println!("Event #{}: New event received", event_count);
+        println!("Event #{}: {:?}", event_count, event);
 
         match event {
-            Event::Input { id, metadata, data } => {
-                let input_id = id.as_str();
-                *input_stats.entry(input_id.to_string()).or_insert(0) += 1;
+            Event::Input { id, metadata: _, data } => {
+                let count = input_stats.entry(id.as_str().to_string()).or_insert(0);
+                *count += 1;
 
-                let data_len = data.len();
-                println!("INPUT EVENT:");
-                println!("   ID: '{}'", input_id);
-                println!("   Data length: {} bytes", data_len);
-                println!("   Count for this input: {}", input_stats[input_id]);
-
-                match input_id {
+                match id.as_str() {
                     "rover_command" => {
-                        println!("   ROVER COMMAND from interactive-keyboard:");
-
-                        if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
-                            if bytes_array.len() > 0 {
-                                let bytes = bytes_array.value(0);
-
+                        if let Some(array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if array.len() > 0 {
+                                let bytes = array.value(0);
                                 match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
                                     Ok(cmd_with_metadata) => {
-                                        let rover_cmd = &cmd_with_metadata.command;
+                                        println!("Received rover command: throttle={:.2}, brake={:.2}, steer={:.2}",
+                                                 cmd_with_metadata.command.throttle,
+                                                 cmd_with_metadata.command.brake,
+                                                 cmd_with_metadata.command.steering_angle);
 
-                                        println!("      Successfully parsed rover command:");
-                                        println!("      Throttle: {:.3}", rover_cmd.throttle);
-                                        println!("      Brake: {:.3}", rover_cmd.brake);
-                                        println!("      Steering: {:.3}°", rover_cmd.steering_angle);
-                                        println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
-                                        println!("      Source: {:?}", cmd_with_metadata.metadata.source);
-                                        println!("      Priority: {:?}", cmd_with_metadata.metadata.priority);
+                                        match rover_controller.execute_command(cmd_with_metadata.command) {
+                                            Ok(_) => {
+                                                let processed_cmd = rover_controller.get_processed_command();
+                                                let serialized = serde_json::to_vec(&processed_cmd)?;
+                                                let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
 
-                                        // Process the command
-                                        controller.execute_command(rover_cmd.clone())?;
+                                                node.send_output(
+                                                    output_id.clone(),
+                                                    Default::default(),
+                                                    arrow_data
+                                                )?;
 
-                                        // Forward processed command to simulation
-                                        let processed_cmd = controller.get_processed_command();
-                                        let serialized = serde_json::to_vec(&processed_cmd)?;
-                                        let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
-
-                                        node.send_output(
-                                            output_id.clone(),
-                                            Default::default(),
-                                            arrow_data
-                                        )?;
-
-                                        println!("      Forwarded processed command to simulation interface");
+                                                println!("Sent processed rover command to simulation");
+                                            }
+                                            Err(e) => {
+                                                warn!("Failed to execute rover command: {}", e);
+                                            }
+                                        }
                                     }
                                     Err(e) => {
-                                        println!("      Failed to parse rover command: {}", e);
-                                        println!("      Raw string: {}", String::from_utf8_lossy(bytes));
+                                        warn!("Failed to deserialize rover command: {}", e);
                                     }
                                 }
                             }
-                        } else {
-                            println!("      Failed to parse rover_command as binary array");
                         }
                     }
-
                     "rover_telemetry" => {
-                        println!("   ROVER TELEMETRY from simulation:");
-
-                        if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
-                            if bytes_array.len() > 0 {
-                                let bytes = bytes_array.value(0);
-
+                        if let Some(array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if array.len() > 0 {
+                                let bytes = array.value(0);
                                 match serde_json::from_slice::<RoverTelemetry>(bytes) {
                                     Ok(telemetry) => {
-                                        println!("      Position: ({:.2}, {:.2})", telemetry.position.0, telemetry.position.1);
-                                        println!("      Velocity: {:.2} m/s", telemetry.velocity);
-                                        println!("      Orientation: yaw={:.1}°, pitch={:.1}°, roll={:.1}°",
-                                                 telemetry.yaw.to_degrees(),
-                                                 telemetry.pitch.to_degrees(),
-                                                 telemetry.roll.to_degrees());
-                                        println!("      Near sample: {}", telemetry.near_sample);
-                                        println!("      Picking up: {}", telemetry.picking_up);
-
-                                        // Update controller state with telemetry
-                                        controller.update_telemetry(telemetry);
+                                        debug!("Received rover telemetry: pos=({:.2}, {:.2}), vel={:.2}",
+                                               telemetry.position.0, telemetry.position.1, telemetry.velocity);
+                                        rover_controller.update_telemetry(telemetry);
                                     }
                                     Err(e) => {
-                                        println!("      Failed to parse rover telemetry: {}", e);
-                                        println!("      Raw string: {}", String::from_utf8_lossy(bytes));
+                                        warn!("Failed to deserialize rover telemetry: {}", e);
                                     }
                                 }
                             }
-                        } else {
-                            println!("      Failed to parse rover_telemetry as binary array");
                         }
                     }
-
                     _ => {
-                        println!("   UNKNOWN INPUT TYPE: '{}'", input_id);
-                        println!("      Data type: {:?}", data.data_type());
+                        println!("Unknown input ID: '{}'", id.as_str());
                     }
                 }
-
-                println!("    Input processing complete");
             }
-
             Event::Stop => {
                 println!("\nSTOP EVENT RECEIVED");
                 println!("Final statistics:");
@@ -170,7 +135,7 @@ struct SafetyLimits {
 impl Default for SafetyLimits {
     fn default() -> Self {
         Self {
-            max_throttle: 1.0,      // 100% throttle
+            max_throttle: 1.0,      // 100% throttle (forward)
             max_steering_angle: 15.0, // 15 degrees
             max_velocity: 5.0,       // 5 m/s max speed
         }
@@ -191,8 +156,8 @@ impl RoverController {
         println!("Executing ROVER command: throttle={:.2}, brake={:.2}, steer={:.2}°",
                  command.throttle, command.brake, command.steering_angle);
 
-        // Apply safety limits
-        command.throttle = command.throttle.clamp(0.0, self.safety_limits.max_throttle);
+        // Apply safety limits - ALLOW NEGATIVE THROTTLE for reverse movement
+        command.throttle = command.throttle.clamp(-self.safety_limits.max_throttle, self.safety_limits.max_throttle);
         command.brake = command.brake.clamp(0.0, 1.0);
         command.steering_angle = command.steering_angle.clamp(
             -self.safety_limits.max_steering_angle,
@@ -209,9 +174,13 @@ impl RoverController {
             }
         }
 
-        // Store command
-        self.current_command = Some(command.clone());
-        self.command_history.push(command);
+        // Print final processed command before moving it
+        println!("Final processed command: throttle={:.2}, brake={:.2}, steer={:.2}°",
+                 command.throttle, command.brake, command.steering_angle);
+
+        // Store command (clone for history, move for current_command)
+        self.command_history.push(command.clone());
+        self.current_command = Some(command);
 
         // Keep only last 10 commands in history
         if self.command_history.len() > 10 {
@@ -229,7 +198,16 @@ impl RoverController {
 
     fn get_processed_command(&self) -> RoverCommandWithMetadata {
         let command = self.current_command.clone()
-            .unwrap_or_else(|| RoverCommand::new(0.0, 0.0, 0.0));
+            .unwrap_or_else(|| RoverCommand {
+                throttle: 0.0,
+                brake: 0.0,
+                steering_angle: 0.0,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+                command_id: uuid::Uuid::new_v4().to_string(),
+            });
 
         RoverCommandWithMetadata {
             command,

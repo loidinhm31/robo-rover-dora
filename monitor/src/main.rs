@@ -1,10 +1,10 @@
-use robo_rover_lib::ArmStatus;
 use dora_node_api::arrow::array::{Array, AsArray};
+use dora_node_api::arrow::datatypes::GenericBinaryType;
 use dora_node_api::{DoraNode, Event};
 use eyre::Result;
+use robo_rover_lib::ArmStatus;
 use std::collections::HashMap;
 use std::error::Error;
-use dora_node_api::arrow::datatypes::GenericBinaryType;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();

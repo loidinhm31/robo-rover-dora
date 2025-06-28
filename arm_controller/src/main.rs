@@ -1,10 +1,10 @@
-use dora_node_api::{DoraNode, Event, dora_core::config::DataId, arrow::array::BinaryArray};
 use dora_node_api::arrow::array::{Array, AsArray};
-use robo_rover_lib::{ArmCommand, ArmStatus, ArmConfig, CommandPriority, CommandMetadata, InputSource, ForwardKinematics};
-use eyre::Result;
-use std::error::Error;
 use dora_node_api::arrow::datatypes::GenericBinaryType;
-use tracing::{info, warn, debug};
+use dora_node_api::{arrow::array::BinaryArray, dora_core::config::DataId, DoraNode, Event};
+use eyre::Result;
+use robo_rover_lib::{ArmCommand, ArmConfig, ArmStatus, CommandMetadata, ForwardKinematics, InputSource};
+use std::error::Error;
+use tracing::{debug, info};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();
@@ -131,6 +131,9 @@ fn init_tracing() -> tracing::subscriber::DefaultGuard {
         .with_env_filter(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
         )
+        .with_target(false)
+        .with_file(false)
+        .with_line_number(false)
         .finish();
 
     tracing::subscriber::set_default(subscriber)
