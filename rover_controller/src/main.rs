@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-            Event::Stop => {
+            Event::Stop(_) => {
                 println!("\nSTOP EVENT RECEIVED");
                 println!("Final statistics:");
                 println!("   Total events processed: {}", event_count);

@@ -1,0 +1,85 @@
+nodes:
+  # Web bridge - SocketIO server for web application control
+  - id: web-bridge
+    build: cargo build -p web_bridge
+    path: target/debug/web_bridge
+    inputs:
+      joint_feedback: sim-interface/joint_feedback          # Arm feedback from simulation
+      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry from simulation
+      arm_telemetry: sim-interface/arm_telemetry            # Additional arm telemetry
+    outputs:
+      - arm_command      # Commands for arm controller
+      - rover_command    # Commands for rover controller
+    env:
+      RUST_LOG: info
+
+  # Arm controller
+  - id: arm-controller
+    build: cargo build -p arm_controller
+    path: target/debug/arm_controller
+    inputs:
+      arm_command: web-bridge/arm_command                   # From web bridge
+      joint_feedback: sim-interface/joint_feedback          # From simulation
+    outputs:
+      - processed_arm_command
+    env:
+      RUST_LOG: info
+      ARM_CONFIG: config/arm_6dof.toml
+
+  # Rover controller
+  - id: rover-controller
+    build: cargo build -p rover_controller
+    path: target/debug/rover_controller
+    inputs:
+      rover_command: web-bridge/rover_command               # From web bridge
+      rover_telemetry: sim-interface/rover_telemetry        # From simulation
+    outputs:
+      - processed_rover_command
+    env:
+      RUST_LOG: info
+
+  # Simulation interface
+  - id: sim-interface
+    build: cargo build -p sim_interface
+    path: target/debug/sim_interface
+    inputs:
+      arm_command: arm-controller/processed_arm_command      # From arm controller
+      rover_command: rover-controller/processed_rover_command # From rover controller
+    outputs:
+      - joint_feedback    # Arm status feedback to arm controller and web bridge
+      - rover_telemetry   # Rover status feedback to rover controller and web bridge
+      - arm_telemetry     # Additional arm telemetry for web bridge
+    env:
+      RUST_LOG: debug
+
+  # Monitor node - observes all dataflow activity for debugging
+  - id: monitor
+    build: cargo build -p monitor
+    path: target/debug/monitor
+    inputs:
+      web_arm: web-bridge/arm_command                       # Web bridge arm output
+      web_rover: web-bridge/rover_command                   # Web bridge rover output
+      arm_processed: arm-controller/processed_arm_command    # Processed arm commands
+      rover_processed: rover-controller/processed_rover_command # Processed rover commands
+      joint_feedback: sim-interface/joint_feedback          # Arm feedback from Unity
+      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry from Unity
+      arm_telemetry: sim-interface/arm_telemetry            # Additional arm telemetry
+    env:
+      RUST_LOG: debug
+
+  # Optional: Add rerun visualization (commented out for now)
+  # - id: visualization
+  #   build: pip install dora-rerun
+  #   path: dora-rerun
+  #   inputs:
+  #     joint_feedback: sim-interface/joint_feedback
+  #     rover_telemetry: sim-interface/rover_telemetry
+  #     arm_telemetry: sim-interface/arm_telemetry
+  #   env:
+  #     README: |
+  #       # Robotic System Visualization (Web-Controlled)
+  #       This node visualizes both arm and rover states, trajectories,
+  #       and joint configurations in real-time from web application control.
+  #     RERUN_MEMORY_LIMIT: 25%
+  #     VISUALIZE_ARM_WORKSPACE: "true"
+  #     VISUALIZE_JOINT_LIMITS: "true"

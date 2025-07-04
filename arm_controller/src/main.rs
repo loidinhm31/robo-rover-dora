@@ -5,11 +5,10 @@ use dora_node_api::{
 };
 use eyre::Result;
 use robo_rover_lib::{
-    ArmCommand, ArmCommandWithMetadata, ArmConfig, ArmStatus, CommandMetadata,
-    CommandPriority, InputSource, JointState, ReachabilityStatus
+    ArmCommand, ArmCommandWithMetadata, ArmConfig, ArmStatus,
+    JointState, ReachabilityStatus
 };
 use std::error::Error;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
 
 struct ArmController {
@@ -333,7 +332,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            Event::Stop => {
+            Event::Stop(_) => {
                 info!("Stop event received");
                 break;
             }

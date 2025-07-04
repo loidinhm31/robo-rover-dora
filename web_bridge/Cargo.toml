@@ -1,0 +1,26 @@
+[package]
+name = "web_bridge"
+version = "0.1.0"
+edition = "2021"
+description = "Web bridge node for web application control via SocketIO"
+
+[dependencies]
+# Workspace dependencies
+dora-node-api = { workspace = true }
+dora-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+
+# SocketIO server dependencies
+tokio = { version = "1.24.2", features = ["full"] }
+socketioxide = "0.12"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Local shared library
+robo_rover_lib = { path = "../robo_rover_lib" }

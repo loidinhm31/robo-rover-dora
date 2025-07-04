@@ -1,3 +1,8 @@
+Install dora-cli
+```shell
+cargo install dora-cli
+```
+
 Dora start
 ```shell
 dora up

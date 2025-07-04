@@ -167,7 +167,7 @@ async fn sim_interface_async() -> Result<()> {
                                     let bytes = bytes_array.value(0);
                                     if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
                                         if let Err(e) = debug_arm_command_processing(&shared_state, &cmd_data).await {
-                                            println!("❌ Error processing arm command: {}", e);
+                                            println!("Error processing arm command: {}", e);
                                         }
                                     }
                                 }
@@ -200,7 +200,7 @@ async fn sim_interface_async() -> Result<()> {
                     }
                 }
 
-                Event::Stop => {
+                Event::Stop(_) => {
                     println!("Stop event received");
                     break;
                 }
@@ -267,7 +267,7 @@ async fn debug_arm_command_processing(shared_state: &SharedState, cmd_data: &ser
             }
             // REMOVED: No more mode switching!
         } else {
-            println!("   ⚠ArmCommandWithMetadata has no command");
+            println!("   ArmCommandWithMetadata has no command");
         }
     } else {
         println!("   Failed to parse arm command");

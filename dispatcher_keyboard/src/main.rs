@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-            Event::Stop => {
+            Event::Stop(_) => {
                 println!("Stop event received - shutting down dispatcher keyboard");
                 break;
             }
