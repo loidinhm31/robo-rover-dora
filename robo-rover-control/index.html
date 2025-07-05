@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robo Rover Web Bridge Test Client</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .panel {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status {
+      grid-column: 1 / -1;
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-success { background-color: #28a745; color: white; }
+    .btn-warning { background-color: #ffc107; color: black; }
+    .btn-danger { background-color: #dc3545; color: white; }
+    .btn-info { background-color: #17a2b8; color: white; }
+    .btn-primary:hover { background-color: #0056b3; }
+    .btn-success:hover { background-color: #1e7e34; }
+    .btn-warning:hover { background-color: #d39e00; }
+    .btn-danger:hover { background-color: #bd2130; }
+    .btn-info:hover { background-color: #138496; }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .telemetry {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+    }
+    .telemetry-active {
+      border-color: #28a745;
+      background-color: #f1f8f4;
+    }
+    .connected { color: #28a745; font-weight: bold; }
+    .disconnected { color: #dc3545; font-weight: bold; }
+    .log {
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .control-group label {
+      min-width: 80px;
+    }
+    .movement-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin: 10px 0;
+    }
+    .movement-grid button {
+      padding: 8px;
+      font-size: 12px;
+    }
+    .center-item {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .data-fresh {
+      color: #28a745;
+      font-weight: bold;
+    }
+    .data-stale {
+      color: #6c757d;
+    }
+    .joint-value {
+      display: inline-block;
+      margin: 2px;
+      padding: 2px 4px;
+      background-color: #e9ecef;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .pose-value {
+      display: inline-block;
+      margin: 2px;
+      padding: 2px 4px;
+      background-color: #d1ecf1;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+<h1>Robo Rover Web Bridge Test Client</h1>
+
+<div class="status panel">
+  <h3>Connection Status</h3>
+  <p>Status: <span id="connectionStatus" class="disconnected">Disconnected</span></p>
+  <p>Client ID: <span id="clientId">-</span></p>
+  <p>Commands Sent: <span id="commandsSent">0</span> | Telemetry Received: <span id="commandsReceived">0</span></p>
+  <button id="connectBtn" class="btn-primary">Connect to Web Bridge</button>
+  <button id="getStatusBtn" class="btn-success" disabled>Get System Status</button>
+  <button id="pingBtn" class="btn-info" disabled>Ping Server</button>
+</div>
+
+<div class="container">
+  <!-- ARM CONTROLS -->
+  <div class="panel">
+    <h3>ARM Control</h3>
+
+    <div class="controls">
+      <h4>Cartesian Movement (1cm increments)</h4>
+      <div class="control-group">
+        <label>X:</label>
+        <input type="number" id="armX" value="0.01" step="0.001" min="-0.1" max="0.1">
+        <label>Y:</label>
+        <input type="number" id="armY" value="0.0" step="0.001" min="-0.1" max="0.1">
+        <label>Z:</label>
+        <input type="number" id="armZ" value="0.0" step="0.001" min="-0.1" max="0.1">
+      </div>
+      <div class="control-group">
+        <label>Roll:</label>
+        <input type="number" id="armRoll" value="0.0" step="0.1" min="-3.14" max="3.14">
+        <label>Pitch:</label>
+        <input type="number" id="armPitch" value="0.0" step="0.1" min="-3.14" max="3.14">
+        <label>Yaw:</label>
+        <input type="number" id="armYaw" value="0.0" step="0.1" min="-3.14" max="3.14">
+      </div>
+      <button id="sendCartesianMove" class="btn-primary" disabled>Send Custom Cartesian Move</button>
+
+      <h4>Quick Movement Controls</h4>
+      <div class="movement-grid">
+        <div></div>
+        <button id="armForward" class="btn-primary" disabled>↑ X+ (Forward)</button>
+        <div></div>
+        <button id="armLeft" class="btn-primary" disabled>← Y- (Left)</button>
+        <button id="armUp" class="btn-success center-item" disabled>↑ Z+ (Up)</button>
+        <button id="armRight" class="btn-primary" disabled>→ Y+ (Right)</button>
+        <div></div>
+        <button id="armBackward" class="btn-primary" disabled>↓ X- (Backward)</button>
+        <button id="armDown" class="btn-warning" disabled>↓ Z- (Down)</button>
+      </div>
+
+      <h4>System Commands</h4>
+      <button id="armHome" class="btn-success" disabled>Home Position</button>
+      <button id="armStop" class="btn-warning" disabled>Stop Movement</button>
+      <button id="armEmergencyStop" class="btn-danger" disabled>Emergency Stop</button>
+    </div>
+
+    <div class="telemetry" id="armTelemetryPanel">
+      <h4>ARM Telemetry</h4>
+      <div id="armTelemetry">No data received yet</div>
+    </div>
+  </div>
+
+  <!-- ROVER CONTROLS -->
+  <div class="panel">
+    <h3>ROVER Control</h3>
+
+    <div class="controls">
+      <h4>Manual Control</h4>
+      <div class="control-group">
+        <label>Throttle:</label>
+        <input type="number" id="roverThrottle" value="0.0" min="-1.0" max="1.0" step="0.1">
+        <small>(-1.0 reverse to 1.0 forward)</small>
+      </div>
+      <div class="control-group">
+        <label>Brake:</label>
+        <input type="number" id="roverBrake" value="0.0" min="0.0" max="1.0" step="0.1">
+        <small>(0.0 to 1.0)</small>
+      </div>
+      <div class="control-group">
+        <label>Steering:</label>
+        <input type="number" id="roverSteering" value="0.0" min="-15.0" max="15.0" step="1.0">
+        <small>(-15° left to 15° right)</small>
+      </div>
+      <button id="sendRoverCommand" class="btn-primary" disabled>Send Custom Rover Command</button>
+
+      <h4>Quick Movement Controls</h4>
+      <div class="movement-grid">
+        <button id="roverTurnLeft" class="btn-primary" disabled>↖ Turn Left</button>
+        <button id="roverForward" class="btn-success" disabled>↑ Forward</button>
+        <button id="roverTurnRight" class="btn-primary" disabled>↗ Turn Right</button>
+        <button id="roverStraightenLeft" class="btn-primary" disabled>← Straighten</button>
+        <button id="roverBrakeBtn" class="btn-warning center-item" disabled>⬛ Brake</button>
+        <button id="roverStraightenRight" class="btn-primary" disabled>→ Straighten</button>
+        <div></div>
+        <button id="roverBackward" class="btn-primary" disabled>↓ Reverse</button>
+        <button id="roverStop" class="btn-danger" disabled>⏹ Stop</button>
+      </div>
+    </div>
+
+    <div class="telemetry" id="roverTelemetryPanel">
+      <h4>ROVER Telemetry</h4>
+      <div id="roverTelemetry">No data received yet</div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG PANEL -->
+<div class="panel" style="margin-top: 20px;">
+  <h3>Event Log</h3>
+  <div id="eventLog" class="log"></div>
+  <button id="clearLog" class="btn-warning">Clear Log</button>
+</div>
+
+<script>
+  let socket = null;
+  let isConnected = false;
+  let commandsSent = 0;
+  let commandsReceived = 0;
+  let lastArmTelemetryTime = 0;
+  let lastRoverTelemetryTime = 0;
+
+  // DOM elements
+  const connectionStatus = document.getElementById('connectionStatus');
+  const clientId = document.getElementById('clientId');
+  const connectBtn = document.getElementById('connectBtn');
+  const getStatusBtn = document.getElementById('getStatusBtn');
+  const pingBtn = document.getElementById('pingBtn');
+  const eventLog = document.getElementById('eventLog');
+  const armTelemetry = document.getElementById('armTelemetry');
+  const roverTelemetry = document.getElementById('roverTelemetry');
+  const armTelemetryPanel = document.getElementById('armTelemetryPanel');
+  const roverTelemetryPanel = document.getElementById('roverTelemetryPanel');
+  const commandsSentElement = document.getElementById('commandsSent');
+  const commandsReceivedElement = document.getElementById('commandsReceived');
+
+  // Get all control buttons
+  const controlButtons = document.querySelectorAll('button:not(#connectBtn):not(#clearLog)');
+
+  // Logging function
+  function log(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement('div');
+    logEntry.innerHTML = `[${timestamp}] ${message}`;
+    logEntry.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : type === 'warning' ? '#fd7e14' : '#333';
+    eventLog.appendChild(logEntry);
+    eventLog.scrollTop = eventLog.scrollHeight;
+  }
+
+  // Update button states
+  function updateButtonStates(enabled) {
+    controlButtons.forEach(btn => {
+      btn.disabled = !enabled;
+    });
+    getStatusBtn.disabled = !enabled;
+    pingBtn.disabled = !enabled;
+  }
+
+  // Update counters
+  function updateCounters() {
+    commandsSentElement.textContent = commandsSent;
+    commandsReceivedElement.textContent = commandsReceived;
+  }
+
+  // Format joint values
+  function formatJointValues(values, label) {
+    if (!values || !Array.isArray(values)) return `<strong>${label}:</strong> No data`;
+
+    const formatted = values.map((val, idx) =>
+            `<span class="joint-value">J${idx + 1}: ${val.toFixed(3)}</span>`
+    ).join(' ');
+
+    return `<strong>${label}:</strong><br>${formatted}`;
+  }
+
+  // Format pose values
+  function formatPoseValues(pose) {
+    if (!pose || !Array.isArray(pose) || pose.length < 6) return 'No data';
+
+    const labels = ['X', 'Y', 'Z', 'Roll', 'Pitch', 'Yaw'];
+    const formatted = pose.slice(0, 6).map((val, idx) =>
+            `<span class="pose-value">${labels[idx]}: ${val.toFixed(3)}</span>`
+    ).join(' ');
+
+    return formatted;
+  }
+
+  // Check if data is fresh (within last 2 seconds)
+  function isDataFresh(timestamp) {
+    return (Date.now() - timestamp) < 2000;
+  }
+
+  // Connect to web bridge
+  function connect() {
+    if (socket) {
+      socket.disconnect();
+    }
+
+    log('Connecting to Web Bridge at http://127.0.0.1:8080...');
+    socket = io('http://127.0.0.1:8080');
+
+    socket.on('connect', () => {
+      isConnected = true;
+      connectionStatus.textContent = 'Connected';
+      connectionStatus.className = 'connected';
+      clientId.textContent = socket.id;
+      connectBtn.textContent = 'Disconnect';
+      updateButtonStates(true);
+      log('Connected to Web Bridge successfully', 'success');
+    });
+
+    socket.on('disconnect', () => {
+      isConnected = false;
+      connectionStatus.textContent = 'Disconnected';
+      connectionStatus.className = 'disconnected';
+      clientId.textContent = '-';
+      connectBtn.textContent = 'Connect to Web Bridge';
+      updateButtonStates(false);
+      log('Disconnected from Web Bridge', 'error');
+
+      // Reset telemetry panels
+      armTelemetryPanel.classList.remove('telemetry-active');
+      roverTelemetryPanel.classList.remove('telemetry-active');
+    });
+
+    socket.on('status', (data) => {
+      commandsReceived++;
+      updateCounters();
+      log(`Status received: ${data.message || JSON.stringify(data)}`, 'info');
+
+      if (data.type === 'system_status') {
+        log(`System stats - Sent: ${data.commands_sent}, Received: ${data.commands_received}, Uptime: ${data.uptime_seconds}s`, 'info');
+      } else if (data.type === 'welcome') {
+        log(`Welcome message: ${data.message}`, 'success');
+      }
+    });
+
+    socket.on('error', (data) => {
+      commandsReceived++;
+      updateCounters();
+      log(`Error received: ${data.message || JSON.stringify(data)}`, 'error');
+    });
+
+    socket.on('telemetry', (data) => {
+      commandsReceived++;
+      updateCounters();
+
+      if (data.type === 'arm_telemetry') {
+        lastArmTelemetryTime = Date.now();
+        armTelemetryPanel.classList.add('telemetry-active');
+
+        const freshClass = isDataFresh(data.timestamp) ? 'data-fresh' : 'data-stale';
+
+        armTelemetry.innerHTML = `
+          <div class="${freshClass}">
+            <strong>End Effector Pose:</strong><br>
+            ${formatPoseValues(data.end_effector_pose)}<br><br>
+
+            ${data.joint_angles ? formatJointValues(data.joint_angles, 'Joint Angles') + '<br><br>' : ''}
+            ${data.joint_velocities ? formatJointValues(data.joint_velocities, 'Joint Velocities') + '<br><br>' : ''}
+
+            <strong>Status:</strong> ${data.is_moving ? '<span style="color: #fd7e14;">Moving</span>' : '<span style="color: #28a745;">Stopped</span>'}<br>
+            <strong>Source:</strong> ${data.source || 'unknown'}<br>
+            <strong>Last Update:</strong> ${new Date(data.timestamp).toLocaleTimeString()}
+          </div>
+        `;
+
+        log(`ARM telemetry updated - Moving: ${data.is_moving}`, 'info');
+      }
+      else if (data.type === 'rover_telemetry') {
+        lastRoverTelemetryTime = Date.now();
+        roverTelemetryPanel.classList.add('telemetry-active');
+
+        const freshClass = isDataFresh(data.timestamp) ? 'data-fresh' : 'data-stale';
+
+        roverTelemetry.innerHTML = `
+          <div class="${freshClass}">
+            <strong>Position:</strong> (${data.position[0].toFixed(2)}, ${data.position[1].toFixed(2)})<br>
+            <strong>Yaw:</strong> ${(data.yaw * 180 / Math.PI).toFixed(1)}° (${data.yaw.toFixed(3)} rad)<br>
+            <strong>Velocity:</strong> ${data.velocity.toFixed(2)} m/s<br>
+            <strong>Last Update:</strong> ${new Date(data.timestamp).toLocaleTimeString()}
+          </div>
+        `;
+
+        log(`ROVER telemetry updated - Pos: (${data.position[0].toFixed(2)}, ${data.position[1].toFixed(2)}), Vel: ${data.velocity.toFixed(2)}`, 'info');
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      log(`Connection error: ${error.message}`, 'error');
+    });
+
+    socket.on('pong', (data) => {
+      log(`Ping response received: ${JSON.stringify(data)}`, 'success');
+    });
+  }
+
+  // Send arm command
+  function sendArmCommand(type, params = {}) {
+    if (!isConnected) {
+      log('Cannot send command - not connected to web bridge', 'error');
+      return;
+    }
+
+    const command = { type: type, ...params };
+    socket.emit('arm_command', command);
+    commandsSent++;
+    updateCounters();
+    log(`Sent ARM command: ${JSON.stringify(command)}`);
+  }
+
+  // Send rover command
+  function sendRoverCommand(throttle, brake, steering_angle) {
+    if (!isConnected) {
+      log('Cannot send command - not connected to web bridge', 'error');
+      return;
+    }
+
+    const command = { throttle, brake, steering_angle };
+    socket.emit('rover_command', command);
+    commandsSent++;
+    updateCounters();
+    log(`Sent ROVER command: throttle=${throttle.toFixed(2)}, brake=${brake.toFixed(2)}, steer=${steering_angle.toFixed(1)}°`);
+  }
+
+  // Event listeners
+  connectBtn.addEventListener('click', () => {
+    if (isConnected) {
+      socket.disconnect();
+    } else {
+      connect();
+    }
+  });
+
+  getStatusBtn.addEventListener('click', () => {
+    if (isConnected) {
+      socket.emit('get_status');
+      log('Requested system status');
+    }
+  });
+
+  pingBtn.addEventListener('click', () => {
+    if (isConnected) {
+      socket.emit('ping', { timestamp: Date.now(), client_id: socket.id });
+      log('Sent ping to server');
+    }
+  });
+
+  document.getElementById('clearLog').addEventListener('click', () => {
+    eventLog.innerHTML = '';
+    log('Event log cleared');
+  });
+
+  // ARM control event listeners
+  document.getElementById('sendCartesianMove').addEventListener('click', () => {
+    const x = parseFloat(document.getElementById('armX').value);
+    const y = parseFloat(document.getElementById('armY').value);
+    const z = parseFloat(document.getElementById('armZ').value);
+    const roll = parseFloat(document.getElementById('armRoll').value);
+    const pitch = parseFloat(document.getElementById('armPitch').value);
+    const yaw = parseFloat(document.getElementById('armYaw').value);
+
+    sendArmCommand('cartesian_move', { x, y, z, roll, pitch, yaw });
+  });
+
+  // Quick arm movement buttons (matching dispatcher_keyboard pattern)
+  document.getElementById('armForward').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: 0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armBackward').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: -0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armLeft').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: 0, y: -0.01, z: 0, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armRight').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: 0, y: 0.01, z: 0, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armUp').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: 0, y: 0, z: 0.01, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armDown').addEventListener('click', () => {
+    sendArmCommand('cartesian_move', { x: 0, y: 0, z: -0.01, roll: 0, pitch: 0, yaw: 0 });
+  });
+
+  document.getElementById('armHome').addEventListener('click', () => {
+    sendArmCommand('home');
+  });
+
+  document.getElementById('armStop').addEventListener('click', () => {
+    sendArmCommand('stop');
+  });
+
+  document.getElementById('armEmergencyStop').addEventListener('click', () => {
+    sendArmCommand('emergency_stop');
+  });
+
+  // ROVER control event listeners
+  document.getElementById('sendRoverCommand').addEventListener('click', () => {
+    const throttle = parseFloat(document.getElementById('roverThrottle').value);
+    const brake = parseFloat(document.getElementById('roverBrake').value);
+    const steering = parseFloat(document.getElementById('roverSteering').value);
+
+    sendRoverCommand(throttle, brake, steering);
+  });
+
+  // Quick rover movement buttons (matching dispatcher_keyboard pattern)
+  document.getElementById('roverForward').addEventListener('click', () => {
+    sendRoverCommand(0.2, 0.0, 0.0); // 20% throttle forward
+  });
+
+  document.getElementById('roverBackward').addEventListener('click', () => {
+    sendRoverCommand(-0.2, 0.0, 0.0); // 20% throttle reverse
+  });
+
+  document.getElementById('roverTurnLeft').addEventListener('click', () => {
+    sendRoverCommand(0.2, 0.0, 5.0); // Forward with left turn
+  });
+
+  document.getElementById('roverTurnRight').addEventListener('click', () => {
+    sendRoverCommand(0.2, 0.0, -5.0); // Forward with right turn
+  });
+
+  document.getElementById('roverStraightenLeft').addEventListener('click', () => {
+    sendRoverCommand(0.0, 0.0, 5.0); // Straighten steering left
+  });
+
+  document.getElementById('roverStraightenRight').addEventListener('click', () => {
+    sendRoverCommand(0.0, 0.0, -5.0); // Straighten steering right
+  });
+
+  document.getElementById('roverBrakeBtn').addEventListener('click', () => {
+    sendRoverCommand(0.0, 1.0, 0.0); // Full brake
+  });
+
+  document.getElementById('roverStop').addEventListener('click', () => {
+    sendRoverCommand(0.0, 0.0, 0.0); // Complete stop
+  });
+
+  // Check for stale data periodically
+  setInterval(() => {
+    const now = Date.now();
+
+    if (lastArmTelemetryTime > 0 && (now - lastArmTelemetryTime) > 5000) {
+      armTelemetryPanel.classList.remove('telemetry-active');
+    }
+
+    if (lastRoverTelemetryTime > 0 && (now - lastRoverTelemetryTime) > 5000) {
+      roverTelemetryPanel.classList.remove('telemetry-active');
+    }
+  }, 1000);
+
+  // Initialize
+  log('Web Bridge Test Client loaded. Click Connect to start.');
+  updateButtonStates(false);
+  updateCounters();
+</script>
+</body>
+</html>
