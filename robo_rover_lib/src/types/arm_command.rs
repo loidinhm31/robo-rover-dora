@@ -24,10 +24,9 @@ pub enum ArmCommand {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum InputSource {
-    Local,
-    Unity,
-    ControlPad, // For future use
+pub struct ArmCommandWithMetadata {
+    pub command: Option<ArmCommand>,
+    pub metadata: CommandMetadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,15 +38,16 @@ pub struct CommandMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CommandPriority {
-    Low,
-    Normal,
-    High,
-    Emergency,
+pub enum InputSource {
+    Keyboard,
+    WebBridge,
+    Autonomous,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct ArmCommandWithMetadata {
-    pub command: Option<ArmCommand>,
-    pub metadata: CommandMetadata,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CommandPriority {
+    Low = 1,
+    Normal = 2,
+    High = 3,
+    Emergency = 4,
 }

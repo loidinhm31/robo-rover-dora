@@ -1,7 +1,13 @@
 use dora_node_api::arrow::array::{Array, AsArray};
-use dora_node_api::{arrow::array::{types::GenericBinaryType, BinaryArray}, dora_core::config::DataId, DoraNode, Event};
+use dora_node_api::{
+    arrow::array::{types::GenericBinaryType, BinaryArray},
+    dora_core::config::DataId,
+    DoraNode, Event,
+};
 use eyre::Result;
-use robo_rover_lib::{ArmCommand, ArmStatus, CommandMetadata, JointState, ReachabilityStatus, RoverCommand, RoverTelemetry, SimulationConfig};
+use robo_rover_lib::{
+    ArmCommand, ArmTelemetry, CommandMetadata, RoverCommand, RoverTelemetry, SimulationConfig,
+};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -9,7 +15,10 @@ use uuid;
 
 use axum::http::Method;
 use serde_json::Value;
-use socketioxide::{extract::{Data, SocketRef}, SocketIo};
+use socketioxide::{
+    extract::{Data, SocketRef},
+    SocketIo,
+};
 use tokio;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
@@ -19,10 +28,12 @@ struct SharedState {
     latest_arm_command: Arc<Mutex<Option<ArmCommand>>>,
     latest_rover_command: Arc<Mutex<Option<RoverCommand>>>,
     latest_rover_telemetry: Arc<Mutex<Option<RoverTelemetry>>>,
+    latest_arm_telemetry: Arc<Mutex<Option<ArmTelemetry>>>,
     unity_connected: Arc<Mutex<bool>>,
     // Debug counters
     commands_sent: Arc<AtomicU64>,
-    telemetry_received: Arc<AtomicU64>,
+    rover_telemetry_received: Arc<AtomicU64>,
+    arm_telemetry_received: Arc<AtomicU64>,
     connection_count: Arc<AtomicU64>,
 }
 
@@ -32,10 +43,12 @@ impl SharedState {
             latest_arm_command: Arc::new(Mutex::new(None)),
             latest_rover_command: Arc::new(Mutex::new(None)),
             latest_rover_telemetry: Arc::new(Mutex::new(None)),
+            latest_arm_telemetry: Arc::new(Mutex::new(None)),
             unity_connected: Arc::new(Mutex::new(false)),
             // Initialize debug counters
             commands_sent: Arc::new(AtomicU64::new(0)),
-            telemetry_received: Arc::new(AtomicU64::new(0)),
+            rover_telemetry_received: Arc::new(AtomicU64::new(0)),
+            arm_telemetry_received: Arc::new(Default::default()),
             connection_count: Arc::new(AtomicU64::new(0)),
         }
     }
@@ -64,9 +77,7 @@ fn main() -> Result<()> {
         .enable_all()
         .build()?;
 
-    rt.block_on(async {
-        sim_interface_async().await
-    })
+    rt.block_on(async { sim_interface_async().await })
 }
 
 async fn sim_interface_async() -> Result<()> {
@@ -87,12 +98,12 @@ async fn sim_interface_async() -> Result<()> {
     }
 
     let (mut node, mut events) = DoraNode::init_from_env()?;
-    let joint_feedback_output = DataId::from("joint_feedback".to_owned());
     let rover_telemetry_output = DataId::from("rover_telemetry".to_owned());
+    let arm_telemetry_output = DataId::from("arm_telemetry".to_owned());
 
     // Load simulation configuration
-    let sim_config = SimulationConfig::load_from_file("config/simulation.toml")
-        .unwrap_or_else(|_| {
+    let sim_config =
+        SimulationConfig::load_from_file("config/simulation.toml").unwrap_or_else(|_| {
             println!("Using default simulation config");
             SimulationConfig {
                 unity_websocket_port: 4567,
@@ -120,8 +131,10 @@ async fn sim_interface_async() -> Result<()> {
     println!("Verifying SocketIO server is running...");
     match tokio::time::timeout(
         Duration::from_secs(3),
-        tokio::net::TcpStream::connect("127.0.0.1:4567")
-    ).await {
+        tokio::net::TcpStream::connect("127.0.0.1:4567"),
+    )
+    .await
+    {
         Ok(Ok(_)) => {
             println!("SocketIO server is responding on port 4567");
         }
@@ -132,9 +145,6 @@ async fn sim_interface_async() -> Result<()> {
             println!("Timeout connecting to SocketIO server");
         }
     }
-
-    // Mock simulation for arm
-    let mut mock_sim = MockSimulation::new();
 
     let update_interval = Duration::from_secs_f64(1.0 / sim_config.update_rate_hz);
     let mut last_update = std::time::Instant::now();
@@ -147,9 +157,7 @@ async fn sim_interface_async() -> Result<()> {
 
     loop {
         // Non-blocking event processing with timeout
-        let event_future = tokio::time::timeout(Duration::from_millis(10), async {
-            events.recv()
-        });
+        let event_future = tokio::time::timeout(Duration::from_millis(10), async { events.recv() });
 
         if let Ok(Some(event)) = event_future.await {
             debug_counter += 1;
@@ -162,11 +170,17 @@ async fn sim_interface_async() -> Result<()> {
                     match id_str {
                         "arm_command" => {
                             println!("Processing ARM command...");
-                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
+                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>()
+                            {
                                 if bytes_array.len() > 0 {
                                     let bytes = bytes_array.value(0);
-                                    if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
-                                        if let Err(e) = debug_arm_command_processing(&shared_state, &cmd_data).await {
+                                    if let Ok(cmd_data) =
+                                        serde_json::from_slice::<serde_json::Value>(bytes)
+                                    {
+                                        if let Err(e) =
+                                            debug_arm_command_processing(&shared_state, &cmd_data)
+                                                .await
+                                        {
                                             println!("Error processing arm command: {}", e);
                                         }
                                     }
@@ -176,11 +190,17 @@ async fn sim_interface_async() -> Result<()> {
 
                         "rover_command" => {
                             println!("Processing ROVER command...");
-                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
+                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>()
+                            {
                                 if bytes_array.len() > 0 {
                                     let bytes = bytes_array.value(0);
-                                    if let Ok(cmd_data) = serde_json::from_slice::<serde_json::Value>(bytes) {
-                                        if let Err(e) = debug_rover_command_processing(&shared_state, &cmd_data).await {
+                                    if let Ok(cmd_data) =
+                                        serde_json::from_slice::<serde_json::Value>(bytes)
+                                    {
+                                        if let Err(e) =
+                                            debug_rover_command_processing(&shared_state, &cmd_data)
+                                                .await
+                                        {
                                             println!("Error processing rover command: {}", e);
                                         }
                                     } else {
@@ -214,21 +234,29 @@ async fn sim_interface_async() -> Result<()> {
         // Periodic updates
         let now = std::time::Instant::now();
         if now.duration_since(last_update) >= update_interval {
-            // Update mock simulation
-            mock_sim.update();
-
-            // Send arm feedback
-            let arm_status = mock_sim.get_arm_status();
-            let arm_serialized = serde_json::to_vec(&arm_status)?;
-            let arm_arrow = BinaryArray::from_vec(vec![arm_serialized.as_slice()]);
-            node.send_output(joint_feedback_output.clone(), Default::default(), arm_arrow)?;
-
             // Send rover telemetry if available
             if let Ok(rover_tel_opt) = shared_state.latest_rover_telemetry.lock() {
                 if let Some(rover_tel) = rover_tel_opt.as_ref() {
                     let rover_serialized = serde_json::to_vec(rover_tel)?;
                     let rover_arrow = BinaryArray::from_vec(vec![rover_serialized.as_slice()]);
-                    node.send_output(rover_telemetry_output.clone(), Default::default(), rover_arrow)?;
+                    node.send_output(
+                        rover_telemetry_output.clone(),
+                        Default::default(),
+                        rover_arrow,
+                    )?;
+                }
+            }
+
+            // Send arm telemetry if available
+            if let Ok(arm_tel_opt) = shared_state.latest_arm_telemetry.lock() {
+                if let Some(arm_tel) = arm_tel_opt.as_ref() {
+                    let arm_tel_serialized = serde_json::to_vec(arm_tel)?;
+                    let arm_tel_arrow = BinaryArray::from_vec(vec![arm_tel_serialized.as_slice()]);
+                    node.send_output(
+                        arm_telemetry_output.clone(),
+                        Default::default(),
+                        arm_tel_arrow,
+                    )?;
                 }
             }
 
@@ -249,23 +277,30 @@ async fn sim_interface_async() -> Result<()> {
     Ok(())
 }
 
-async fn debug_arm_command_processing(shared_state: &SharedState, cmd_data: &serde_json::Value) -> Result<()> {
+async fn debug_arm_command_processing(
+    shared_state: &SharedState,
+    cmd_data: &serde_json::Value,
+) -> Result<()> {
     println!("Processing arm command from dora:");
     println!("   Raw command data: {}", cmd_data);
 
     // Try to parse as ArmCommandWithMetadata first
-    if let Ok(cmd_with_metadata) = serde_json::from_slice::<ArmCommandWithMetadata>(cmd_data.to_string().as_bytes()) {
+    if let Ok(cmd_with_metadata) =
+        serde_json::from_slice::<ArmCommandWithMetadata>(cmd_data.to_string().as_bytes())
+    {
         if let Some(arm_command) = cmd_with_metadata.command {
             println!("   Successfully parsed ArmCommandWithMetadata:");
             println!("      Command: {:?}", arm_command);
-            println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
+            println!(
+                "      Command ID: {}",
+                cmd_with_metadata.metadata.command_id
+            );
 
             // Store the command for Unity transmission
             if let Ok(mut latest_cmd) = shared_state.latest_arm_command.lock() {
                 *latest_cmd = Some(arm_command);
                 println!("   ARM command stored for SocketIO transmission");
             }
-            // REMOVED: No more mode switching!
         } else {
             println!("   ArmCommandWithMetadata has no command");
         }
@@ -276,17 +311,28 @@ async fn debug_arm_command_processing(shared_state: &SharedState, cmd_data: &ser
     Ok(())
 }
 
-async fn debug_rover_command_processing(shared_state: &SharedState, cmd_data: &serde_json::Value) -> Result<()> {
+async fn debug_rover_command_processing(
+    shared_state: &SharedState,
+    cmd_data: &serde_json::Value,
+) -> Result<()> {
     println!("Processing rover command from dora:");
     println!("   Raw command data: {}", cmd_data);
 
     // Try to parse as RoverCommandWithMetadata
-    if let Ok(cmd_with_metadata) = serde_json::from_slice::<RoverCommandWithMetadata>(cmd_data.to_string().as_bytes()) {
+    if let Ok(cmd_with_metadata) =
+        serde_json::from_slice::<RoverCommandWithMetadata>(cmd_data.to_string().as_bytes())
+    {
         println!("   Successfully parsed RoverCommandWithMetadata:");
         println!("      Throttle: {:.3}", cmd_with_metadata.command.throttle);
         println!("      Brake: {:.3}", cmd_with_metadata.command.brake);
-        println!("      Steering: {:.3}°", cmd_with_metadata.command.steering_angle);
-        println!("      Command ID: {}", cmd_with_metadata.metadata.command_id);
+        println!(
+            "      Steering: {:.3}°",
+            cmd_with_metadata.command.steering_angle
+        );
+        println!(
+            "      Command ID: {}",
+            cmd_with_metadata.metadata.command_id
+        );
 
         // Store the command
         if let Ok(mut latest_cmd) = shared_state.latest_rover_command.lock() {
@@ -306,8 +352,14 @@ fn print_debug_stats(state: &SharedState) {
     let connected = state.unity_connected.lock().map(|c| *c).unwrap_or(false);
 
     println!("Debug Stats:");
-    println!("   Commands sent: {}", state.commands_sent.load(Ordering::SeqCst));
-    println!("   Telemetry received: {}", state.telemetry_received.load(Ordering::SeqCst));
+    println!(
+        "   Commands sent: {}",
+        state.commands_sent.load(Ordering::SeqCst)
+    );
+    println!(
+        "   Telemetry received: {}",
+        state.rover_telemetry_received.load(Ordering::SeqCst)
+    );
     println!("   Unity connected: {}", connected);
     println!("   Mode: ALWAYS_FORWARD_BOTH (Fixed!)");
 }
@@ -333,28 +385,64 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
             *connected = true;
         }
 
-        // Handle telemetry from Unity
+        // Handle rover telemetry from Unity
         socket.on("telemetry", {
-            let state = state.clone();
+            let socket_state = shared_state.clone();
             move |_socket: SocketRef, Data::<Value>(data)| {
-                let count = state.telemetry_received.fetch_add(1, Ordering::SeqCst) + 1;
+                let count = socket_state.rover_telemetry_received.fetch_add(1, Ordering::SeqCst) + 1;
 
                 if count <= 10 || count % 20 == 0 {
-                    println!("Received telemetry #{} from Unity", count);
+                    println!("Received rover telemetry #{} from Unity", count);
                     println!("   Raw data: {}", data);
                 }
 
-                match parse_unity_telemetry(&data) {
-                    Ok(telemetry) => {
+                match parse_unity_rover_telemetry(&data) {
+                    Ok(rover_telemetry) => {
                         if count <= 5 || count % 20 == 0 {
                             println!("   Parsed telemetry successfully:");
-                            println!("      Position: ({:.2}, {:.2})", telemetry.position.0, telemetry.position.1);
-                            println!("      Velocity: {:.2} m/s", telemetry.velocity);
-                            println!("      Yaw: {:.1}°", telemetry.yaw.to_degrees());
+                            println!("      Position: ({:.2}, {:.2})", rover_telemetry.position.0, rover_telemetry.position.1);
+                            println!("      Velocity: {:.2} m/s", rover_telemetry.velocity);
+                            println!("      Yaw: {:.1}°", rover_telemetry.yaw.to_degrees());
                         }
 
-                        if let Ok(mut tel) = state.latest_rover_telemetry.lock() {
-                            *tel = Some(telemetry);
+                        // Store the rover telemetry for dora output
+                        if let Ok(mut latest_rover_tel) = socket_state.latest_rover_telemetry.lock() {
+                            *latest_rover_tel = Some(rover_telemetry);
+                        }
+                    }
+                    Err(e) => {
+                        println!("   Failed to parse Unity telemetry: {}", e);
+                    }
+                }
+            }
+        });
+
+        // Handle arm telemetry from Unity
+        socket.on("arm_telemetry", {
+            let socket_state = shared_state.clone();
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                let count = socket_state.arm_telemetry_received.fetch_add(1, Ordering::SeqCst) + 1;
+
+                if count <= 10 || count % 20 == 0 {
+                    println!("Received arm telemetry #{} from Unity", count);
+                    println!("   Raw data: {}", data);
+                }
+
+                match parse_unity_arm_telemetry(&data) {
+                    Ok(arm_telemetry) => {
+                        if count <= 5 || count % 20 == 0 {
+                            println!("   Parsed telemetry successfully:");
+                            println!("      End effector pose: [{:.3}, {:.3}, {:.3}, {:.3}, {:.3}, {:.3}]",
+                                     arm_telemetry.end_effector_pose[0], arm_telemetry.end_effector_pose[1],
+                                     arm_telemetry.end_effector_pose[2], arm_telemetry.end_effector_pose[3],
+                                     arm_telemetry.end_effector_pose[4], arm_telemetry.end_effector_pose[5]);
+                            println!("      Is moving: {}", arm_telemetry.is_moving);
+                            println!("      Timestamp: {}", arm_telemetry.timestamp);
+                        }
+
+                        if let Ok(mut latest_arm_tel) = socket_state.latest_arm_telemetry.lock() {
+                            *latest_arm_tel = Some(arm_telemetry);
+                            println!("   ARM telemetry stored for dora dataflow");
                         }
                     }
                     Err(e) => {
@@ -371,7 +459,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
                 // Send test command to verify connection
                 let test_data = serde_json::json!({
                     "throttle": "0.0",
-                    "brake": "0.0", 
+                    "brake": "0.0",
                     "steering_angle": "0.0",
                     "inset_image1": "",
                     "inset_image2": "",
@@ -389,10 +477,10 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
 
         // Handle disconnect
         socket.on_disconnect({
-            let state = state.clone();
+            let socket_state = state.clone();
             move |socket: SocketRef| {
                 println!("Unity disconnected: {}", socket.id);
-                if let Ok(mut connected) = state.unity_connected.lock() {
+                if let Ok(mut connected) = socket_state.unity_connected.lock() {
                     *connected = false;
                 }
             }
@@ -400,7 +488,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
 
         // Start command sending loop for this connection
         let socket_clone = socket.clone();
-        let state_clone = state.clone();
+        let state_clone = shared_state.clone();
         tokio::spawn(async move {
             command_sender_loop(socket_clone, state_clone).await;
         });
@@ -412,8 +500,7 @@ async fn start_socketio_server_properly(shared_state: SharedState) -> Result<()>
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers(Any);
 
-    let app = axum::Router::new()
-        .layer(ServiceBuilder::new().layer(cors).layer(layer));
+    let app = axum::Router::new().layer(ServiceBuilder::new().layer(cors).layer(layer));
 
     // Bind and start server
     println!("Attempting to bind to 127.0.0.1:4567...");
@@ -449,7 +536,10 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
     let mut interval = tokio::time::interval(Duration::from_millis(100)); // 10 Hz
     let mut loop_count = 0u64;
 
-    println!("Starting FIXED command sender loop for connection {}", socket.id);
+    println!(
+        "Starting FIXED command sender loop for connection {}",
+        socket.id
+    );
 
     loop {
         interval.tick().await;
@@ -465,7 +555,10 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
         };
 
         if !connected {
-            println!("Unity disconnected, stopping command loop for {}", socket.id);
+            println!(
+                "Unity disconnected, stopping command loop for {}",
+                socket.id
+            );
             break;
         }
 
@@ -490,8 +583,10 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
 
                 if count <= 10 || count % 20 == 0 {
                     println!("Sending rover command #{} to Unity", count);
-                    println!("   Data: throttle={:.3}, steering={:.1}°, brake={:.3}",
-                             command.throttle, command.steering_angle, command.brake);
+                    println!(
+                        "   Data: throttle={:.3}, steering={:.1}°, brake={:.3}",
+                        command.throttle, command.steering_angle, command.brake
+                    );
                 }
 
                 match socket.emit("data", command_data) {
@@ -505,7 +600,7 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
             }
         }
 
-        // Try to send arm commands  
+        // Try to send arm commands
         if let Ok(mut cmd_opt) = state.latest_arm_command.lock() {
             if let Some(command) = cmd_opt.take() {
                 let count = state.commands_sent.fetch_add(1, Ordering::SeqCst) + 1;
@@ -552,7 +647,15 @@ async fn command_sender_loop(socket: SocketRef, state: SharedState) {
 // Convert Rust ArmCommand to Unity-compatible format
 fn convert_arm_command_to_unity(arm_cmd: &ArmCommand) -> serde_json::Value {
     match arm_cmd {
-        ArmCommand::CartesianMove { x, y, z, roll, pitch, yaw, max_velocity } => {
+        ArmCommand::CartesianMove {
+            x,
+            y,
+            z,
+            roll,
+            pitch,
+            yaw,
+            max_velocity,
+        } => {
             serde_json::json!({
                 "type": "CartesianMove",
                 "x": x,
@@ -564,7 +667,10 @@ fn convert_arm_command_to_unity(arm_cmd: &ArmCommand) -> serde_json::Value {
                 "max_velocity": max_velocity.unwrap_or(1.5)
             })
         }
-        ArmCommand::JointPosition { joint_angles, max_velocity } => {
+        ArmCommand::JointPosition {
+            joint_angles,
+            max_velocity,
+        } => {
             serde_json::json!({
                 "type": "JointPosition",
                 "joint_angles": joint_angles,
@@ -595,29 +701,37 @@ fn convert_arm_command_to_unity(arm_cmd: &ArmCommand) -> serde_json::Value {
     }
 }
 
-fn parse_unity_telemetry(data: &Value) -> Result<RoverTelemetry> {
-    let x = data.get("x")
+fn parse_unity_rover_telemetry(data: &Value) -> Result<RoverTelemetry> {
+    let position = data
+        .get("position")
+        .and_then(|v| v.as_str())
+        .map(|s| {
+            let parts: Vec<&str> = s.split(';').collect();
+            if parts.len() >= 2 {
+                (
+                    parts[0].parse().unwrap_or(0.0),
+                    parts[1].parse().unwrap_or(0.0),
+                )
+            } else {
+                (0.0, 0.0)
+            }
+        })
+        .unwrap_or((0.0, 0.0));
+
+    let yaw = data
+        .get("yaw")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
-    let y = data.get("y")
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<f64>().ok())
-        .unwrap_or(0.0);
-
-    let yaw = data.get("yaw")
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<f64>().ok())
-        .unwrap_or(0.0);
-
-    let velocity = data.get("speed")
+    let velocity = data
+        .get("speed")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
     Ok(RoverTelemetry {
-        position: (x, y),
+        position,
         yaw: yaw.to_radians(),
         pitch: 0.0,
         roll: 0.0,
@@ -627,84 +741,64 @@ fn parse_unity_telemetry(data: &Value) -> Result<RoverTelemetry> {
         near_sample: false,
         picking_up: false,
         timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .duration_since(UNIX_EPOCH)?
             .as_millis() as u64,
     })
 }
 
-// Mock simulation (existing functionality for arm)
-struct MockSimulation {
-    joint_positions: Vec<f64>,
-    target_positions: Vec<f64>,
-    joint_velocities: Vec<f64>,
-    is_moving: bool,
-    last_command: Option<String>,
-}
+fn parse_unity_arm_telemetry(data: &Value) -> Result<ArmTelemetry> {
+    let end_effector_pose =
+        if let Some(pose_array) = data.get("end_effector_pose").and_then(|v| v.as_array()) {
+            [
+                pose_array.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0),
+                pose_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0),
+                pose_array.get(2).and_then(|v| v.as_f64()).unwrap_or(0.0),
+                pose_array.get(3).and_then(|v| v.as_f64()).unwrap_or(0.0),
+                pose_array.get(4).and_then(|v| v.as_f64()).unwrap_or(0.0),
+                pose_array.get(5).and_then(|v| v.as_f64()).unwrap_or(0.0),
+            ]
+        } else {
+            [0.0; 6]
+        };
 
-impl MockSimulation {
-    fn new() -> Self {
-        Self {
-            joint_positions: vec![0.0; 6],
-            target_positions: vec![0.0; 6],
-            joint_velocities: vec![0.0; 6],
-            is_moving: false,
-            last_command: None,
-        }
-    }
+    let is_moving = data
+        .get("is_moving")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
-    fn apply_command(&mut self, cmd_data: &serde_json::Value) {
-        self.last_command = Some(cmd_data.to_string());
+    let timestamp = data
+        .get("timestamp")
+        .and_then(|v| v.as_u64())
+        .unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64
+        });
 
-        if let Some(_command) = cmd_data.get("command") {
-            // Simulate arm movement
-            self.is_moving = true;
-        }
-    }
+    let joint_angles = data
+        .get("joint_angles")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect());
 
-    fn update(&mut self) {
-        // Simple simulation update
-        for i in 0..self.joint_positions.len() {
-            let error = self.target_positions[i] - self.joint_positions[i];
-            self.joint_positions[i] += error * 0.1; // Simple proportional control
-            self.joint_velocities[i] = error * 0.1;
-        }
+    let joint_velocities = data
+        .get("joint_velocities")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect());
 
-        // Check if still moving
-        let max_error = self.joint_positions.iter()
-            .zip(self.target_positions.iter())
-            .map(|(actual, target)| (target - actual).abs())
-            .fold(0.0, f64::max);
-
-        self.is_moving = max_error > 0.001;
-    }
-
-    fn get_arm_status(&self) -> ArmStatus {
-        ArmStatus {
-            joint_state: JointState {
-                positions: self.joint_positions.clone(),
-                velocities: self.joint_velocities.clone(),
-                efforts: vec![0.0; 6],
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-            },
-            end_effector_pose: [0.0; 6],
-            is_moving: self.is_moving,
-            is_homed: true,
-            error_state: None,
-            current_command: self.last_command.clone(),
-            reachability_status: ReachabilityStatus::Reachable,
-        }
-    }
+    Ok(ArmTelemetry {
+        end_effector_pose,
+        is_moving,
+        timestamp,
+        joint_angles,
+        joint_velocities,
+        source: "unity_simulation".to_string(),
+    })
 }
 
 fn init_tracing() -> tracing::subscriber::DefaultGuard {
     let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_string())
-        )
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_string()))
         .with_target(false)
         .with_file(false)
         .with_line_number(false)

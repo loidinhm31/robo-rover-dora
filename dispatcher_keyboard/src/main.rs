@@ -365,7 +365,7 @@ impl KeyboardDispatcher {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64,
-            source: InputSource::Local,
+            source: InputSource::Keyboard,
             priority: CommandPriority::Normal,
         }
     }

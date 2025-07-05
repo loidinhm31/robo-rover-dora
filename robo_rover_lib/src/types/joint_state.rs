@@ -9,17 +9,6 @@ pub struct JointState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArmStatus {
-    pub joint_state: JointState,
-    pub end_effector_pose: [f64; 6], // x, y, z, roll, pitch, yaw
-    pub is_moving: bool,
-    pub is_homed: bool,
-    pub error_state: Option<String>,
-    pub current_command: Option<String>,
-    pub reachability_status: ReachabilityStatus,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReachabilityStatus {
     Reachable,
     NearLimit,
@@ -58,19 +47,5 @@ impl JointState {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-    }
-}
-
-impl ArmStatus {
-    pub fn new(dof: usize) -> Self {
-        Self {
-            joint_state: JointState::new(dof),
-            end_effector_pose: [0.0; 6],
-            is_moving: false,
-            is_homed: false,
-            error_state: None,
-            current_command: None,
-            reachability_status: ReachabilityStatus::Reachable,
-        }
     }
 }

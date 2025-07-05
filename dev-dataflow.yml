@@ -26,7 +26,6 @@ nodes:
     path: target/debug/arm_controller
     inputs:
       arm_command: dispatcher-keyboard/arm_command          # From dispatcher
-      joint_feedback: sim-interface/joint_feedback          # From simulation
     outputs:
       - processed_arm_command
     env:
@@ -54,9 +53,8 @@ nodes:
       arm_command: arm-controller/processed_arm_command      # From arm controller
       rover_command: rover-controller/processed_rover_command # From rover controller
     outputs:
-      - joint_feedback    # Arm status feedback to arm controller
       - rover_telemetry   # Rover status feedback to rover controller
-      - arm_telemetry     # Additional arm telemetry for monitoring
+      - arm_telemetry     # Arm status feedback to arm controller
     env:
       RUST_LOG: debug
       SOCKETIO_PORT: 4567
@@ -70,11 +68,10 @@ nodes:
       keyboard: dora-keyboard/char                           # Original keyboard input
       dispatcher_arm: dispatcher-keyboard/arm_command       # Dispatcher arm output
       dispatcher_rover: dispatcher-keyboard/rover_command   # Dispatcher rover output
-      arm_processed: arm-controller/processed_arm_command    # Processed arm commands
       rover_processed: rover-controller/processed_rover_command # Processed rover commands
-      joint_feedback: sim-interface/joint_feedback          # Arm feedback from Unity
-      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry from Unity
-      arm_telemetry: sim-interface/arm_telemetry            # Additional arm telemetry
+      arm_processed: arm-controller/processed_arm_command    # Processed arm commands
+      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry
+      arm_telemetry: sim-interface/arm_telemetry            # Arm telemetry
     env:
       RUST_LOG: debug
       MONITOR_ARM_COMMANDS: "true"
@@ -85,7 +82,6 @@ nodes:
   #   build: pip install dora-rerun
   #   path: dora-rerun
   #   inputs:
-  #     joint_feedback: sim-interface/joint_feedback
   #     rover_telemetry: sim-interface/rover_telemetry
   #     arm_telemetry: sim-interface/arm_telemetry
   #   env:

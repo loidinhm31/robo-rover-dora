@@ -4,18 +4,14 @@ use dora_node_api::{
     DoraNode, Event
 };
 use eyre::Result;
-use robo_rover_lib::{
-    ArmCommand, ArmCommandWithMetadata, ArmStatus, CommandMetadata, CommandPriority,
-    InputSource, RoverCommand, RoverTelemetry
-};
+use robo_rover_lib::{ArmCommand, ArmCommandWithMetadata, ArmTelemetry, CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverTelemetry};
+use std::collections::VecDeque;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::collections::VecDeque;
 use uuid;
 
 use axum::http::Method;
-use serde_json::Value;
 use socketioxide::{extract::{Data, SocketRef}, SocketIo};
 use tokio;
 use tower::ServiceBuilder;
@@ -23,7 +19,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 struct SharedState {
-    latest_arm_status: Arc<Mutex<Option<ArmStatus>>>,
+    latest_arm_telemetry: Arc<Mutex<Option<ArmTelemetry>>>,
     latest_rover_telemetry: Arc<Mutex<Option<RoverTelemetry>>>,
     connected_clients: Arc<Mutex<Vec<String>>>,
     stats: Arc<Mutex<WebBridgeStats>>,
@@ -43,7 +39,7 @@ struct WebBridgeStats {
 impl SharedState {
     fn new() -> Self {
         Self {
-            latest_arm_status: Arc::new(Mutex::new(None)),
+            latest_arm_telemetry: Arc::new(Mutex::new(None)),
             latest_rover_telemetry: Arc::new(Mutex::new(None)),
             connected_clients: Arc::new(Mutex::new(Vec::new())),
             stats: Arc::new(Mutex::new(WebBridgeStats {
@@ -162,19 +158,6 @@ async fn web_bridge_async() -> Result<()> {
                     let id_str = id.as_str();
 
                     match id_str {
-                        "joint_feedback" => {
-                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
-                                if bytes_array.len() > 0 {
-                                    let bytes = bytes_array.value(0);
-                                    if let Ok(status) = serde_json::from_slice::<ArmStatus>(bytes) {
-                                        if let Ok(mut arm_status) = shared_state.latest_arm_status.lock() {
-                                            *arm_status = Some(status);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
                         "rover_telemetry" => {
                             if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
                                 if bytes_array.len() > 0 {
@@ -189,8 +172,27 @@ async fn web_bridge_async() -> Result<()> {
                         }
 
                         "arm_telemetry" => {
-                            // Additional arm telemetry if needed
-                            println!("Received arm telemetry");
+                            if let Some(bytes_array) = data.as_bytes_opt::<GenericBinaryType<i32>>() {
+                                if bytes_array.len() > 0 {
+                                    let bytes = bytes_array.value(0);
+                                    match serde_json::from_slice::<ArmTelemetry>(bytes) {
+                                        Ok(telemetry) => {
+                                            println!("Received arm telemetry: moving={}, pose=[{:.3}, {:.3}, {:.3}, {:.3}, {:.3}, {:.3}]",
+                                                     telemetry.is_moving,
+                                                     telemetry.end_effector_pose[0], telemetry.end_effector_pose[1], telemetry.end_effector_pose[2],
+                                                     telemetry.end_effector_pose[3], telemetry.end_effector_pose[4], telemetry.end_effector_pose[5]);
+
+                                            // Store the telemetry for broadcasting to web clients
+                                            if let Ok(mut arm_tel) = shared_state.latest_arm_telemetry.lock() {
+                                                *arm_tel = Some(telemetry);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            println!("Failed to parse arm telemetry: {}", e);
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         _ => {
@@ -294,7 +296,7 @@ async fn start_web_socketio_server(shared_state: SharedState) -> Result<()> {
         // Handle rover commands from web clients
         socket.on("rover_command", {
             let state = state.clone();
-            move |socket: SocketRef, Data::<WebRoverCommand>(cmd)| {
+            move |_socket: SocketRef, Data::<WebRoverCommand>(cmd)| {
                 println!("Received rover command from web: {:?}", cmd);
 
                 if let Ok(mut stats) = state.stats.lock() {
@@ -398,17 +400,17 @@ async fn telemetry_broadcaster_loop(socket: SocketRef, state: SharedState) {
     loop {
         interval.tick().await;
 
-        // Send arm status if available
-        if let Ok(arm_status_opt) = state.latest_arm_status.lock() {
-            if let Some(ref status) = *arm_status_opt {
+        // Send arm telemetry if available
+        if let Ok(arm_tel_opt) = state.latest_arm_telemetry.lock() {
+            if let Some(ref telemetry) = *arm_tel_opt {
                 let telemetry_data = serde_json::json!({
-                    "type": "arm_status",
-                    "joint_positions": status.joint_state.positions,
-                    "joint_velocities": status.joint_state.velocities,
-                    "end_effector_pose": status.end_effector_pose,
-                    "is_moving": status.is_moving,
-                    "is_homed": status.is_homed,
-                    "timestamp": status.joint_state.timestamp
+                    "type": "arm_telemetry",
+                    "end_effector_pose": telemetry.end_effector_pose,
+                    "is_moving": telemetry.is_moving,
+                    "timestamp": telemetry.timestamp,
+                    "joint_angles": telemetry.joint_angles,
+                    "joint_velocities": telemetry.joint_velocities,
+                    "source": telemetry.source
                 });
 
                 if socket.emit("telemetry", telemetry_data).is_err() {
@@ -564,7 +566,7 @@ fn create_metadata() -> CommandMetadata {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64,
-        source: InputSource::Unity, // Using Unity as web source for now
+        source: InputSource::WebBridge,
         priority: CommandPriority::Normal,
     }
 }
