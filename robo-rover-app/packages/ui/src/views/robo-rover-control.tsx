@@ -33,6 +33,10 @@ interface ConnectionState {
     commandsReceived: number;
 }
 
+interface KeyboardState {
+    [key: string]: boolean;
+}
+
 const RoboRoverController: React.FC = () => {
     // Connection state
     const [connection, setConnection] = useState<ConnectionState>({
@@ -66,10 +70,40 @@ const RoboRoverController: React.FC = () => {
     // UI state
     const [showLogs, setShowLogs] = useState(false);
     const [isCompact, setIsCompact] = useState(false);
+    const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+    const [keyboardEnabled, setKeyboardEnabled] = useState(true);
+    const [activeKeys, setActiveKeys] = useState<KeyboardState>({});
 
     // Refs
     const socketRef = useRef<Socket | null>(null);
     const logEndRef = useRef<HTMLDivElement>(null);
+    const keyboardIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Keyboard mappings
+    const keyboardMappings = {
+        // ARM Controls
+        'KeyW': { type: 'arm', action: 'x+', label: 'W: X+' },
+        'KeyS': { type: 'arm', action: 'x-', label: 'S: X-' },
+        'KeyA': { type: 'arm', action: 'y-', label: 'A: Y-' },
+        'KeyD': { type: 'arm', action: 'y+', label: 'D: Y+' },
+        'KeyQ': { type: 'arm', action: 'z+', label: 'Q: Z+' },
+        'KeyE': { type: 'arm', action: 'z-', label: 'E: Z-' },
+        'KeyR': { type: 'arm', action: 'home', label: 'R: Home' },
+        'KeyT': { type: 'arm', action: 'stop', label: 'T: Stop' },
+
+        // ROVER Controls
+        'ArrowUp': { type: 'rover', action: 'forward', label: '↑: Forward' },
+        'ArrowDown': { type: 'rover', action: 'reverse', label: '↓: Reverse' },
+        'ArrowLeft': { type: 'rover', action: 'left', label: '←: Left' },
+        'ArrowRight': { type: 'rover', action: 'right', label: '→: Right' },
+        'KeyJ': { type: 'rover', action: 'steer_left', label: 'J: Steer Left' },
+        'KeyL': { type: 'rover', action: 'steer_right', label: 'L: Steer Right' },
+        'Space': { type: 'rover', action: 'brake', label: 'Space: Brake' },
+        'KeyX': { type: 'rover', action: 'stop', label: 'X: Stop' },
+
+        // Emergency
+        'Escape': { type: 'emergency', action: 'stop', label: 'ESC: Emergency Stop' },
+    };
 
     // Utility functions
     const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
@@ -181,12 +215,127 @@ const RoboRoverController: React.FC = () => {
         addLog('EMERGENCY STOP - ALL SYSTEMS', 'error');
     }, [sendArmCommand, sendRoverCommand, addLog]);
 
-    // Component mount/unmount
+    // Keyboard control functions
+    const executeKeyboardAction = useCallback((code: string) => {
+        if (!keyboardEnabled || !connection.isConnected) return;
+
+        const mapping = keyboardMappings[code as keyof typeof keyboardMappings];
+        if (!mapping) return;
+
+        if (mapping.type === 'arm') {
+            switch (mapping.action) {
+                case 'x+':
+                    sendArmCommand('cartesian_move', { x: 0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'x-':
+                    sendArmCommand('cartesian_move', { x: -0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'y+':
+                    sendArmCommand('cartesian_move', { x: 0, y: 0.01, z: 0, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'y-':
+                    sendArmCommand('cartesian_move', { x: 0, y: -0.01, z: 0, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'z+':
+                    sendArmCommand('cartesian_move', { x: 0, y: 0, z: 0.01, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'z-':
+                    sendArmCommand('cartesian_move', { x: 0, y: 0, z: -0.01, roll: 0, pitch: 0, yaw: 0 });
+                    break;
+                case 'home':
+                    sendArmCommand('home');
+                    break;
+                case 'stop':
+                    sendArmCommand('stop');
+                    break;
+            }
+        } else if (mapping.type === 'rover') {
+            switch (mapping.action) {
+                case 'forward':
+                    sendRoverCommand(0.3, 0.0, 0.0);
+                    break;
+                case 'reverse':
+                    sendRoverCommand(-0.2, 0.0, 0.0);
+                    break;
+                case 'left':
+                    sendRoverCommand(0.2, 0.0, 5.0);
+                    break;
+                case 'right':
+                    sendRoverCommand(0.2, 0.0, -5.0);
+                    break;
+                case 'steer_left':
+                    sendRoverCommand(0.0, 0.0, 5.0);
+                    break;
+                case 'steer_right':
+                    sendRoverCommand(0.0, 0.0, -5.0);
+                    break;
+                case 'brake':
+                    sendRoverCommand(0.0, 1.0, 0.0);
+                    break;
+                case 'stop':
+                    sendRoverCommand(0.0, 0.0, 0.0);
+                    break;
+            }
+        } else if (mapping.type === 'emergency') {
+            emergencyStopAll();
+        }
+    }, [keyboardEnabled, connection.isConnected, sendArmCommand, sendRoverCommand, emergencyStopAll]);
+
+    // Keyboard event handlers
+    const handleKeyDown = useCallback((event: KeyboardEvent) => {
+        // Don't trigger if user is typing in an input field
+        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+            return;
+        }
+
+        const code = event.code;
+
+        // Prevent default for our mapped keys
+        if (keyboardMappings[code as keyof typeof keyboardMappings]) {
+            event.preventDefault();
+
+            // Track active keys for visual feedback
+            setActiveKeys(prev => ({ ...prev, [code]: true }));
+
+            // Execute action only once per key press (not on repeat)
+            if (!event.repeat) {
+                executeKeyboardAction(code);
+            }
+        }
+    }, [executeKeyboardAction]);
+
+    const handleKeyUp = useCallback((event: KeyboardEvent) => {
+        const code = event.code;
+
+        // Remove from active keys
+        setActiveKeys(prev => {
+            const newKeys = { ...prev };
+            delete newKeys[code];
+            return newKeys;
+        });
+    }, []);
+
+    // Keyboard setup and cleanup
+    useEffect(() => {
+        if (keyboardEnabled) {
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+
+            return () => {
+                document.removeEventListener('keydown', handleKeyDown);
+                document.removeEventListener('keyup', handleKeyUp);
+            };
+        }
+    }, [keyboardEnabled, handleKeyDown, handleKeyUp]);
+
     useEffect(() => {
         addLog('Robo Rover Controller initialized');
 
         return () => {
             disconnect();
+            if (keyboardIntervalRef.current) {
+                clearInterval(keyboardIntervalRef.current);
+            }
         };
     }, [addLog, disconnect]);
 
@@ -254,12 +403,40 @@ const RoboRoverController: React.FC = () => {
                                 <div className={`w-2 h-2 rounded-full ${connection.isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
                                 <span>{connection.isConnected ? 'Connected' : 'Disconnected'}</span>
                             </div>
+
+                            {/* Keyboard Status */}
+                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
+                                keyboardEnabled
+                                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                            }`}>
+                                <span>⌨️</span>
+                                <span>{keyboardEnabled ? 'Keyboard ON' : 'Keyboard OFF'}</span>
+                            </div>
                         </div>
 
                         <div className="flex items-center space-x-2">
                             <div className="text-xs text-gray-400 hidden sm:block">
                                 ↑{connection.commandsSent} ↓{connection.commandsReceived}
                             </div>
+
+                            <button
+                                onClick={() => setKeyboardEnabled(!keyboardEnabled)}
+                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                                    keyboardEnabled
+                                        ? 'bg-purple-600 hover:bg-purple-700'
+                                        : 'bg-gray-600 hover:bg-gray-700'
+                                }`}
+                            >
+                                ⌨️
+                            </button>
+
+                            <button
+                                onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
+                                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm transition-colors"
+                            >
+                                Keys
+                            </button>
 
                             <button
                                 onClick={() => setShowLogs(!showLogs)}
@@ -290,6 +467,85 @@ const RoboRoverController: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Keyboard Help Panel */}
+            {showKeyboardHelp && (
+                <div className="bg-black/40 backdrop-blur-sm border-b border-white/10">
+                    <div className="max-w-7xl mx-auto px-4 py-3">
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-semibold text-indigo-200">⌨️ Keyboard Controls</h3>
+                            <span className="text-xs text-gray-400">
+                                {keyboardEnabled ? 'Active' : 'Disabled'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <h4 className="font-medium text-blue-300 mb-2">🦾 ARM Control</h4>
+                                <div className="space-y-1">
+                                    {Object.entries(keyboardMappings)
+                                        .filter(([, mapping]) => mapping.type === 'arm')
+                                        .map(([key, mapping]) => (
+                                            <div
+                                                key={key}
+                                                className={`flex items-center space-x-2 ${
+                                                    activeKeys[key] ? 'text-yellow-400 font-bold' : 'text-gray-300'
+                                                }`}
+                                            >
+                                                <span className="w-12 text-right font-mono text-xs">
+                                                    {mapping.label.split(':')[0]}
+                                                </span>
+                                                <span>{mapping.label.split(':')[1]}</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="font-medium text-green-300 mb-2">🚗 ROVER Control</h4>
+                                <div className="space-y-1">
+                                    {Object.entries(keyboardMappings)
+                                        .filter(([, mapping]) => mapping.type === 'rover')
+                                        .map(([key, mapping]) => (
+                                            <div
+                                                key={key}
+                                                className={`flex items-center space-x-2 ${
+                                                    activeKeys[key] ? 'text-yellow-400 font-bold' : 'text-gray-300'
+                                                }`}
+                                            >
+                                                <span className="w-12 text-right font-mono text-xs">
+                                                    {mapping.label.split(':')[0]}
+                                                </span>
+                                                <span>{mapping.label.split(':')[1]}</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="font-medium text-red-300 mb-2">🚨 Emergency</h4>
+                                <div className="space-y-1">
+                                    {Object.entries(keyboardMappings)
+                                        .filter(([, mapping]) => mapping.type === 'emergency')
+                                        .map(([key, mapping]) => (
+                                            <div
+                                                key={key}
+                                                className={`flex items-center space-x-2 ${
+                                                    activeKeys[key] ? 'text-yellow-400 font-bold' : 'text-gray-300'
+                                                }`}
+                                            >
+                                                <span className="w-12 text-right font-mono text-xs">
+                                                    {mapping.label.split(':')[0]}
+                                                </span>
+                                                <span>{mapping.label.split(':')[1]}</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-3 text-xs text-gray-400">
+                            💡 Tip: Keyboard controls work when not typing in input fields. Active keys are highlighted in yellow.
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Logs Panel */}
             {showLogs && (
@@ -449,55 +705,72 @@ const RoboRoverController: React.FC = () => {
                             Send Custom Move
                         </button>
 
-                        {/* ARM Quick Controls */}
-                        <div className="text-sm text-blue-200 mb-2">Quick Movements (1cm)</div>
+                        {/* ARM Quick Controls with Keyboard Indicators */}
+                        <div className="text-sm text-blue-200 mb-2 flex items-center justify-between">
+                            <span>Quick Movements (1cm)</span>
+                            {keyboardEnabled && (
+                                <span className="text-xs text-purple-300">⌨️ WASD, Q/E, R, T</span>
+                            )}
+                        </div>
                         <div className="grid grid-cols-3 gap-2">
                             <div></div>
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: 0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyW'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↑ X+
+                                ↑ X+ {keyboardEnabled && '(W)'}
                             </button>
                             <div></div>
 
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: 0, y: -0.01, z: 0, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyA'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ← Y-
+                                ← Y- {keyboardEnabled && '(A)'}
                             </button>
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: 0, y: 0, z: 0.01, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyQ'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↑ Z+
+                                ↑ Z+ {keyboardEnabled && '(Q)'}
                             </button>
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: 0, y: 0.01, z: 0, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyD'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                → Y+
+                                → Y+ {keyboardEnabled && '(D)'}
                             </button>
 
                             <div></div>
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: -0.01, y: 0, z: 0, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyS'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↓ X-
+                                ↓ X- {keyboardEnabled && '(S)'}
                             </button>
                             <button
                                 onClick={() => sendArmCommand('cartesian_move', { x: 0, y: 0, z: -0.01, roll: 0, pitch: 0, yaw: 0 })}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyE'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↓ Z-
+                                ↓ Z- {keyboardEnabled && '(E)'}
                             </button>
                         </div>
                     </div>
@@ -603,62 +876,89 @@ const RoboRoverController: React.FC = () => {
                             Send Custom Command
                         </button>
 
-                        {/* ROVER Quick Controls */}
-                        <div className="text-sm text-green-200 mb-2">Quick Movements</div>
+                        {/* ROVER Quick Controls with Keyboard Indicators */}
+                        <div className="text-sm text-green-200 mb-2 flex items-center justify-between">
+                            <span>Quick Movements</span>
+                            {keyboardEnabled && (
+                                <span className="text-xs text-purple-300">⌨️ Arrow Keys, J/L, Space, X</span>
+                            )}
+                        </div>
                         <div className="grid grid-cols-3 gap-2">
                             <button
                                 onClick={() => sendRoverCommand(0.2, 0.0, 5.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['ArrowLeft'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↖ Left
+                                ↖ Left {keyboardEnabled && '(←)'}
                             </button>
                             <button
                                 onClick={() => sendRoverCommand(0.3, 0.0, 0.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['ArrowUp'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↑ Forward
+                                ↑ Forward {keyboardEnabled && '(↑)'}
                             </button>
                             <button
                                 onClick={() => sendRoverCommand(0.2, 0.0, -5.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['ArrowRight'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↗ Right
+                                ↗ Right {keyboardEnabled && '(→)'}
                             </button>
 
                             <button
                                 onClick={() => sendRoverCommand(0.0, 0.0, 5.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyJ'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ← Steer
+                                ← Steer {keyboardEnabled && '(J)'}
                             </button>
                             <button
                                 onClick={() => sendRoverCommand(0.0, 1.0, 0.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['Space'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                🛑 Brake
+                                🛑 Brake {keyboardEnabled && '(Space)'}
                             </button>
                             <button
                                 onClick={() => sendRoverCommand(0.0, 0.0, -5.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyL'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                → Steer
+                                → Steer {keyboardEnabled && '(L)'}
                             </button>
 
                             <div></div>
                             <button
                                 onClick={() => sendRoverCommand(-0.2, 0.0, 0.0)}
                                 disabled={!connection.isConnected}
-                                className="py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+                                className={`py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['ArrowDown'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
                             >
-                                ↓ Reverse
+                                ↓ Reverse {keyboardEnabled && '(↓)'}
                             </button>
-                            <div></div>
+                            <button
+                                onClick={() => sendRoverCommand(0.0, 0.0, 0.0)}
+                                disabled={!connection.isConnected}
+                                className={`py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105 ${
+                                    activeKeys['KeyX'] ? 'ring-2 ring-yellow-400' : ''
+                                }`}
+                            >
+                                🛑 Stop {keyboardEnabled && '(X)'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -685,6 +985,17 @@ const RoboRoverController: React.FC = () => {
                         <div className="text-sm text-gray-400 hidden md:block">
                             {connection.clientId && `Client: ${connection.clientId.slice(0, 8)}...`}
                         </div>
+
+                        {/* Emergency Stop with Keyboard Indicator */}
+                        <button
+                            onClick={emergencyStopAll}
+                            disabled={!connection.isConnected}
+                            className={`px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 border-2 border-red-400 ${
+                                activeKeys['Escape'] ? 'ring-2 ring-yellow-400' : ''
+                            }`}
+                        >
+                            🛑 Emergency Stop {keyboardEnabled && '(ESC)'}
+                        </button>
                     </div>
                 </div>
             </div>
