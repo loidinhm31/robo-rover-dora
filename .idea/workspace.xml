@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/arm_controller">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/config_test">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/dispatcher_keyboard">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/monitor">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/robo_rover_lib">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/rover_controller">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/sim_interface">
+        <enabledFeature name="default" />
+      </package>
+      <package file="$PROJECT_DIR$/web_bridge">
+        <enabledFeature name="default" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement Web control app">
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/src-tauri/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/src-tauri/Cargo.toml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="YxQ1BJwb" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="2yxBoc63e3rLpyZlhbf2HJ5gQts" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;G:/ws/robo-rover-dora/robo-rover-app/apps/web&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;advanced.settings&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\web" />
+      <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native" />
+      <recent name="G:\ws\robo-rover-dora\robo-rover-app\.vscode" />
+      <recent name="G:\ws\robo-rover-dora\robo-rover-app\src\service" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora" />
+    </key>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="" />
+      <created>1750766519578</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1750766519578</updated>
+      <workItem from="1750766520772" duration="19916000" />
+      <workItem from="1750902328997" duration="14331000" />
+      <workItem from="1750936869468" duration="2274000" />
+      <workItem from="1751282916828" duration="18000" />
+      <workItem from="1751620814028" duration="50371000" />
+      <workItem from="1751736132594" duration="12521000" />
+      <workItem from="1751783998379" duration="28961000" />
+    </task>
+    <task id="LOCAL-00001" summary="Try to add rover control">
+      <option name="closed" value="true" />
+      <created>1750937249281</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1750937249281</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Try to implement web-bridge">
+      <option name="closed" value="true" />
+      <created>1751643147833</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1751643147833</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Refactor process command and telemetry">
+      <option name="closed" value="true" />
+      <created>1751708625819</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1751708625819</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Implement Web control">
+      <option name="closed" value="true" />
+      <created>1751708732819</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1751708732819</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Remove unnecessary files">
+      <option name="closed" value="true" />
+      <created>1751993025479</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1751993025479</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Implement Web control app">
+      <option name="closed" value="true" />
+      <created>1751993873458</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1751993873458</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <option name="CHECK_NEW_TODO" value="false" />
+    <MESSAGE value="Try to add rover control" />
+    <MESSAGE value="Implement web-bridge" />
+    <MESSAGE value="Implement web-bridge" />
+    <MESSAGE value="Refactor process command and telemetry" />
+    <MESSAGE value="Implement Web control" />
+    <MESSAGE value="Remove unnecessary files" />
+    <MESSAGE value="Implement Web control app" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement Web control app" />
+    <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/config_test/src/main.rs</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_command.rs</url>
+          <line>48</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
