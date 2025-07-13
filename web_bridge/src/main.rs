@@ -130,7 +130,7 @@ async fn web_bridge_async() -> Result<()> {
     // Give server time to start
     tokio::time::sleep(Duration::from_millis(1000)).await;
 
-    // Wrap the node in Arc<Mutex<>> for sharing between tasks
+    // Wrap the node for sharing between tasks
     let node_arc = Arc::new(Mutex::new(node));
     let node_clone = node_arc.clone();
     let state_clone = shared_state.clone();
