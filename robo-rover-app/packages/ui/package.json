@@ -7,8 +7,10 @@
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",
+    "./lib/arrow-utils": "./src/lib/arrow-utils.ts",
     "./types/*": "./src/types/*.ts",
     "./views/*": "./src/views/*.tsx",
+    "./views/robo-rover-control-arrow": "./src/views/robo-rover-control-arrow.tsx",
     "./globals.css": "./src/styles/globals.css",
     "./postcss.config": "./postcss.config.mjs",
     "./tailwind.config": "./tailwind.config.ts"
@@ -40,6 +42,7 @@
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "apache-arrow": "^17.0.0"
   }
 }

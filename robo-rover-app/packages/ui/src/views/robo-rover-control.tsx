@@ -1,10 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import {
+  armCommandToArrow,
+  armTelemetryFromArrow,
+  roverCommandToArrow,
+  roverTelemetryFromArrow,
+} from "@repo/ui/lib/arrow-utils";
+import {
+  ArmCommand,
   ArmTelemetry,
+  ArrowMessage,
   ConnectionState,
   KeyboardState,
   LogEntry,
+  RoverCommand,
   RoverTelemetry,
 } from "@repo/ui/types/robo-rover.js";
 
@@ -15,6 +24,8 @@ const RoboRoverController: React.FC = () => {
     clientId: null,
     commandsSent: 0,
     commandsReceived: 0,
+    arrowEnabled: false,
+    schemasLoaded: false,
   });
 
   // Telemetry state
@@ -46,11 +57,19 @@ const RoboRoverController: React.FC = () => {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [keyboardEnabled, setKeyboardEnabled] = useState(true);
   const [activeKeys, setActiveKeys] = useState<KeyboardState>({});
+  const [showArrowStats, setShowArrowStats] = useState(true);
 
   // Refs
   const socketRef = useRef<Socket | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
-  const keyboardIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Arrow-specific state
+  const [arrowStats, setArrowStats] = useState({
+    messagesSent: 0,
+    messagesReceived: 0,
+    bytesTransferred: 0,
+    compressionRatio: 0,
+  });
 
   // Keyboard mappings
   const keyboardMappings = {
@@ -91,13 +110,32 @@ const RoboRoverController: React.FC = () => {
     return Date.now() - timestamp < 2000;
   };
 
+  // Load schemas from server
+  const loadSchemas = useCallback(() => {
+    if (!socketRef.current?.connected) return;
+
+    const schemas = [
+      "arm_telemetry",
+      "rover_telemetry",
+      "arm_command",
+      "rover_command",
+    ];
+
+    schemas.forEach((schemaName) => {
+      console.log("getting schema", schemaName);
+      socketRef.current?.emit("get_schema", { schema: schemaName });
+    });
+
+    addLog("Requesting Arrow schemas from server...", "info");
+  }, [addLog]);
+
   // Socket connection management
   const connect = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.disconnect();
     }
 
-    addLog("Connecting to Web Bridge...", "info");
+    addLog("Connecting to Web Bridge with Apache Arrow support...", "info");
     const socket = io("http://127.0.0.1:8080", {
       forceNew: true,
       transports: ["websocket", "polling"],
@@ -109,7 +147,8 @@ const RoboRoverController: React.FC = () => {
         isConnected: true,
         clientId: socket.id || null,
       }));
-      addLog("Connected successfully", "success");
+      addLog("Connected successfully - Loading Arrow schemas...", "success");
+      loadSchemas();
     });
 
     socket.on("disconnect", () => {
@@ -117,6 +156,8 @@ const RoboRoverController: React.FC = () => {
         ...prev,
         isConnected: false,
         clientId: null,
+        arrowEnabled: false,
+        schemasLoaded: false,
       }));
       addLog("Disconnected from Web Bridge", "error");
     });
@@ -126,6 +167,12 @@ const RoboRoverController: React.FC = () => {
         ...prev,
         commandsReceived: prev.commandsReceived + 1,
       }));
+
+      if (data.arrow_enabled) {
+        setConnection((prev) => ({ ...prev, arrowEnabled: true }));
+        addLog("✓ Apache Arrow enabled on server", "success");
+      }
+
       addLog(`Status: ${data.message || JSON.stringify(data)}`, "info");
     });
 
@@ -137,17 +184,41 @@ const RoboRoverController: React.FC = () => {
       addLog(`Error: ${data.message || JSON.stringify(data)}`, "error");
     });
 
-    socket.on("telemetry", (data) => {
-      setConnection((prev) => ({
-        ...prev,
-        commandsReceived: prev.commandsReceived + 1,
-      }));
+    // Handle Arrow telemetry
+    socket.on("arrow_telemetry", (arrowMessage: ArrowMessage) => {
+      try {
+        setConnection((prev) => ({
+          ...prev,
+          commandsReceived: prev.commandsReceived + 1,
+        }));
 
-      if (data.type === "arm_telemetry") {
-        setArmTelemetry(data);
-      } else if (data.type === "rover_telemetry") {
-        setRoverTelemetry(data);
+        setArrowStats((prev) => ({
+          ...prev,
+          messagesReceived: prev.messagesReceived + 1,
+          bytesTransferred:
+            prev.bytesTransferred + arrowMessage.arrow_data.length,
+        }));
+
+        if (arrowMessage.schema_name === "arm_telemetry") {
+          const armData = armTelemetryFromArrow(arrowMessage.arrow_data);
+          setArmTelemetry(armData);
+          addLog("📡 ARM telemetry (Arrow)", "info");
+        } else if (arrowMessage.schema_name === "rover_telemetry") {
+          const roverData = roverTelemetryFromArrow(arrowMessage.arrow_data);
+          setRoverTelemetry(roverData);
+          addLog("📡 ROVER telemetry (Arrow)", "info");
+        }
+      } catch (error) {
+        addLog(`Failed to parse Arrow telemetry: ${error}`, "error");
       }
+    });
+
+    // Handle schema responses
+    socket.on("schema_response", (schemaData) => {
+      addLog(`📋 Schema loaded: ${schemaData.schema_name}`, "success");
+
+      // Check if all schemas are loaded
+      setConnection((prev) => ({ ...prev, schemasLoaded: true }));
     });
 
     socket.on("pong", (data) => {
@@ -162,7 +233,7 @@ const RoboRoverController: React.FC = () => {
     });
 
     socketRef.current = socket;
-  }, [addLog]);
+  }, [addLog, loadSchemas]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -171,23 +242,43 @@ const RoboRoverController: React.FC = () => {
     }
   }, []);
 
-  // Command functions
+  // Command functions using Arrow format
   const sendArmCommand = useCallback(
-    (type: string, params = {}) => {
+    (type: ArmCommand["type"], params = {}) => {
       if (!socketRef.current?.connected) {
         addLog("Cannot send ARM command - not connected", "error");
         return;
       }
 
-      const command = { type, ...params };
-      socketRef.current.emit("arm_command", command);
-      setConnection((prev) => ({
-        ...prev,
-        commandsSent: prev.commandsSent + 1,
-      }));
-      addLog(`ARM: ${type}`, "info");
+      if (!connection.arrowEnabled) {
+        addLog("Cannot send ARM command - Arrow not enabled", "error");
+        return;
+      }
+
+      try {
+        const command: ArmCommand = { type, ...params };
+        const arrowMessage = armCommandToArrow(command);
+
+        socketRef.current.emit("arrow_arm_command", arrowMessage);
+
+        setConnection((prev) => ({
+          ...prev,
+          commandsSent: prev.commandsSent + 1,
+        }));
+
+        setArrowStats((prev) => ({
+          ...prev,
+          messagesSent: prev.messagesSent + 1,
+          bytesTransferred:
+            prev.bytesTransferred + arrowMessage.arrow_data.length,
+        }));
+
+        addLog(`🦾 ARM: ${type} (Arrow)`, "info");
+      } catch (error) {
+        addLog(`Failed to send ARM command: ${error}`, "error");
+      }
     },
-    [addLog],
+    [addLog, connection.arrowEnabled],
   );
 
   const sendRoverCommand = useCallback(
@@ -197,31 +288,56 @@ const RoboRoverController: React.FC = () => {
         return;
       }
 
-      const command = { throttle, brake, steering_angle };
-      socketRef.current.emit("rover_command", command);
-      setConnection((prev) => ({
-        ...prev,
-        commandsSent: prev.commandsSent + 1,
-      }));
-      addLog(
-        `ROVER: T${throttle.toFixed(1)} B${brake.toFixed(1)} S${steering_angle.toFixed(1)}°`,
-        "info",
-      );
+      if (!connection.arrowEnabled) {
+        addLog("Cannot send ROVER command - Arrow not enabled", "error");
+        return;
+      }
+
+      try {
+        const command: RoverCommand = { throttle, brake, steering_angle };
+        const arrowMessage = roverCommandToArrow(command);
+
+        socketRef.current.emit("arrow_rover_command", arrowMessage);
+
+        setConnection((prev) => ({
+          ...prev,
+          commandsSent: prev.commandsSent + 1,
+        }));
+
+        setArrowStats((prev) => ({
+          ...prev,
+          messagesSent: prev.messagesSent + 1,
+          bytesTransferred:
+            prev.bytesTransferred + arrowMessage.arrow_data.length,
+        }));
+
+        addLog(
+          `🚗 ROVER: T${throttle.toFixed(1)} B${brake.toFixed(1)} S${steering_angle.toFixed(1)}° (Arrow)`,
+          "info",
+        );
+      } catch (error) {
+        addLog(`Failed to send ROVER command: ${error}`, "error");
+      }
     },
-    [addLog],
+    [addLog, connection.arrowEnabled],
   );
 
   // Emergency stop for both systems
   const emergencyStopAll = useCallback(() => {
     sendArmCommand("emergency_stop");
     sendRoverCommand(0.0, 1.0, 0.0);
-    addLog("EMERGENCY STOP - ALL SYSTEMS", "error");
+    addLog("🚨 EMERGENCY STOP - ALL SYSTEMS (Arrow)", "error");
   }, [sendArmCommand, sendRoverCommand, addLog]);
 
   // Keyboard control functions
   const executeKeyboardAction = useCallback(
     (code: string) => {
-      if (!keyboardEnabled || !connection.isConnected) return;
+      if (
+        !keyboardEnabled ||
+        !connection.isConnected ||
+        !connection.arrowEnabled
+      )
+        return;
 
       const mapping = keyboardMappings[code as keyof typeof keyboardMappings];
       if (!mapping) return;
@@ -329,6 +445,7 @@ const RoboRoverController: React.FC = () => {
     [
       keyboardEnabled,
       connection.isConnected,
+      connection.arrowEnabled,
       sendArmCommand,
       sendRoverCommand,
       emergencyStopAll,
@@ -393,9 +510,6 @@ const RoboRoverController: React.FC = () => {
 
     return () => {
       disconnect();
-      if (keyboardIntervalRef.current) {
-        clearInterval(keyboardIntervalRef.current);
-      }
     };
   }, [addLog, disconnect]);
 
@@ -416,6 +530,17 @@ const RoboRoverController: React.FC = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Calculate compression ratio (approximate)
+  useEffect(() => {
+    if (arrowStats.messagesReceived > 0) {
+      // Estimate JSON size vs Arrow size
+      const estimatedJsonSize = arrowStats.messagesReceived * 200; // Rough estimate
+      const compressionRatio =
+        estimatedJsonSize / Math.max(arrowStats.bytesTransferred, 1);
+      setArrowStats((prev) => ({ ...prev, compressionRatio }));
+    }
+  }, [arrowStats.messagesReceived, arrowStats.bytesTransferred]);
 
   // Format helpers
   const formatPoseValues = (pose: number[]) => {
@@ -445,6 +570,14 @@ const RoboRoverController: React.FC = () => {
     );
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
       {/* Header */}
@@ -470,16 +603,34 @@ const RoboRoverController: React.FC = () => {
                 </span>
               </div>
 
-              {/* Keyboard Status */}
+              {/* Arrow Status */}
               <div
                 className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
-                  keyboardEnabled
+                  connection.arrowEnabled
                     ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
                     : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
                 }`}
               >
+                <span>🏹</span>
+                <span>
+                  {connection.arrowEnabled ? "Arrow ON" : "Arrow OFF"}
+                </span>
+              </div>
+
+              {/* Keyboard Status */}
+              <div
+                className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
+                  keyboardEnabled && connection.arrowEnabled
+                    ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                    : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+                }`}
+              >
                 <span>⌨️</span>
-                <span>{keyboardEnabled ? "Keyboard ON" : "Keyboard OFF"}</span>
+                <span>
+                  {keyboardEnabled && connection.arrowEnabled
+                    ? "Keyboard ON"
+                    : "Keyboard OFF"}
+                </span>
               </div>
             </div>
 
@@ -489,10 +640,17 @@ const RoboRoverController: React.FC = () => {
               </div>
 
               <button
+                onClick={() => setShowArrowStats(!showArrowStats)}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm transition-colors"
+              >
+                📊 Arrow
+              </button>
+
+              <button
                 onClick={() => setKeyboardEnabled(!keyboardEnabled)}
                 className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                   keyboardEnabled
-                    ? "bg-purple-600 hover:bg-purple-700"
+                    ? "bg-indigo-600 hover:bg-indigo-700"
                     : "bg-gray-600 hover:bg-gray-700"
                 }`}
               >
@@ -526,7 +684,7 @@ const RoboRoverController: React.FC = () => {
 
               <button
                 onClick={emergencyStopAll}
-                disabled={!connection.isConnected}
+                disabled={!connection.isConnected || !connection.arrowEnabled}
                 className="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 border-2 border-red-400"
               >
                 🛑 E-STOP
@@ -535,6 +693,64 @@ const RoboRoverController: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Arrow Statistics Panel */}
+      {showArrowStats && connection.arrowEnabled && (
+        <div className="bg-purple-900/40 backdrop-blur-sm border-b border-purple-500/20">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-purple-200">
+                🏹 Apache Arrow Statistics
+              </h3>
+              <button
+                onClick={() =>
+                  setArrowStats({
+                    messagesSent: 0,
+                    messagesReceived: 0,
+                    bytesTransferred: 0,
+                    compressionRatio: 0,
+                  })
+                }
+                className="text-xs bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="bg-black/20 p-3 rounded-lg">
+                <div className="text-purple-300 font-medium">Messages Sent</div>
+                <div className="text-white text-xl">
+                  {arrowStats.messagesSent}
+                </div>
+              </div>
+              <div className="bg-black/20 p-3 rounded-lg">
+                <div className="text-purple-300 font-medium">
+                  Messages Received
+                </div>
+                <div className="text-white text-xl">
+                  {arrowStats.messagesReceived}
+                </div>
+              </div>
+              <div className="bg-black/20 p-3 rounded-lg">
+                <div className="text-purple-300 font-medium">
+                  Data Transferred
+                </div>
+                <div className="text-white text-xl">
+                  {formatBytes(arrowStats.bytesTransferred)}
+                </div>
+              </div>
+              <div className="bg-black/20 p-3 rounded-lg">
+                <div className="text-purple-300 font-medium">Compression</div>
+                <div className="text-white text-xl">
+                  {arrowStats.compressionRatio > 0
+                    ? `${arrowStats.compressionRatio.toFixed(1)}x`
+                    : "N/A"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Keyboard Help Panel */}
       {showKeyboardHelp && (
@@ -666,6 +882,24 @@ const RoboRoverController: React.FC = () => {
 
       {/* Main Control Panel */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {!connection.arrowEnabled && connection.isConnected && (
+          <div className="mb-6 bg-yellow-900/40 backdrop-blur-sm rounded-2xl border border-yellow-500/20 p-4">
+            <div className="flex items-center">
+              <span className="text-yellow-400 text-xl mr-3">⚠️</span>
+              <div>
+                <div className="font-medium text-yellow-200">
+                  Apache Arrow Not Available
+                </div>
+                <div className="text-sm text-yellow-300">
+                  Connected to server but Arrow support is not enabled. Please
+                  ensure you're connected to the web_bridge node with Arrow
+                  support.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           className={`grid gap-6 ${isCompact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}
         >
@@ -680,18 +914,23 @@ const RoboRoverController: React.FC = () => {
                     Moving
                   </span>
                 )}
+                {connection.arrowEnabled && (
+                  <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                    🏹 Arrow
+                  </span>
+                )}
               </h2>
               <div className="flex space-x-2">
                 <button
                   onClick={() => sendArmCommand("home")}
-                  disabled={!connection.isConnected}
+                  disabled={!connection.isConnected || !connection.arrowEnabled}
                   className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
                 >
                   🏠 Home
                 </button>
                 <button
                   onClick={() => sendArmCommand("stop")}
-                  disabled={!connection.isConnected}
+                  disabled={!connection.isConnected || !connection.arrowEnabled}
                   className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
                 >
                   ⏹️ Stop
@@ -708,8 +947,11 @@ const RoboRoverController: React.FC = () => {
                     : "bg-gray-500/10 border-gray-500/30"
                 }`}
               >
-                <div className="text-sm font-medium mb-2 text-blue-200">
-                  End Effector Pose
+                <div className="text-sm font-medium mb-2 text-blue-200 flex items-center justify-between">
+                  <span>End Effector Pose</span>
+                  <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                    🏹 Arrow Data
+                  </span>
                 </div>
                 {formatPoseValues(armTelemetry.end_effector_pose)}
                 {armTelemetry.joint_angles && (
@@ -723,6 +965,7 @@ const RoboRoverController: React.FC = () => {
                 <div className="text-xs text-gray-400 mt-2">
                   Last update:{" "}
                   {new Date(armTelemetry.timestamp).toLocaleTimeString()}
+                  {armTelemetry.source && ` • Source: ${armTelemetry.source}`}
                 </div>
               </div>
             )}
@@ -825,16 +1068,16 @@ const RoboRoverController: React.FC = () => {
 
             <button
               onClick={() => sendArmCommand("cartesian_move", armControls)}
-              disabled={!connection.isConnected}
+              disabled={!connection.isConnected || !connection.arrowEnabled}
               className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium mb-4 disabled:opacity-50 transition-all hover:scale-[1.02]"
             >
-              Send Custom Move
+              Send Custom Move (Arrow)
             </button>
 
             {/* ARM Quick Controls with Keyboard Indicators */}
             <div className="text-sm text-blue-200 mb-2 flex items-center justify-between">
               <span>Quick Movements (1cm)</span>
-              {keyboardEnabled && (
+              {keyboardEnabled && connection.arrowEnabled && (
                 <span className="text-xs text-purple-300">
                   ⌨️ WASD, Q/E, R, T
                 </span>
@@ -968,17 +1211,22 @@ const RoboRoverController: React.FC = () => {
                     Moving
                   </span>
                 )}
+                {connection.arrowEnabled && (
+                  <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                    🏹 Arrow
+                  </span>
+                )}
               </h2>
               <button
                 onClick={() => sendRoverCommand(0.0, 0.0, 0.0)}
-                disabled={!connection.isConnected}
+                disabled={!connection.isConnected || !connection.arrowEnabled}
                 className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
               >
                 🛑 Stop
               </button>
             </div>
 
-            {/* ROVER Telemetry */}
+            {/* ROVER Telemetry with Arrow indicator */}
             {roverTelemetry && (
               <div
                 className={`p-3 rounded-xl mb-4 border transition-all ${
@@ -987,6 +1235,14 @@ const RoboRoverController: React.FC = () => {
                     : "bg-gray-500/10 border-gray-500/30"
                 }`}
               >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-green-200">
+                    Rover Status
+                  </div>
+                  <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
+                    🏹 Arrow Data
+                  </span>
+                </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <div className="text-green-200 font-medium">Position</div>
@@ -1194,6 +1450,14 @@ const RoboRoverController: React.FC = () => {
             </button>
 
             <button
+              onClick={() => loadSchemas()}
+              disabled={!connection.isConnected}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm disabled:opacity-50 transition-all hover:scale-105"
+            >
+              🏹 Reload Schemas
+            </button>
+
+            <button
               onClick={() =>
                 socketRef.current?.emit("ping", { timestamp: Date.now() })
               }
@@ -1206,17 +1470,21 @@ const RoboRoverController: React.FC = () => {
             <div className="text-sm text-gray-400 hidden md:block">
               {connection.clientId &&
                 `Client: ${connection.clientId.slice(0, 8)}...`}
+              {connection.arrowEnabled && (
+                <span className="ml-2 text-purple-300">| 🏹 Arrow Active</span>
+              )}
             </div>
 
             {/* Emergency Stop with Keyboard Indicator */}
             <button
               onClick={emergencyStopAll}
-              disabled={!connection.isConnected}
+              disabled={!connection.isConnected || !connection.arrowEnabled}
               className={`px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 border-2 border-red-400 ${
                 activeKeys["Escape"] ? "ring-2 ring-yellow-400" : ""
               }`}
             >
-              🛑 Emergency Stop {keyboardEnabled && "(ESC)"}
+              🛑 Emergency Stop{" "}
+              {keyboardEnabled && connection.arrowEnabled && "(ESC)"}
             </button>
           </div>
         </div>
