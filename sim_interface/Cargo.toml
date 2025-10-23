@@ -11,16 +11,9 @@ dora-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 eyre = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-uuid = { workspace = true }
 
 # Add SocketIO server
 tokio = { version = "1.24.2", features = ["full"] }
-tokio-tungstenite = "0.20"
-socketioxide = "0.12"
-axum = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
 
 robo_rover_lib = { path = "../robo_rover_lib" }
+reqwest = { version = "0.12.22", features = ["json"] }

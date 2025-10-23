@@ -130,8 +130,6 @@ impl ArmController {
             x, y, z
         );
 
-        // For Unity integration, we'll pass through the command as-is
-        // Unity's RobotArmActuator will handle the inverse kinematics
         let velocity = max_velocity.unwrap_or(self.config.control.max_cartesian_velocity);
 
         info!("Cartesian move command validated - forwarding to Unity for IK");
