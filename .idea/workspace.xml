@@ -32,7 +32,10 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update Glassmorphic style for app" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update Glassmorphic style for app">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -120,7 +123,7 @@
       <workItem from="1755918903192" duration="1622000" />
       <workItem from="1756051145484" duration="1058000" />
       <workItem from="1760536984295" duration="53180000" />
-      <workItem from="1761302632999" duration="2321000" />
+      <workItem from="1761302632999" duration="4971000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -242,7 +245,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761305978458</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Update Glassmorphic style for app">
+      <option name="closed" value="true" />
+      <created>1761306192059</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1761306192059</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
