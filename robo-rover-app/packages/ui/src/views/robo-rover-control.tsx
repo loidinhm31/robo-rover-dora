@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { io, Socket } from "socket.io-client";
 import { Joystick } from "react-joystick-component";
 import {
@@ -14,7 +14,8 @@ import {
   WebRoverCommand,
 } from "@repo/ui/types/robo-rover";
 import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick.js";
-import { Activity, Home, Radio, Zap, ChevronDown, ChevronUp, Gauge } from "lucide-react";
+import { Activity, Home, Radio, Zap, ChevronDown, ChevronUp, Gauge, Eye, EyeOff } from "lucide-react";
+import URDFViewer from "@repo/ui/components/urdf-viewer";
 
 const SOCKET_URL = "http://localhost:8080";
 const THROTTLE_DELAY = 100; // ms between updates
@@ -50,7 +51,11 @@ const RoboRoverController: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState({
     armJoints: true,
     logs: false,
+    urdfViewer: true,
   });
+
+  // 3D Viewer visibility
+  const [show3DViewer, setShow3DViewer] = useState(true);
 
   const socketRef = useRef<Socket | null>(null);
   const lastCommandTime = useRef<number>(0);
@@ -325,7 +330,7 @@ const RoboRoverController: React.FC = () => {
                 UNIFIED ROBOT CONTROL
               </h1>
               <p className="text-xs md:text-sm text-white/80">
-                Simultaneous ARM & ROVER Control System
+                Simultaneous ARM & ROVER Control System with 3D Visualization
               </p>
             </div>
             <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
@@ -371,6 +376,49 @@ const RoboRoverController: React.FC = () => {
         >
           ⚠️ EMERGENCY STOP
         </button>
+
+        {/* 3D Visualization Section */}
+        {show3DViewer && (
+          <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Eye className="w-6 h-6 text-purple-400" />
+                <h2 className="text-2xl md:text-3xl font-bold text-white">
+                  3D ARM VISUALIZATION
+                </h2>
+              </div>
+              <button
+                onClick={() => setShow3DViewer(false)}
+                className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
+              >
+                <EyeOff className="w-4 h-4" />
+                Hide
+              </button>
+            </div>
+            <div className="glass-card-light rounded-2xl p-2 md:p-4">
+              <Suspense fallback={<div className="h-96 flex items-center justify-center text-white/60">Loading 3D Viewer...</div>}>
+                <URDFViewer
+                  urdfPath="/robots/LeKiwi.urdf"
+                  jointPositions={jointPositions}
+                  height="500px"
+                />
+              </Suspense>
+            </div>
+            <div className="mt-3 text-xs text-white/60 text-center">
+              Use mouse to rotate • Scroll to zoom • Drag to pan
+            </div>
+          </div>
+        )}
+
+        {!show3DViewer && (
+          <button
+            onClick={() => setShow3DViewer(true)}
+            className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+          >
+            <Eye className="w-5 h-5" />
+            Show 3D Visualization
+          </button>
+        )}
 
         {/* Main Control Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -697,6 +745,12 @@ const RoboRoverController: React.FC = () => {
             <div>
               <span className="font-bold text-white">Throttle:</span>{" "}
               {THROTTLE_DELAY}ms
+            </div>
+            <div className="hidden md:block w-px h-6 bg-white/20"></div>
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              <span className="font-bold text-white">3D Visualization:</span>{" "}
+              {show3DViewer ? "Active" : "Hidden"}
             </div>
           </div>
         </div>

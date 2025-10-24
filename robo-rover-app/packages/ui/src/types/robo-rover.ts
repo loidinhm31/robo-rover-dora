@@ -25,9 +25,9 @@ export interface WebArmCommand {
 export interface WebRoverCommand {
   command_type: "velocity" | "joint_positions" | "stop";
   // For velocity commands (omnidirectional mecanum wheels)
-  v_x?: number;       // Linear velocity in x (m/s)
-  v_y?: number;       // Linear velocity in y (m/s)  
-  omega_z?: number;   // Angular velocity (rad/s)
+  v_x?: number; // Linear velocity in x (m/s)
+  v_y?: number; // Linear velocity in y (m/s)
+  omega_z?: number; // Angular velocity (rad/s)
   // For direct joint control
   wheel1?: number;
   wheel2?: number;
