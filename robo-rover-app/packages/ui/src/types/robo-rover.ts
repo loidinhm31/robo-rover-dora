@@ -6,12 +6,15 @@ export interface LogEntry {
 
 // LeKiwi 6DOF Arm Joint Positions
 export interface JointPositions {
-  shoulder_pan: number;    // Joint 1: Base rotation (-3.14 to 3.14 rad)
-  shoulder_lift: number;   // Joint 2: Shoulder pitch (-1.57 to 1.57 rad)
-  elbow_flex: number;      // Joint 3: Elbow pitch (-2.09 to 2.09 rad)
-  wrist_flex: number;      // Joint 4: Wrist pitch (-3.14 to 3.14 rad)
-  wrist_roll: number;      // Joint 5: Wrist roll (-1.57 to 1.57 rad)
-  gripper: number;         // Joint 6: Gripper (-3.14 to 3.14 rad)
+  shoulder_pan: number; // Joint 1: Base rotation (-3.14 to 3.14 rad)
+  shoulder_lift: number; // Joint 2: Shoulder pitch (-1.57 to 1.57 rad)
+  elbow_flex: number; // Joint 3: Elbow pitch (-2.09 to 2.09 rad)
+  wrist_flex: number; // Joint 4: Wrist pitch (-3.14 to 3.14 rad)
+  wrist_roll: number; // Joint 5: Wrist roll (-1.57 to 1.57 rad)
+  gripper: number; // Joint 6: Gripper (-3.14 to 3.14 rad)
+  wheel1?: number;
+  wheel2?: number;
+  wheel3?: number;
 }
 
 // Web Arm Command structure matching Rust WebArmCommand
@@ -100,8 +103,8 @@ export function validateJointPositions(positions: JointPositions): string | null
 
   for (const [joint, limits] of checks) {
     const value = positions[joint];
-    if (value < limits.min || value > limits.max) {
-      return `${joint} out of range: ${value.toFixed(3)} (expected ${limits.min.toFixed(2)} to ${limits.max.toFixed(2)})`;
+    if (value! < limits.min || value! > limits.max) {
+      return `${joint} out of range: ${value!.toFixed(3)} (expected ${limits.min.toFixed(2)} to ${limits.max.toFixed(2)})`;
     }
   }
 

@@ -15,10 +15,17 @@ import {
 } from "@repo/ui/types/robo-rover";
 import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick.js";
 import { Activity, Home, Radio, Zap, ChevronDown, ChevronUp, Gauge, Eye, EyeOff } from "lucide-react";
-import URDFViewer from "@repo/ui/components/urdf-viewer";
+import { URDFViewer } from "@repo/ui/components/urdf-viewer";
 
 const SOCKET_URL = "http://localhost:8080";
 const THROTTLE_DELAY = 100; // ms between updates
+
+// Extended JointPositions with wheel visualization
+interface ExtendedJointPositions extends JointPositions {
+  wheel1: number;
+  wheel2: number;
+  wheel3: number;
+}
 
 const RoboRoverController: React.FC = () => {
   // Connection state
@@ -36,9 +43,14 @@ const RoboRoverController: React.FC = () => {
   );
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  // LeKiwi joint position controls
+  // LeKiwi joint position controls (now includes wheels)
   const [jointPositions, setJointPositions] =
-    useState<JointPositions>(createHomePosition());
+    useState<ExtendedJointPositions>({
+      ...createHomePosition(),
+      wheel1: 0.0,
+      wheel2: 0.0,
+      wheel3: 0.0,
+    });
 
   // Rover velocity controls
   const [roverVelocity, setRoverVelocity] = useState({
@@ -59,6 +71,7 @@ const RoboRoverController: React.FC = () => {
 
   const socketRef = useRef<Socket | null>(null);
   const lastCommandTime = useRef<number>(0);
+  const lastUpdateTime = useRef<number>(Date.now());
   const MAX_LOGS = 50;
 
   // Add log entry
@@ -122,78 +135,85 @@ const RoboRoverController: React.FC = () => {
       }));
     });
 
-    socket.on("rover_command_ack", (data) => {
-      setConnection((prev) => ({
-        ...prev,
-        commandsReceived: prev.commandsReceived + 1,
-      }));
-    });
-
-    socket.on("error", (data) => {
-      addLog(`Error: ${data.message}`, "error");
+    socket.on("rover_core_telemetry", (data: RoverTelemetry) => {
+      setRoverTelemetry(data);
     });
 
     socket.on("arm_telemetry", (data: ArmTelemetry) => {
       setArmTelemetry(data);
-    });
-
-    socket.on("rover_telemetry", (data: RoverTelemetry) => {
-      setRoverTelemetry(data);
+      if (data.joint_angles && data.joint_angles.length === 6) {
+        setJointPositions((prev) => ({
+          shoulder_pan: data.joint_angles![0] as number,
+          shoulder_lift: data.joint_angles![1] as number,
+          elbow_flex: data.joint_angles![2] as number,
+          wrist_flex: data.joint_angles![3] as number,
+          wrist_roll: data.joint_angles![4] as number,
+          gripper: data.joint_angles![5] as number,
+          // Keep wheel positions
+          wheel1: prev.wheel1 as number,
+          wheel2: prev.wheel2 as number,
+          wheel3: prev.wheel3 as number,
+        }));
+      }
     });
 
     socketRef.current = socket;
   }, [addLog]);
 
+  // Disconnect from Socket.IO server
   const disconnect = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
+      addLog("Manually disconnected", "info");
     }
-  }, []);
+  }, [addLog]);
 
-  // Send arm command
+  // Send ARM command
   const sendArmCommand = useCallback(
     (command: WebArmCommand) => {
-      if (!socketRef.current?.connected) return;
-
-      try {
-        if (command.joint_positions) {
-          const error = validateJointPositions(command.joint_positions);
-          if (error) {
-            addLog(`Validation error: ${error}`, "error");
-            return;
-          }
-        }
-
-        socketRef.current.emit("joint_command", command);
-        setConnection((prev) => ({
-          ...prev,
-          commandsSent: prev.commandsSent + 1,
-        }));
-      } catch (error) {
-        addLog(`Failed to send ARM command: ${error}`, "error");
+      if (!connection.isConnected || !socketRef.current) {
+        addLog("Cannot send command - not connected", "error");
+        return;
       }
+
+      socketRef.current.emit("web_arm_command", command);
+      setConnection((prev) => ({
+        ...prev,
+        commandsSent: prev.commandsSent + 1,
+      }));
     },
-    [addLog],
+    [connection.isConnected, addLog],
   );
 
-  // Send rover command
+  // Send ROVER command
   const sendRoverCommand = useCallback(
     (command: WebRoverCommand) => {
-      if (!socketRef.current?.connected) return;
-
-      try {
-        socketRef.current.emit("rover_command", command);
-        setConnection((prev) => ({
-          ...prev,
-          commandsSent: prev.commandsSent + 1,
-        }));
-      } catch (error) {
-        addLog(`Failed to send ROVER command: ${error}`, "error");
+      if (!connection.isConnected || !socketRef.current) {
+        addLog("Cannot send rover command - not connected", "error");
+        return;
       }
+
+      socketRef.current.emit("web_rover_command", command);
+      setConnection((prev) => ({
+        ...prev,
+        commandsSent: prev.commandsSent + 1,
+      }));
     },
-    [addLog],
+    [connection.isConnected, addLog],
   );
+
+  // Update joint position
+  const updateJoint = useCallback((joint: keyof JointPositions, value: number) => {
+    setJointPositions((prev) => {
+      const newPositions = { ...prev, [joint]: value };
+      const error = validateJointPositions(newPositions);
+      if (error) {
+        console.warn(error);
+      }
+      return newPositions as ExtendedJointPositions;
+    });
+  }, []);
 
   // Real-time ARM joint control
   useEffect(() => {
@@ -202,14 +222,26 @@ const RoboRoverController: React.FC = () => {
     const sendJointUpdate = () => {
       const command: WebArmCommand = {
         command_type: "joint_position",
-        joint_positions: jointPositions,
+        joint_positions: {
+          shoulder_pan: jointPositions.shoulder_pan,
+          shoulder_lift: jointPositions.shoulder_lift,
+          elbow_flex: jointPositions.elbow_flex,
+          wrist_flex: jointPositions.wrist_flex,
+          wrist_roll: jointPositions.wrist_roll,
+          gripper: jointPositions.gripper,
+        },
       };
       sendArmCommand(command);
     };
 
     sendThrottled(sendJointUpdate);
   }, [
-    jointPositions,
+    jointPositions.shoulder_pan,
+    jointPositions.shoulder_lift,
+    jointPositions.elbow_flex,
+    jointPositions.wrist_flex,
+    jointPositions.wrist_roll,
+    jointPositions.gripper,
     connection.isConnected,
     sendArmCommand,
     sendThrottled,
@@ -236,6 +268,43 @@ const RoboRoverController: React.FC = () => {
     sendRoverCommand,
     sendThrottled,
   ]);
+
+  // **NEW: Integrate wheel velocities into wheel positions for visualization**
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      const dt = (now - lastUpdateTime.current) / 1000; // Convert to seconds
+      lastUpdateTime.current = now;
+
+      // 3-wheel omnidirectional kinematics (120° apart)
+      // Wheel radius (approximate, adjust if needed)
+      const WHEEL_RADIUS = 0.05; // 5cm radius
+      const ROBOT_RADIUS = 0.15; // Distance from center to wheel
+
+      // Convert linear velocities to wheel angular velocities
+      // For 3-wheel omni with 120° spacing:
+      const { v_x, v_y, omega_z } = roverVelocity;
+
+      // Wheel 1 (bottom, 0°): axis along [0, 0, -1]
+      const omega1 = (v_y / WHEEL_RADIUS) + (omega_z * ROBOT_RADIUS / WHEEL_RADIUS);
+
+      // Wheel 2 (right, 120°): axis along [0.866, 0, 0.5]
+      const omega2 = ((-0.5 * v_y + 0.866 * v_x) / WHEEL_RADIUS) + (omega_z * ROBOT_RADIUS / WHEEL_RADIUS);
+
+      // Wheel 3 (left, 240°): axis along [-0.866, 0, 0.5]
+      const omega3 = ((-0.5 * v_y - 0.866 * v_x) / WHEEL_RADIUS) + (omega_z * ROBOT_RADIUS / WHEEL_RADIUS);
+
+      // Integrate: position += velocity * dt
+      setJointPositions((prev) => ({
+        ...prev,
+        wheel1: prev.wheel1 + omega1 * dt,
+        wheel2: prev.wheel2 + omega2 * dt,
+        wheel3: prev.wheel3 + omega3 * dt,
+      }));
+    }, 50); // Update at 20Hz
+
+    return () => clearInterval(intervalId);
+  }, [roverVelocity]);
 
   // Joystick move handler
   const handleJoystickMove = useCallback((event: IJoystickUpdateEvent) => {
@@ -265,7 +334,12 @@ const RoboRoverController: React.FC = () => {
   const sendHome = useCallback(() => {
     const command: WebArmCommand = { command_type: "home" };
     sendArmCommand(command);
-    setJointPositions(createHomePosition());
+    setJointPositions({
+      ...createHomePosition(),
+      wheel1: 0.0,
+      wheel2: 0.0,
+      wheel3: 0.0,
+    });
   }, [sendArmCommand]);
 
   // Emergency stop
@@ -285,17 +359,11 @@ const RoboRoverController: React.FC = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (socketRef.current?.connected) {
-        emergencyStop();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
     };
-  }, [emergencyStop]);
-
-  const radToDeg = (rad: number) => ((rad * 180) / Math.PI).toFixed(1);
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
+  }, []);
 
   return (
     <div className="min-h-screen gradient-bg relative overflow-hidden">
@@ -325,14 +393,18 @@ const RoboRoverController: React.FC = () => {
         {/* Header */}
         <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
-                UNIFIED ROBOT CONTROL
-              </h1>
-              <p className="text-xs md:text-sm text-white/80">
-                Simultaneous ARM & ROVER Control System with 3D Visualization
-              </p>
+            <div className="flex items-center gap-3 md:gap-4">
+              <Zap className="w-8 h-8 md:w-12 md:h-12 text-yellow-400 animate-pulse" />
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
+                  LEKIWI ROBOT
+                </h1>
+                <p className="text-xs md:text-sm text-white/80">
+                  6-DOF Arm + 3-Wheel Omnidirectional Base
+                </p>
+              </div>
             </div>
+
             <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
               <div className="glass-card-light rounded-2xl px-4 md:px-6 py-3 flex-1 md:flex-none">
                 <div className="flex items-center gap-2">
@@ -384,7 +456,7 @@ const RoboRoverController: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Eye className="w-6 h-6 text-purple-400" />
                 <h2 className="text-2xl md:text-3xl font-bold text-white">
-                  3D ARM VISUALIZATION
+                  3D ROBOT VISUALIZATION
                 </h2>
               </div>
               <button
@@ -406,6 +478,28 @@ const RoboRoverController: React.FC = () => {
             </div>
             <div className="mt-3 text-xs text-white/60 text-center">
               Use mouse to rotate • Scroll to zoom • Drag to pan
+            </div>
+            {/* Wheel debug info */}
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="glass-card-light p-2 rounded-lg">
+                <div className="text-white/50">Wheel 1 (Bottom)</div>
+                <div className="text-cyan-300 font-mono">
+                  {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
+                </div>
+              </div>
+              <div className="glass-card-light p-2 rounded-lg">
+                <div className="text-white/50">Wheel 2 (Right)</div>
+                <div className="text-cyan-300 font-mono">
+                  {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
+                </div>
+              </div>
+              <div className="glass-card-light p-2 rounded-lg">
+                <div className="text-white/50">Wheel 3 (Left)</div>
+                <div className="text-cyan-300 font-mono">
+                  {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -473,225 +567,111 @@ const RoboRoverController: React.FC = () => {
                   }
                   className="glass-slider w-full"
                 />
-                <div className="flex justify-between text-xs text-white/60">
-                  <span>← CCW</span>
-                  <span>CW →</span>
+                <div className="flex justify-between text-xs text-white/50 font-mono">
+                  <span>-1.0</span>
+                  <span>0.0</span>
+                  <span>+1.0</span>
                 </div>
               </div>
-
-              {/* Velocity Display */}
-              <div className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
-                <div className="glass-card-light rounded-2xl p-3 md:p-5">
-                  <div className="text-xs text-white/70 mb-2 font-semibold">
-                    FORWARD
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold text-cyan-300 font-mono">
-                    {roverVelocity.v_x.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-white/60 mt-1">m/s</div>
-                </div>
-                <div className="glass-card-light rounded-2xl p-3 md:p-5">
-                  <div className="text-xs text-white/70 mb-2 font-semibold">
-                    STRAFE
-                  </div>
-                  <div className="text-2xl md:text-3xl font-bold text-cyan-300 font-mono">
-                    {roverVelocity.v_y.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-white/60 mt-1">m/s</div>
-                </div>
-              </div>
-            </div>
-
-            {/* ROVER Telemetry */}
-            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <h3 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                <Gauge className="w-5 h-5 md:w-6 md:h-6" />
-                Rover Status
-              </h3>
-
-              {roverTelemetry ? (
-                <div className="space-y-3">
-                  <div className="glass-card-light rounded-2xl p-3 md:p-4">
-                    <div className="text-xs text-white/70 mb-2 font-semibold">
-                      POSITION
-                    </div>
-                    <div className="text-lg md:text-xl font-mono text-cyan-300">
-                      [{roverTelemetry.position[0].toFixed(2)},{" "}
-                      {roverTelemetry.position[1].toFixed(2)}]
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="glass-card-light rounded-2xl p-2 md:p-3">
-                      <div className="text-xs text-white/70 mb-1">YAW</div>
-                      <div className="text-base md:text-lg font-mono text-cyan-300">
-                        {roverTelemetry.yaw.toFixed(1)}°
-                      </div>
-                    </div>
-                    <div className="glass-card-light rounded-2xl p-2 md:p-3">
-                      <div className="text-xs text-white/70 mb-1">PITCH</div>
-                      <div className="text-base md:text-lg font-mono text-cyan-300">
-                        {roverTelemetry.pitch.toFixed(1)}°
-                      </div>
-                    </div>
-                    <div className="glass-card-light rounded-2xl p-2 md:p-3">
-                      <div className="text-xs text-white/70 mb-1">ROLL</div>
-                      <div className="text-base md:text-lg font-mono text-cyan-300">
-                        {roverTelemetry.roll.toFixed(1)}°
-                      </div>
-                    </div>
-                  </div>
-                  <div className="glass-card-light rounded-2xl p-3 md:p-4">
-                    <div className="text-xs text-white/70 mb-2 font-semibold">
-                      VELOCITY
-                    </div>
-                    <div className="text-xl md:text-2xl font-mono text-cyan-300">
-                      {roverTelemetry.velocity.toFixed(2)} m/s
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-white/40 py-8 md:py-12">
-                  <Activity className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No telemetry data</p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* RIGHT COLUMN: ARM CONTROL */}
           <div className="space-y-3 md:space-y-4">
             <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4 md:mb-6">
+              <button
+                onClick={() =>
+                  setExpandedSections((prev) => ({
+                    ...prev,
+                    armJoints: !prev.armJoints,
+                  }))
+                }
+                className="w-full flex items-center justify-between mb-4"
+              >
                 <div className="flex items-center gap-2">
-                  <Zap className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
+                  <Gauge className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
                   <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    ARM
+                    ARM JOINTS
                   </h2>
                 </div>
-                <button
-                  onClick={sendHome}
-                  disabled={!connection.isConnected}
-                  className="btn-gradient px-4 md:px-6 py-2 md:py-3 rounded-xl text-sm md:text-base flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  <Home className="w-4 h-4 md:w-5 md:h-5" />
-                  HOME
-                </button>
-              </div>
-
-              {/* Collapsible Joint Controls */}
-              <div className="glass-card-light rounded-2xl overflow-hidden">
-                <button
-                  onClick={() => toggleSection('armJoints')}
-                  className="w-full flex items-center justify-between p-3 md:p-4 hover:bg-white/5 transition-colors"
-                >
-                  <span className="text-sm md:text-base font-semibold text-white">
-                    Joint Controls (6-DOF)
-                  </span>
+                <div>
                   {expandedSections.armJoints ? (
                     <ChevronUp className="w-5 h-5 text-white/70" />
                   ) : (
                     <ChevronDown className="w-5 h-5 text-white/70" />
                   )}
-                </button>
-
-                {expandedSections.armJoints && (
-                  <div className="p-3 md:p-4 space-y-3 md:space-y-4 border-t border-white/10">
-                    {Object.entries(jointPositions).map(([joint, value]) => (
-                      <div key={joint} className="space-y-2">
-                        <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
-                          <span className="capitalize">
-                            {joint.replace("_", " ")}
-                          </span>
-                          <span className="text-purple-300 font-mono">
-                            {value.toFixed(3)} rad ({radToDeg(value)}°)
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min={JOINT_LIMITS[joint as keyof JointPositions].min}
-                          max={JOINT_LIMITS[joint as keyof JointPositions].max}
-                          step="0.01"
-                          value={value}
-                          onChange={(e) =>
-                            setJointPositions((prev) => ({
-                              ...prev,
-                              [joint]: parseFloat(e.target.value),
-                            }))
-                          }
-                          className="glass-slider w-full"
-                          style={{
-                            background: `linear-gradient(to right, rgb(192 132 252) 0%, rgb(236 72 153) 100%)`,
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ARM Telemetry */}
-            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <h3 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                <Gauge className="w-5 h-5 md:w-6 md:h-6" />
-                Arm Status
-              </h3>
-
-              {armTelemetry ? (
-                <div className="space-y-3">
-                  <div className="glass-card-light rounded-2xl p-3 md:p-4">
-                    <div className="text-xs text-white/70 mb-2 font-semibold">
-                      STATUS
-                    </div>
-                    <div
-                      className={`text-lg md:text-xl font-bold ${armTelemetry.is_moving ? "text-yellow-300" : "text-green-300"}`}
-                    >
-                      {armTelemetry.is_moving ? "🔄 MOVING" : "✓ READY"}
-                    </div>
-                  </div>
-                  {armTelemetry.joint_angles && (
-                    <div className="glass-card-light rounded-2xl p-3 md:p-4">
-                      <div className="text-xs text-white/70 mb-2 font-semibold">
-                        JOINT ANGLES
-                      </div>
-                      <div className="text-xs font-mono text-purple-300 space-y-1">
-                        {armTelemetry.joint_angles.map((angle, idx) => (
-                          <div key={idx} className="flex justify-between">
-                            <span>J{idx + 1}:</span>
-                            <span>{angle.toFixed(3)} rad</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ) : (
-                <div className="text-center text-white/40 py-8 md:py-12">
-                  <Zap className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No telemetry data</p>
+              </button>
+
+              {expandedSections.armJoints && (
+                <div className="space-y-3 md:space-y-4">
+                  {Object.entries(JOINT_LIMITS).map(([joint, limits]) => (
+                    <div
+                      key={joint}
+                      className="glass-card-light rounded-2xl p-3 md:p-4 space-y-2"
+                    >
+                      <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
+                        <span className="capitalize">
+                          {joint.replace("_", " ")}
+                        </span>
+                        <span className="text-purple-300 font-mono">
+                          {jointPositions[
+                            joint as keyof JointPositions
+                            ].toFixed(2)}{" "}
+                          rad
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={limits.min}
+                        max={limits.max}
+                        step="0.01"
+                        value={jointPositions[joint as keyof JointPositions]}
+                        onChange={(e) =>
+                          updateJoint(
+                            joint as keyof JointPositions,
+                            parseFloat(e.target.value),
+                          )
+                        }
+                        className="glass-slider w-full"
+                      />
+                      <div className="flex justify-between text-xs text-white/50 font-mono">
+                        <span>{limits.min.toFixed(2)}</span>
+                        <span>0.00</span>
+                        <span>{limits.max.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={sendHome}
+                    disabled={!connection.isConnected}
+                    className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Home className="w-5 h-5" />
+                    HOME POSITION
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Activity Log */}
+        {/* Activity Logs */}
         <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
           <button
-            onClick={() => toggleSection('logs')}
-            className="w-full flex items-center justify-between mb-4"
+            onClick={() =>
+              setExpandedSections((prev) => ({
+                ...prev,
+                logs: !prev.logs,
+              }))
+            }
+            className="w-full flex items-center justify-between"
           >
-            <h3 className="text-lg md:text-xl font-bold text-white">Activity Log</h3>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLogs([]);
-                }}
-                className="text-xs px-3 md:px-4 py-2 glass-card-light text-white/80 rounded-xl hover:text-white transition-all hover:scale-105"
-              >
-                Clear
-              </button>
+            <h2 className="text-xl md:text-2xl font-bold text-white">
+              ACTIVITY LOG ({logs.length})
+            </h2>
+            <div>
               {expandedSections.logs ? (
                 <ChevronUp className="w-5 h-5 text-white/70" />
               ) : (
@@ -738,7 +718,7 @@ const RoboRoverController: React.FC = () => {
               <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
               <span>
                 <span className="font-bold text-white">Real-time Control</span>{" "}
-                - Both systems active
+                - Arm + Wheels active
               </span>
             </div>
             <div className="hidden md:block w-px h-6 bg-white/20"></div>

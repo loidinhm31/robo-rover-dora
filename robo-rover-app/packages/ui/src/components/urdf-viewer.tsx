@@ -43,8 +43,9 @@ const URDFRobot: React.FC<{
     if (!robot) return;
 
     // ACTUAL LeKiwi joint mapping from LeKiwi.urdf
-    // ARM joint mapping
-    const jointMapping = {
+
+    // ARM joint mapping (keep existing logic)
+    const armJointMapping = {
       shoulder_pan: "STS3215_03a-v1_Revolute-45", // Base rotation
       shoulder_lift: "STS3215_03a-v1-1_Revolute-49", // Shoulder pitch
       elbow_flex: "STS3215_03a-v1-2_Revolute-51", // Elbow pitch
@@ -53,11 +54,27 @@ const URDFRobot: React.FC<{
       gripper: "STS3215_03a-v1-4_Revolute-57", // Gripper
     };
 
-    // Update arm joints
-    Object.entries(jointPositions).forEach(([key, value]) => {
-      const urdfJointName = jointMapping[key as keyof typeof jointMapping];
-      if (robot.joints[urdfJointName]) {
+    // WHEEL joint mapping (NEW - for 3 mecanum wheels)
+    const wheelJointMapping = {
+      wheel1: "ST3215_Servo_Motor-v1-2_Revolute-60", // Bottom wheel
+      wheel2: "ST3215_Servo_Motor-v1-1_Revolute-62", // Right wheel
+      wheel3: "ST3215_Servo_Motor-v1_Revolute-64", // Left wheel
+    };
+
+    // Update arm joints (existing logic)
+    Object.entries(armJointMapping).forEach(([key, urdfJointName]) => {
+      const value = jointPositions[key as keyof typeof armJointMapping];
+      if (value !== undefined && robot.joints[urdfJointName]) {
         robot.joints[urdfJointName].setJointValue(value);
+      }
+    });
+
+    // Update wheel joints (NEW)
+    Object.entries(wheelJointMapping).forEach(([key, urdfJointName]) => {
+      const value = jointPositions[key as keyof typeof wheelJointMapping];
+      if (value !== undefined && robot.joints[urdfJointName]) {
+        robot.joints[urdfJointName].setJointValue(value);
+        console.log(`🎡 Updated ${key} (${urdfJointName}): ${value.toFixed(3)} rad`);
       }
     });
   }, [robot, jointPositions]);
@@ -117,22 +134,29 @@ const URDFRobot: React.FC<{
 };
 
 export const URDFViewer: React.FC<URDFViewerProps> = ({
-  urdfPath,
-  jointPositions,
-  width = "100%",
-  height = "600px",
-}) => {
+                                                        urdfPath,
+                                                        jointPositions,
+                                                        width = "100%",
+                                                        height = "600px",
+                                                      }) => {
   return (
-    <div style={{ width, height }} className="rounded-2xl overflow-hidden">
+    <div
+      style={{
+        width,
+        height,
+        background: "linear-gradient(to bottom, #0f172a, #1e293b)",
+        borderRadius: "1rem",
+        overflow: "hidden",
+      }}
+    >
       <Canvas
         camera={{
           position: [0.5, 0.5, 0.5],
-          fov: 60,
+          fov: 50,
         }}
         shadows
       >
-        <color attach="background" args={["#0a0a1a"]} />
-
+        {/* Lighting */}
         <ambientLight intensity={0.6} />
         <directionalLight
           position={[5, 5, 5]}
@@ -142,44 +166,35 @@ export const URDFViewer: React.FC<URDFViewerProps> = ({
           shadow-mapSize-height={2048}
         />
         <pointLight position={[-5, 5, -5]} intensity={0.4} />
-        <spotLight
-          position={[0, 10, 0]}
-          angle={0.3}
-          penumbra={0.5}
-          intensity={0.5}
-          castShadow
-        />
 
-        <URDFRobot urdfPath={urdfPath} jointPositions={jointPositions} />
-
+        {/* Ground Grid */}
         <Grid
-          args={[10, 10]}
+          args={[2, 2]}
           cellSize={0.1}
           cellThickness={0.5}
           cellColor="#6366f1"
           sectionSize={0.5}
           sectionThickness={1}
           sectionColor="#8b5cf6"
-          fadeDistance={25}
+          fadeDistance={3}
           fadeStrength={1}
           followCamera={false}
-          infiniteGrid
+          infiniteGrid={true}
         />
 
+        {/* Robot */}
+        <URDFRobot urdfPath={urdfPath} jointPositions={jointPositions} />
+
+        {/* Environment & Controls */}
+        <Environment preset="city" />
         <OrbitControls
+          makeDefault
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI / 2}
           enableDamping
           dampingFactor={0.05}
-          minDistance={0.2}
-          maxDistance={5}
-          target={[0, 0.2, 0]}
-          maxPolarAngle={Math.PI * 0.9}
-          minPolarAngle={0}
         />
-
-        <Environment preset="sunset" />
       </Canvas>
     </div>
   );
 };
-
-export default URDFViewer;
