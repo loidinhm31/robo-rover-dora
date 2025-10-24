@@ -32,25 +32,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update for arm controller base on LeKiwi">
-      <change afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/mecanum_kinematics.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/lib/arrow-utils.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_command.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/rover_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/rover_types.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rover_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover_controller/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sim_interface/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sim_interface/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
-    </list>
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update Glassmorphic style for app" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -138,7 +120,7 @@
       <workItem from="1755918903192" duration="1622000" />
       <workItem from="1756051145484" duration="1058000" />
       <workItem from="1760536984295" duration="53180000" />
-      <workItem from="1761302632999" duration="749000" />
+      <workItem from="1761302632999" duration="2321000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -236,7 +218,31 @@
       <option name="project" value="LOCAL" />
       <updated>1761244333553</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Update for rover controller base on LeKiw">
+      <option name="closed" value="true" />
+      <created>1761304008039</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1761304008039</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Update app to control LeKiwi">
+      <option name="closed" value="true" />
+      <created>1761304031995</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1761304031995</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Update Glassmorphic style for app">
+      <option name="closed" value="true" />
+      <created>1761305978458</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1761305978458</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -267,7 +273,10 @@
     <MESSAGE value="Clear source" />
     <MESSAGE value="Try to transfer data in websocket with Apache Arrow" />
     <MESSAGE value="Update for arm controller base on LeKiwi" />
-    <option name="LAST_COMMIT_MESSAGE" value="Update for arm controller base on LeKiwi" />
+    <MESSAGE value="Update for rover controller base on LeKiw" />
+    <MESSAGE value="Update app to control LeKiwi" />
+    <MESSAGE value="Update Glassmorphic style for app" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update Glassmorphic style for app" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">
