@@ -32,59 +32,21 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Try to transfer data in websocket with Apache Arrow">
-      <change afterPath="$PROJECT_DIR$/model/LeKiwi.urdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-4.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Base_08q-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Battery---Battery-5.2-Ah-DC5521-Plug-v2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Bottom-V2-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Camera-Model-v3-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Camera-Model-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Camera-Mount-v8.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Moving_Jaw_08d-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Passive_Horn_01-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Rotation_Pitch_08i-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_116_Square-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_Asym_Mirror_Clip-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_Mirror-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-4.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a_Wrist_Roll-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Top-V2-v2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/WaveShare_Mounting_Plate_01d-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Wrist-Camera-Mount-v11.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Wrist_Roll_08c-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/Wrist_Roll_Pitch_08i-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/base_plate_layer1-v5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/base_plate_layer2-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/lipo_battery_mount-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/model/meshes/servo_controller_mount-v3.stl" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update for arm controller base on LeKiwi">
+      <change afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/mecanum_kinematics.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/arm_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/arm_controller/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/joint_state.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/lib/arrow-utils.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_command.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sim_interface/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/sim_interface/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/rover_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/rover_types.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rover_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover_controller/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/sim_interface/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sim_interface/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
@@ -116,38 +78,40 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "G:/ws/robo-rover-dora/model",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "prettierjs.PrettierConfiguration.Package": "G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier",
-    "settings.editor.selected.configurable": "settings.javascript.prettier",
-    "ts.external.directory.path": "G:\\ws\\robo-rover-dora\\robo-rover-app\\packages\\eslint-config\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;G:/ws/robo-rover-dora/robo_rover_lib&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;settings.javascript.prettier&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\packages\\eslint-config\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora\robo_rover_lib" />
       <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\web" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native" />
-      <recent name="G:\ws\robo-rover-dora\robo-rover-app\.vscode" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora\robo_rover_lib\src\utils" />
+      <recent name="G:\ws\robo-rover-dora\robo_rover_lib\src" />
       <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora" />
     </key>
@@ -173,7 +137,8 @@
       <workItem from="1755416527752" duration="61000" />
       <workItem from="1755918903192" duration="1622000" />
       <workItem from="1756051145484" duration="1058000" />
-      <workItem from="1760536984295" duration="32384000" />
+      <workItem from="1760536984295" duration="53180000" />
+      <workItem from="1761302632999" duration="749000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -263,7 +228,15 @@
       <option name="project" value="LOCAL" />
       <updated>1752509510650</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Update for arm controller base on LeKiwi">
+      <option name="closed" value="true" />
+      <created>1761244333553</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1761244333553</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -293,7 +266,8 @@
     <MESSAGE value="Add keyboard function" />
     <MESSAGE value="Clear source" />
     <MESSAGE value="Try to transfer data in websocket with Apache Arrow" />
-    <option name="LAST_COMMIT_MESSAGE" value="Try to transfer data in websocket with Apache Arrow" />
+    <MESSAGE value="Update for arm controller base on LeKiwi" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update for arm controller base on LeKiwi" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">
@@ -304,9 +278,14 @@
           <option name="timeStamp" value="1" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_command.rs</url>
-          <line>48</line>
+          <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs</url>
+          <line>49</line>
           <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs</url>
+          <line>25</line>
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts</url>

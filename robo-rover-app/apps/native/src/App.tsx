@@ -1,7 +1,7 @@
-import { AnalyzeTextView } from "@repo/ui/views/analyze-text-view.tsx";
+import RoboRoverController from "@repo/ui/views/robo-rover-control";
 
 function App() {
-  return <AnalyzeTextView />;
+  return <RoboRoverController />;
 }
 
 export default App;
