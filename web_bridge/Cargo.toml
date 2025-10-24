@@ -2,7 +2,7 @@
 name = "web_bridge"
 version = "0.1.0"
 edition = "2021"
-description = "Web bridge node for web application control via SocketIO with Apache Arrow support"
+description = "Web bridge node via SocketIO"
 
 [dependencies]
 # Workspace dependencies

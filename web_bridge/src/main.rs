@@ -4,15 +4,14 @@ use dora_node_api::{
     DoraNode, Event,
 };
 use eyre::Result;
-use robo_rover_lib::{
-    ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority, InputSource,
-};
+use robo_rover_lib::{ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid;
 
 use axum::http::Method;
+use serde_json::Value;
 use socketioxide::{
     extract::{Data, SocketRef},
     SocketIo,
@@ -32,11 +31,25 @@ pub struct JointPositions {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WebJointCommand {
+pub struct WebArmCommand {
     pub command_type: String,  // "joint_position", "cartesian", "home", "stop"
     pub joint_positions: Option<JointPositions>,
     pub max_velocity: Option<f64>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct WebRoverCommand {
+    command_type: String,  // "velocity", "joint_positions", "stop"
+    // For velocity commands
+    v_x: Option<f64>,      // Linear velocity in x (m/s)
+    v_y: Option<f64>,      // Linear velocity in y (m/s)
+    omega_z: Option<f64>,  // Angular velocity (rad/s)
+    // For direct joint control
+    wheel1: Option<f64>,
+    wheel2: Option<f64>,
+    wheel3: Option<f64>,
+}
+
 
 impl JointPositions {
     /// Validate joint limits for LeKiwi arm
@@ -101,20 +114,22 @@ impl JointPositions {
 
 #[derive(Clone)]
 struct SharedState {
-    command_queue: Arc<Mutex<Vec<WebJointCommand>>>,
+    pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
+    pub rover_command_queue: Arc<Mutex<Vec<WebRoverCommand>>>,
     connected_clients: Arc<Mutex<Vec<String>>>,
 }
 
 impl SharedState {
     fn new() -> Self {
         Self {
-            command_queue: Arc::new(Mutex::new(Vec::new())),
+            arm_command_queue: Arc::new(Mutex::new(Vec::new())),
+            rover_command_queue: Arc::new(Mutex::new(Vec::new())),
             connected_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
 
-fn convert_web_command_to_arm_command(web_cmd: &WebJointCommand) -> Option<ArmCommand> {
+fn convert_web_command_to_arm_command(web_cmd: &WebArmCommand) -> Option<ArmCommand> {
     match web_cmd.command_type.as_str() {
         "joint_position" => {
             if let Some(ref positions) = web_cmd.joint_positions {
@@ -142,6 +157,25 @@ fn convert_web_command_to_arm_command(web_cmd: &WebJointCommand) -> Option<ArmCo
     }
 }
 
+fn convert_web_command_to_rover_command(web_cmd: &WebRoverCommand) -> Option<RoverCommand> {
+    match web_cmd.command_type.as_str() {
+        "velocity" => {
+            let v_x = web_cmd.v_x.unwrap_or(0.0);
+            let v_y = web_cmd.v_y.unwrap_or(0.0);
+            let omega_z = web_cmd.omega_z.unwrap_or(0.0);
+            Some(RoverCommand::new_velocity(omega_z, v_x, v_y))
+        }
+        "joint_positions" => {
+            let wheel1 = web_cmd.wheel1.unwrap_or(0.0);
+            let wheel2 = web_cmd.wheel2.unwrap_or(0.0);
+            let wheel3 = web_cmd.wheel3.unwrap_or(0.0);
+            Some(RoverCommand::new_joint_positions(wheel1, wheel2, wheel3))
+        }
+        "stop" => Some(RoverCommand::new_stop()),
+        _ => None,
+    }
+}
+
 async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
     println!("Starting SocketIO server on port 8080");
 
@@ -160,7 +194,7 @@ async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
         // Send welcome message
         let welcome_data = serde_json::json!({
             "type": "welcome",
-            "message": "Connected to LeKiwi Arm Controller",
+            "message": "Connected to LeKiwi Controller",
             "client_id": socket.id.to_string(),
             "supported_commands": ["joint_position", "home", "stop", "emergency_stop"],
             "dof": 6,
@@ -174,7 +208,7 @@ async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
         // Handle joint position commands
         socket.on("joint_command", {
             let state = state.clone();
-            move |socket: SocketRef, Data::<WebJointCommand>(cmd)| {
+            move |socket: SocketRef, Data::<WebArmCommand>(cmd)| {
                 println!("Received joint command: {:?}", cmd);
 
                 // Validate and queue the command
@@ -182,7 +216,7 @@ async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
                     if let Some(ref positions) = cmd.joint_positions {
                         match positions.validate() {
                             Ok(_) => {
-                                if let Ok(mut queue) = state.command_queue.lock() {
+                                if let Ok(mut queue) = state.arm_command_queue.lock() {
                                     queue.push(cmd.clone());
                                     println!("Joint command queued: {:?}", positions);
 
@@ -203,7 +237,7 @@ async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
                     }
                 } else {
                     // For other commands (home, stop, etc.)
-                    if let Ok(mut queue) = state.command_queue.lock() {
+                    if let Ok(mut queue) = state.arm_command_queue.lock() {
                         queue.push(cmd.clone());
                         let _ = socket.emit("command_ack", serde_json::json!({
                             "status": "queued",
@@ -213,6 +247,21 @@ async fn start_socketio_server(shared_state: SharedState) -> Result<()> {
                 }
             }
         });
+
+        socket.on("rover_command", move |socket: SocketRef, Data::<Value>(data)| {
+            println!("Received rover command: {:?}", data);
+
+            if let Ok(rover_cmd) = serde_json::from_value::<WebRoverCommand>(data) {
+                if let Ok(mut queue) = state.rover_command_queue.lock() {
+                    queue.push(rover_cmd.clone());
+                    let _ = socket.emit("rover_command_ack", serde_json::json!({
+                "status": "queued",
+                "message": format!("Rover {} command queued", rover_cmd.command_type)
+            }));
+                }
+            }
+        });
+
 
         // Handle disconnection
         socket.on_disconnect(move |socket: SocketRef| {
@@ -272,10 +321,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arm_output_clone = arm_command_output.clone();
 
     // Command processor loop
-    let command_processor = tokio::spawn(async move {
+    let arm_command_processor = tokio::spawn(async move {
         loop {
             // Check for queued commands
-            if let Ok(mut queue) = state_clone.command_queue.lock() {
+            if let Ok(mut queue) = state_clone.arm_command_queue.lock() {
                 if !queue.is_empty() {
                     let web_cmd = queue.remove(0);
 
@@ -316,6 +365,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let rover_output_clone = DataId::from("rover_command".to_owned());
+    let node_clone_rover = node_arc.clone();
+    let state_clone_rover = shared_state.clone();
+
+    let rover_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_rover.rover_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+
+                    if let Some(rover_cmd) = convert_web_command_to_rover_command(&web_cmd) {
+                        let cmd_with_metadata = RoverCommandWithMetadata {
+                            command: rover_cmd,
+                            metadata: create_metadata(),
+                        };
+
+                        match serde_json::to_vec(&cmd_with_metadata) {
+                            Ok(serialized) => {
+                                let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+
+                                if let Ok(mut node_guard) = node_clone_rover.lock() {
+                                    match node_guard.send_output(
+                                        rover_output_clone.clone(),
+                                        Default::default(),
+                                        arrow_data,
+                                    ) {
+                                        Ok(_) => println!("Rover command sent to dataflow"),
+                                        Err(e) => eprintln!("Failed to send rover command: {}", e),
+                                    }
+                                }
+                            }
+                            Err(e) => eprintln!("Failed to serialize rover command: {}", e),
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
     println!("Web Bridge initialized - waiting for commands...");
 
     // Event loop
@@ -334,7 +423,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Cleanup
     socketio_handle.abort();
-    command_processor.abort();
+    arm_command_processor.abort();
+    rover_command_processor.abort();
     println!("Web Bridge shutdown complete");
 
     Ok(())

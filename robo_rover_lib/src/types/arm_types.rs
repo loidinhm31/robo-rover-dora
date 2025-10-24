@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::CommandMetadata;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ArmCommand {
@@ -30,18 +31,11 @@ pub struct ArmCommandWithMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandMetadata {
-    pub command_id: String,
-    pub timestamp: u64,
-    pub source: InputSource,
-    pub priority: CommandPriority,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InputSource {
     Keyboard,
     WebBridge,
     Autonomous,
+    RoverController
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

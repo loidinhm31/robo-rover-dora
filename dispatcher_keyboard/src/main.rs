@@ -5,10 +5,7 @@ use dora_node_api::{
     Event
 };
 use eyre::Result;
-use robo_rover_lib::{
-    ArmCommand, CommandMetadata, CommandPriority,
-    InputSource, RoverCommand
-};
+use robo_rover_lib::{ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid;
@@ -88,9 +85,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             Default::default(),
                                             arrow_data
                                         )?;
-
-                                        println!("Sent ROVER command: throttle={:.2}, brake={:.2}, steer={:.2}",
-                                                 rover_cmd.throttle, rover_cmd.brake, rover_cmd.steering_angle);
                                     }
                                 }
                             }
@@ -107,18 +101,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct ArmCommandWithMetadata {
-    command: Option<ArmCommand>,
-    metadata: CommandMetadata,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct RoverCommandWithMetadata {
-    command: RoverCommand,
-    metadata: CommandMetadata,
 }
 
 #[derive(Debug)]
@@ -345,8 +327,8 @@ impl KeyboardDispatcher {
     }
 
     fn create_rover_command(&self) -> RoverCommand {
-        // Unity uses negative throttle for reverse movement, so preserve the sign
-        RoverCommand {
+        // Uses negative throttle for reverse movement, so preserve the sign
+        RoverCommand::Legacy {
             throttle: self.current_rover_state.throttle.clamp(-1.0, 1.0), // Allow negative for reverse
             brake: self.current_rover_state.brake.clamp(0.0, 1.0),
             steering_angle: self.current_rover_state.steering_angle.clamp(-15.0, 15.0),

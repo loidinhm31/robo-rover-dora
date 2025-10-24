@@ -1,7 +1,10 @@
 use dora_node_api::arrow::array::Array;
 use dora_node_api::{arrow::array::BinaryArray, dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
-use robo_rover_lib::{CommandMetadata, RoverCommand, RoverTelemetry};
+use robo_rover_lib::{
+    BodyTwist, CommandMetadata, MecanumConfig,
+    MecanumKinematics, RoverCommand, RoverTelemetry,
+};
 use std::collections::HashMap;
 use std::error::Error;
 use tracing::{debug, info, warn};
@@ -14,16 +17,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (mut node, mut events) = DoraNode::init_from_env()?;
     let output_id = DataId::from("processed_rover_command".to_owned());
 
-    info!("Rover controller initialized successfully");
-    info!("Ready to process rover commands (supporting reverse movement with negative throttle)");
+    // Initialize Mecanum kinematics
+    let mecanum_config = MecanumConfig::default();
+    info!("Mecanum Configuration:");
+    info!("  Wheel radius: {:.3} m", mecanum_config.wheel_radius);
+    info!("  Chassis radius: {:.3} m", mecanum_config.chassis_radius);
+    info!("  Sliding angles: [{:.1}°, {:.1}°, {:.1}°]",
+        mecanum_config.gamma[0].to_degrees(),
+        mecanum_config.gamma[1].to_degrees(),
+        mecanum_config.gamma[2].to_degrees()
+    );
 
-    let mut rover_controller = RoverController::new();
+    let mut rover_controller = RoverController::new(mecanum_config);
+
+    info!("Rover controller initialized successfully");
+    info!("Ready to process:");
+    info!("  - Velocity commands (v_x, v_y, omega_z)");
+    info!("  - Joint position commands");
+    info!("  - Legacy throttle/steering commands");
+
     let mut event_count = 0;
     let mut input_stats: HashMap<String, usize> = HashMap::new();
 
     while let Some(event) = events.recv() {
         event_count += 1;
-        info!("Event #{}: {:?}", event_count, event);
+        debug!("Event #{}: {:?}", event_count, event);
 
         match event {
             Event::Input {
@@ -43,10 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
                                     Ok(cmd_with_metadata) => {
                                         if let Some(command) = cmd_with_metadata.command {
-                                            info!("Received rover command: throttle={:.2}, brake={:.2}, steer={:.2}",
-                                                 command.throttle,
-                                                 command.brake,
-                                                 command.steering_angle);
+                                            info!("Received rover command: {:?}", command);
 
                                             match rover_controller.process_command(command) {
                                                 Ok(_) => {
@@ -94,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     _ => {
-                        info!("Unknown input ID: '{}'", id.as_str());
+                        debug!("Unknown input ID: '{}'", id.as_str());
                     }
                 }
             }
@@ -131,79 +146,142 @@ struct RoverCommandWithMetadata {
 
 struct RoverController {
     current_command: Option<RoverCommand>,
+    current_wheel_positions: [f64; 3],  // Current accumulated wheel positions
     last_telemetry: Option<RoverTelemetry>,
     safety_limits: SafetyLimits,
     command_history: Vec<RoverCommand>,
+    kinematics: MecanumKinematics,
+    control_rate_dt: f64,  // Control loop time step (seconds)
 }
 
 #[derive(Debug)]
 struct SafetyLimits {
-    max_throttle: f64,
-    max_steering_angle: f64,
-    max_velocity: f64,
+    max_linear_velocity: f64,   // m/s
+    max_angular_velocity: f64,  // rad/s
+    max_wheel_speed: f64,       // rad/s
 }
 
 impl Default for SafetyLimits {
     fn default() -> Self {
         Self {
-            max_throttle: 1.0,        // 100% throttle (forward)
-            max_steering_angle: 15.0, // 15 degrees
-            max_velocity: 5.0,        // 5 m/s max speed
+            max_linear_velocity: 2.0,   // 2 m/s max linear speed
+            max_angular_velocity: 2.0,  // 2 rad/s max rotation
+            max_wheel_speed: 50.0,      // 50 rad/s max wheel speed
         }
     }
 }
 
 impl RoverController {
-    fn new() -> Self {
+    fn new(mecanum_config: MecanumConfig) -> Self {
         Self {
             current_command: None,
+            current_wheel_positions: [0.0, 0.0, 0.0],
             last_telemetry: None,
             safety_limits: SafetyLimits::default(),
             command_history: Vec::new(),
+            kinematics: MecanumKinematics::new(mecanum_config),
+            control_rate_dt: 0.05,  // 50ms = 20Hz control rate
         }
     }
 
-    fn process_command(&mut self, mut command: RoverCommand) -> Result<()> {
-        info!(
-            "Executing ROVER command: throttle={:.2}, brake={:.2}, steer={:.2}°",
-            command.throttle, command.brake, command.steering_angle
-        );
+    fn process_command(&mut self, command: RoverCommand) -> Result<()> {
+        match &command {
+            RoverCommand::Velocity { omega_z, v_x, v_y, .. } => {
+                info!("Processing velocity command: v_x={:.2} m/s, v_y={:.2} m/s, ω_z={:.2} rad/s",
+                     v_x, v_y, omega_z);
 
-        // Apply safety limits
-        command.throttle = command.throttle.clamp(
-            -self.safety_limits.max_throttle, // NEGATIVE THROTTLE for reverse movement
-            self.safety_limits.max_throttle,
-        );
-        command.brake = command.brake.clamp(0.0, 1.0);
-        command.steering_angle = command.steering_angle.clamp(
-            -self.safety_limits.max_steering_angle,
-            self.safety_limits.max_steering_angle,
-        );
+                // Apply safety limits
+                let mut twist = BodyTwist::new(*omega_z, *v_x, *v_y);
 
-        // Check velocity safety limit
-        if let Some(ref telemetry) = self.last_telemetry {
-            if telemetry.velocity.abs() > self.safety_limits.max_velocity {
-                info!(
-                    "SAFETY: Velocity {:.2} exceeds limit {:.2}, applying brakes",
-                    telemetry.velocity, self.safety_limits.max_velocity
+                // Limit linear velocity
+                let linear_speed = (twist.v_x.powi(2) + twist.v_y.powi(2)).sqrt();
+                if linear_speed > self.safety_limits.max_linear_velocity {
+                    let scale = self.safety_limits.max_linear_velocity / linear_speed;
+                    twist.v_x *= scale;
+                    twist.v_y *= scale;
+                    info!("SAFETY: Limited linear velocity from {:.2} to {:.2} m/s",
+                         linear_speed, self.safety_limits.max_linear_velocity);
+                }
+
+                // Limit angular velocity
+                if twist.omega_z.abs() > self.safety_limits.max_angular_velocity {
+                    twist.omega_z = twist.omega_z.signum() * self.safety_limits.max_angular_velocity;
+                    info!("SAFETY: Limited angular velocity to {:.2} rad/s",
+                         self.safety_limits.max_angular_velocity);
+                }
+
+                // Convert to wheel speeds using Mecanum kinematics
+                let wheel_speeds = self.kinematics.body_twist_to_wheel_speeds(&twist);
+
+                info!("Computed wheel speeds: [{:.2}, {:.2}, {:.2}] rad/s",
+                     wheel_speeds[0], wheel_speeds[1], wheel_speeds[2]);
+
+                // Check wheel speed limits
+                for (i, &speed) in wheel_speeds.iter().enumerate() {
+                    if speed.abs() > self.safety_limits.max_wheel_speed {
+                        warn!("SAFETY: Wheel {} speed {:.2} exceeds limit {:.2} rad/s",
+                             i, speed.abs(), self.safety_limits.max_wheel_speed);
+                    }
+                }
+
+                // Integrate wheel speeds to get position changes
+                let delta_positions = self.kinematics.wheel_speeds_to_positions(&wheel_speeds, self.control_rate_dt);
+
+                // Update accumulated wheel positions
+                for i in 0..3 {
+                    self.current_wheel_positions[i] += delta_positions[i];
+                }
+
+                info!("Updated wheel positions: [{:.3}, {:.3}, {:.3}] rad",
+                     self.current_wheel_positions[0],
+                     self.current_wheel_positions[1],
+                     self.current_wheel_positions[2]);
+
+                // Create a joint position command with the updated positions
+                let joint_cmd = RoverCommand::new_joint_positions(
+                    self.current_wheel_positions[0],
+                    self.current_wheel_positions[1],
+                    self.current_wheel_positions[2],
                 );
-                command.throttle = 0.0;
-                command.brake = 1.0;
+
+                self.current_command = Some(joint_cmd);
+            }
+
+            RoverCommand::JointPositions { wheel1, wheel2, wheel3, .. } => {
+                info!("Processing direct joint position command: [{:.3}, {:.3}, {:.3}] rad",
+                     wheel1, wheel2, wheel3);
+
+                // Update current positions
+                self.current_wheel_positions = [*wheel1, *wheel2, *wheel3];
+                self.current_command = Some(command);
+            }
+
+            RoverCommand::Legacy { throttle, brake, steering_angle, .. } => {
+                info!("Processing legacy command: throttle={:.2}, brake={:.2}, steer={:.2}°",
+                     throttle, brake, steering_angle);
+
+                // Convert legacy command to velocity command
+                // This is a simplified conversion - adjust based on your robot
+                let v_x = if *brake > 0.5 { 0.0 } else { throttle * 1.0 }; // Scale to m/s
+                let omega_z = steering_angle.to_radians() * 0.5; // Convert to rad/s
+
+                let velocity_cmd = RoverCommand::new_velocity(omega_z, v_x, 0.0);
+                return self.process_command(velocity_cmd);
+            }
+
+            RoverCommand::Stop { .. } => {
+                info!("Processing stop command");
+                // Don't change wheel positions, just stop
+                self.current_command = Some(command);
             }
         }
 
-        info!(
-            "Final processed command: throttle={:.2}, brake={:.2}, steer={:.2}°",
-            command.throttle, command.brake, command.steering_angle
-        );
-
-        // Store command
-        self.command_history.push(command.clone());
-        self.current_command = Some(command);
-
-        // Keep only last 10 commands in history
-        if self.command_history.len() > 10 {
-            self.command_history.remove(0);
+        // Store command in history
+        if let Some(cmd) = &self.current_command {
+            self.command_history.push(cmd.clone());
+            if self.command_history.len() > 10 {
+                self.command_history.remove(0);
+            }
         }
 
         Ok(())
@@ -214,23 +292,18 @@ impl RoverController {
             "Updated rover telemetry: pos=({:.2}, {:.2}), vel={:.2}",
             telemetry.position.0, telemetry.position.1, telemetry.velocity
         );
+
+        // Update wheel positions from telemetry if available
+        if let Some(wheel_pos) = telemetry.wheel_positions {
+            self.current_wheel_positions = wheel_pos;
+        }
+
         self.last_telemetry = Some(telemetry);
     }
 
     fn get_processed_command(&self) -> RoverCommandWithMetadata {
-        let command = self
-            .current_command
-            .clone()
-            .unwrap_or_else(|| RoverCommand {
-                throttle: 0.0,
-                brake: 0.0,
-                steering_angle: 0.0,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-                command_id: uuid::Uuid::new_v4().to_string(),
-            });
+        let command = self.current_command.clone()
+            .unwrap_or_else(|| RoverCommand::new_stop());
 
         RoverCommandWithMetadata {
             command: Some(command),
@@ -240,7 +313,7 @@ impl RoverController {
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_millis() as u64,
-                source: robo_rover_lib::InputSource::Keyboard,
+                source: robo_rover_lib::InputSource::RoverController,
                 priority: robo_rover_lib::CommandPriority::Normal,
             },
         }
