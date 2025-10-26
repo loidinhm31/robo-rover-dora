@@ -8,6 +8,9 @@
       <package file="$PROJECT_DIR$/arm_controller">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/camera_capture">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/config_test">
         <feature name="default" enabled="true" />
       </package>
@@ -26,66 +29,82 @@
       <package file="$PROJECT_DIR$/sim_interface">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/video_processor">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/web_bridge">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Change control layout for app">
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/LeKiwi.urdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-4.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Base_08q-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Battery---Battery-5.2-Ah-DC5521-Plug-v2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Bottom-V2-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Model-v3-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Model-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Mount-v8.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Moving_Jaw_08d-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Passive_Horn_01-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Rotation_Pitch_08i-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_116_Square-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_Asym_Mirror_Clip-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_Mirror-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-4.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a_Wrist_Roll-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Top-V2-v2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/WaveShare_Mounting_Plate_01d-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist-Camera-Mount-v11.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist_Roll_08c-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist_Roll_Pitch_08i-v1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/base_plate_layer1-v5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/base_plate_layer2-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/lipo_battery_mount-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5-1.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5-2.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/servo_controller_mount-v3.stl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/urdf-viewer.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/urdf-loader.d.ts" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Create visualization for LeKiwi urdf">
+      <change afterPath="$PROJECT_DIR$/camera_capture/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/camera_capture/src/main.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/location-map.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/video_processor/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/video_processor/assets/DejaVuSans.ttf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/video_processor/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/LeKiwi.urdf" beforeDir="false" afterPath="$PROJECT_DIR$/model/LeKiwi.urdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/4-Omni-Directional-Wheel_Single_Body-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/4-Omni-Directional-Wheel_Single_Body-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-4.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-4.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-5.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff-5.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/94868A713_NO-THREADS_Female-Threaded-Hex-Standoff.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Base_08q-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Base_08q-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Battery---Battery-5.2-Ah-DC5521-Plug-v2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Battery---Battery-5.2-Ah-DC5521-Plug-v2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Bottom-V2-v3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Bottom-V2-v3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Model-v3-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Camera-Model-v3-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Model-v3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Camera-Model-v3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Camera-Mount-v8.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Camera-Mount-v8.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Moving_Jaw_08d-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Moving_Jaw_08d-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Passive_Horn_01-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Passive_Horn_01-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Rotation_Pitch_08i-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Rotation_Pitch_08i-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_116_Square-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_116_Square-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_Asym_Mirror_Clip-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_Asym_Mirror_Clip-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/SO_ARM100_08k_Mirror-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/SO_ARM100_08k_Mirror-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/ST3215_Servo_Motor-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/ST3215_Servo_Motor-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1-4.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1-4.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/STS3215_03a_Wrist_Roll-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/STS3215_03a_Wrist_Roll-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Top-V2-v2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Top-V2-v2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/WaveShare_Mounting_Plate_01d-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/WaveShare_Mounting_Plate_01d-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist-Camera-Mount-v11.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Wrist-Camera-Mount-v11.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist_Roll_08c-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Wrist_Roll_08c-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/Wrist_Roll_Pitch_08i-v1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/Wrist_Roll_Pitch_08i-v1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/base_plate_layer1-v5.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/base_plate_layer1-v5.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/base_plate_layer2-v3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/base_plate_layer2-v3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/drive_motor_mount-v11.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/drive_motor_mount-v11.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/lipo_battery_mount-v3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/lipo_battery_mount-v3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5-1.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5-1.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5-2.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5-2.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/omni_wheel_mount-v5.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/omni_wheel_mount-v5.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/apps/native/public/robots/meshes/servo_controller_mount-v3.stl" beforeDir="false" afterPath="$PROJECT_DIR$/model/meshes/servo_controller_mount-v3.stl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/urdf-viewer.tsx" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/urdf-loader.d.ts" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -123,7 +142,7 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "G:/ws/robo-rover-dora/robo-rover-app/apps/native/public/robots",
+    "last_opened_file_path": "G:/ws/robo-rover-dora/video_processor/assets",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -139,18 +158,18 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora\video_processor\assets" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
       <recent name="G:\ws\robo-rover-dora\robo_rover_lib" />
       <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora" />
-      <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\web" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\packages\ui\src\components" />
       <recent name="G:\ws\robo-rover-dora\robo_rover_lib\src\utils" />
       <recent name="G:\ws\robo-rover-dora\robo_rover_lib\src" />
-      <recent name="G:\ws\robo-rover-dora\model" />
     </key>
   </component>
   <component name="RustProjectSettings">
@@ -175,7 +194,7 @@
       <workItem from="1755918903192" duration="1622000" />
       <workItem from="1756051145484" duration="1058000" />
       <workItem from="1760536984295" duration="53180000" />
-      <workItem from="1761302632999" duration="14049000" />
+      <workItem from="1761302632999" duration="34633000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -313,7 +332,23 @@
       <option name="project" value="LOCAL" />
       <updated>1761323006327</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Create visualization for LeKiwi urdf">
+      <option name="closed" value="true" />
+      <created>1761333760884</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1761333760884</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Create visualization for LeKiwi urdf">
+      <option name="closed" value="true" />
+      <created>1761335334070</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1761335334070</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -348,7 +383,8 @@
     <MESSAGE value="Update app to control LeKiwi" />
     <MESSAGE value="Update Glassmorphic style for app" />
     <MESSAGE value="Change control layout for app" />
-    <option name="LAST_COMMIT_MESSAGE" value="Change control layout for app" />
+    <MESSAGE value="Create visualization for LeKiwi urdf" />
+    <option name="LAST_COMMIT_MESSAGE" value="Create visualization for LeKiwi urdf" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

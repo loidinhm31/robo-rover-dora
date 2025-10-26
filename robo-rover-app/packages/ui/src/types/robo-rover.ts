@@ -110,3 +110,75 @@ export function validateJointPositions(positions: JointPositions): string | null
 
   return null;
 }
+
+export interface VideoFrame {
+  timestamp: number;
+  frame_id: number;
+  width: number;
+  height: number;
+  format: string; // "JPEG", "PNG", "WEBP"
+  quality: number; // 1-100 for JPEG
+  data: string; // base64 encoded image data
+  overlay_data?: OverlayData;
+}
+
+export interface OverlayData {
+  rover_position?: [number, number];
+  rover_velocity?: number;
+  arm_position?: number[];
+  battery_level?: number;
+  signal_strength?: number;
+  timestamp_text: string;
+}
+
+export interface VideoStats {
+  timestamp: number;
+  frames_processed: number;
+  frames_dropped: number;
+  avg_frame_size_kb: number;
+  avg_processing_time_ms: number;
+  current_fps: number;
+  bandwidth_kbps: number;
+}
+
+export interface VideoControl {
+  command: VideoCommand;
+  quality?: VideoQuality;
+  max_fps?: number;
+}
+
+export type VideoCommand = "start" | "stop" | "pause" | "resume" | "change_quality";
+
+export enum VideoQuality {
+  Low = "low", // 320x240, JPEG quality 60
+  Medium = "medium", // 640x480, JPEG quality 75
+  High = "high", // 640x480, JPEG quality 90
+  UltraHigh = "ultra_high", // 1280x720, JPEG quality 95
+}
+
+export interface CameraStatus {
+  is_active: boolean;
+  fps: number;
+  dropped_frames: number;
+  capture_errors: number;
+  last_frame_timestamp: number;
+}
+
+// Socket.IO event types for type-safe communication
+export interface ServerToClientEvents {
+  video_frame: (frame: VideoFrame) => void;
+  video_stats: (stats: VideoStats) => void;
+  video_status: (status: { streaming: boolean; fps?: number }) => void;
+  arm_telemetry: (telemetry: ArmTelemetry) => void;
+  rover_telemetry: (telemetry: RoverTelemetry) => void;
+}
+
+export interface ClientToServerEvents {
+  arm_command: (command: WebArmCommand) => void;
+  rover_command: (command: WebRoverCommand) => void;
+  video_control: (control: VideoControl) => void;
+}
+
+
+
+

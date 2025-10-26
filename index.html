@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeKiwi Robot Control - Video Streaming</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .video-panel {
+            position: relative;
+        }
+
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        #videoStream {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #videoOverlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .video-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #000;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #000;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+
+        .controls-section {
+            margin-bottom: 20px;
+        }
+
+        .controls-section h3 {
+            margin-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .status {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-connected {
+            background: #43e97b;
+        }
+
+        .status-disconnected {
+            background: #fa709a;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #43e97b;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🤖 LeKiwi Robot Control Center</h1>
+
+    <div class="grid">
+        <!-- Video Panel -->
+        <div class="panel video-panel">
+            <h2>📹 Live Video Feed</h2>
+            <div id="videoContainer">
+                <img id="videoStream" src="" alt="Video Stream" style="display: none;">
+                <div id="videoPlaceholder" style="width: 100%; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; background: #222;">
+                    <p style="font-size: 24px; opacity: 0.5;">📹 No Video Signal</p>
+                </div>
+                <div id="videoOverlay">
+                    <div>FPS: <span id="fps">0</span></div>
+                    <div>Frame: <span id="frameId">0</span></div>
+                    <div>Size: <span id="frameSize">0</span> KB</div>
+                </div>
+            </div>
+
+            <div class="video-controls">
+                <button class="btn-start" onclick="startVideo()">▶️ Start Stream</button>
+                <button class="btn-stop" onclick="stopVideo()">⏹️ Stop Stream</button>
+            </div>
+
+            <div class="control-group">
+                <label>Video Quality (FPS): <span id="fpsValue">30</span></label>
+                <input type="range" id="fpsSlider" min="5" max="60" value="30"
+                       oninput="updateFPS(this.value)">
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="statFps">0</div>
+                    <div class="stat-label">FPS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statBandwidth">0</div>
+                    <div class="stat-label">Kbps</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statFramesSent">0</div>
+                    <div class="stat-label">Frames</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="statLatency">0</div>
+                    <div class="stat-label">ms</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="panel">
+            <h2>🎮 Robot Controls</h2>
+
+            <div class="status">
+                <span class="status-indicator" id="connectionStatus"></span>
+                <span id="connectionText">Disconnected</span>
+            </div>
+
+            <!-- Arm Controls -->
+            <div class="controls-section">
+                <h3>🦾 Arm Control</h3>
+
+                <div class="control-group">
+                    <label>Shoulder Pan: <span id="j1Value">0.00</span> rad</label>
+                    <input type="range" id="j1" min="-3.14" max="3.14" step="0.01" value="0"
+                           oninput="updateJointDisplay('j1', this.value)">
+                </div>
+
+                <div class="control-group">
+                    <label>Shoulder Lift: <span id="j2Value">0.00</span> rad</label>
+                    <input type="range" id="j2" min="-1.57" max="1.57" step="0.01" value="0"
+                           oninput="updateJointDisplay('j2', this.value)">
+                </div>
+
+                <div class="control-group">
+                    <label>Elbow Flex: <span id="j3Value">0.00</span> rad</label>
+                    <input type="range" id="j3" min="-2.09" max="2.09" step="0.01" value="0"
+                           oninput="updateJointDisplay('j3', this.value)">
+                </div>
+
+                <button class="btn-primary" onclick="sendArmCommand()">Send to Arm</button>
+                <button class="btn-primary" onclick="homeArm()">🏠 Home</button>
+            </div>
+
+            <!-- Rover Controls -->
+            <div class="controls-section">
+                <h3>🚗 Rover Control</h3>
+
+                <div class="control-group">
+                    <label>Forward/Backward (v_x): <span id="vxValue">0.00</span> m/s</label>
+                    <input type="range" id="vx" min="-1" max="1" step="0.1" value="0"
+                           oninput="updateRoverDisplay('vx', this.value)">
+                </div>
+
+                <div class="control-group">
+                    <label>Left/Right (v_y): <span id="vyValue">0.00</span> m/s</label>
+                    <input type="range" id="vy" min="-1" max="1" step="0.1" value="0"
+                           oninput="updateRoverDisplay('vy', this.value)">
+                </div>
+
+                <div class="control-group">
+                    <label>Rotation (ω_z): <span id="wzValue">0.00</span> rad/s</label>
+                    <input type="range" id="wz" min="-2" max="2" step="0.1" value="0"
+                           oninput="updateRoverDisplay('wz', this.value)">
+                </div>
+
+                <button class="btn-primary" onclick="sendRoverCommand()">Send to Rover</button>
+                <button class="btn-stop" onclick="stopRover()">⏹️ Stop</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // SocketIO connection
+    const socket = io('http://localhost:8080');
+
+    let videoStreaming = false;
+    let frameCount = 0;
+    let lastFrameTime = Date.now();
+    let currentFPS = 0;
+    let totalBytesReceived = 0;
+
+    // Connection events
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        document.getElementById('connectionStatus').className = 'status-indicator status-connected';
+        document.getElementById('connectionText').textContent = 'Connected';
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        document.getElementById('connectionStatus').className = 'status-indicator status-disconnected';
+        document.getElementById('connectionText').textContent = 'Disconnected';
+    });
+
+    socket.on('status', (data) => {
+        console.log('Status:', data);
+    });
+
+    // Video streaming
+    socket.on('video_frame', (data) => {
+        const videoStream = document.getElementById('videoStream');
+        const placeholder = document.getElementById('videoPlaceholder');
+
+        // Update image
+        videoStream.src = `data:image/jpeg;base64,${data.data}`;
+        videoStream.style.display = 'block';
+        placeholder.style.display = 'none';
+
+        // Update stats
+        frameCount++;
+        const now = Date.now();
+        const timeDiff = (now - lastFrameTime) / 1000;
+
+        if (timeDiff > 0) {
+            currentFPS = 1 / timeDiff;
+        }
+        lastFrameTime = now;
+
+        // Update overlay
+        document.getElementById('fps').textContent = currentFPS.toFixed(1);
+        document.getElementById('frameId').textContent = data.frame_id;
+
+        // Estimate frame size
+        const frameSize = (data.data.length * 3 / 4 / 1024).toFixed(1); // Base64 to KB
+        document.getElementById('frameSize').textContent = frameSize;
+
+        // Update stats panel
+        document.getElementById('statFps').textContent = currentFPS.toFixed(1);
+        document.getElementById('statFramesSent').textContent = frameCount;
+
+        totalBytesReceived += parseFloat(frameSize);
+        const bandwidth = (totalBytesReceived * 8 / (frameCount / currentFPS)).toFixed(0);
+        document.getElementById('statBandwidth').textContent = bandwidth;
+    });
+
+    socket.on('video_status', (data) => {
+        console.log('Video status:', data);
+        videoStreaming = data.streaming;
+    });
+
+    // Video controls
+    function startVideo() {
+        const fps = parseInt(document.getElementById('fpsSlider').value);
+        socket.emit('video_control', {
+            command: 'start',
+            max_fps: fps
+        });
+        console.log(`Starting video stream at ${fps} FPS`);
+    }
+
+    function stopVideo() {
+        socket.emit('video_control', {
+            command: 'stop'
+        });
+        document.getElementById('videoStream').style.display = 'none';
+        document.getElementById('videoPlaceholder').style.display = 'flex';
+        console.log('Stopping video stream');
+    }
+
+    function updateFPS(value) {
+        document.getElementById('fpsValue').textContent = value;
+    }
+
+    // Arm controls
+    function updateJointDisplay(jointId, value) {
+        document.getElementById(jointId + 'Value').textContent = parseFloat(value).toFixed(2);
+    }
+
+    function sendArmCommand() {
+        const command = {
+            command_type: 'joint_position',
+            joint_positions: {
+                shoulder_pan: parseFloat(document.getElementById('j1').value),
+                shoulder_lift: parseFloat(document.getElementById('j2').value),
+                elbow_flex: parseFloat(document.getElementById('j3').value),
+                wrist_flex: 0.0,
+                wrist_roll: 0.0,
+                gripper: 0.0
+            },
+            max_velocity: null
+        };
+        socket.emit('joint_command', command);
+        console.log('Sent arm command:', command);
+    }
+
+    function homeArm() {
+        const command = {
+            command_type: 'home',
+            joint_positions: null,
+            max_velocity: null
+        };
+        socket.emit('joint_command', command);
+        console.log('Sent home command');
+
+        // Reset sliders
+        document.getElementById('j1').value = 0;
+        document.getElementById('j2').value = 0;
+        document.getElementById('j3').value = 0;
+        updateJointDisplay('j1', 0);
+        updateJointDisplay('j2', 0);
+        updateJointDisplay('j3', 0);
+    }
+
+    // Rover controls
+    function updateRoverDisplay(id, value) {
+        document.getElementById(id + 'Value').textContent = parseFloat(value).toFixed(2);
+    }
+
+    function sendRoverCommand() {
+        const command = {
+            command_type: 'velocity',
+            v_x: parseFloat(document.getElementById('vx').value),
+            v_y: parseFloat(document.getElementById('vy').value),
+            omega_z: parseFloat(document.getElementById('wz').value)
+        };
+        socket.emit('rover_command', command);
+        console.log('Sent rover command:', command);
+    }
+
+    function stopRover() {
+        const command = {
+            command_type: 'stop'
+        };
+        socket.emit('rover_command', command);
+        console.log('Sent rover stop command');
+
+        // Reset sliders
+        document.getElementById('vx').value = 0;
+        document.getElementById('vy').value = 0;
+        document.getElementById('wz').value = 0;
+        updateRoverDisplay('vx', 0);
+        updateRoverDisplay('vy', 0);
+        updateRoverDisplay('wz', 0);
+    }
+
+    // Command acknowledgments
+    socket.on('command_ack', (data) => {
+        console.log('Command acknowledged:', data);
+    });
+
+    socket.on('rover_command_ack', (data) => {
+        console.log('Rover command acknowledged:', data);
+    });
+
+    socket.on('error', (data) => {
+        console.error('Error:', data);
+        alert(`Error: ${data.message}`);
+    });
+</script>
+</body>
+</html>

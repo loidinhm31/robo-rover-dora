@@ -2,7 +2,7 @@
 name = "web_bridge"
 version = "0.1.0"
 edition = "2021"
-description = "Web bridge node via SocketIO"
+description = "Web bridge node via SocketIO with video streaming"
 
 [dependencies]
 # Workspace dependencies
@@ -20,6 +20,8 @@ axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 
+# Base64 encoding for video frames
+base64 = "0.21"
 
 # Local shared library
 robo_rover_lib = { path = "../robo_rover_lib" }

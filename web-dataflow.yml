@@ -1,65 +1,97 @@
 nodes:
-  # Web bridge - SocketIO server for web application control
-  - id: web-bridge
-    build: cargo build -p web_bridge
-    path: target/debug/web_bridge
+  # Camera capture - LOW RESOLUTION for speed
+  - id: camera-capture
+    build: cargo build --release -p camera_capture
+    path: target/release/camera_capture
     inputs:
-      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry
-      arm_telemetry: sim-interface/arm_telemetry            # Arm telemetry
+      tick: dora/timer/millis/33  # 30 FPS
     outputs:
-      - arm_command      # Commands for arm controller
-      - rover_command    # Commands for rover controller
+      - raw_frames
+      - camera_status
     env:
       RUST_LOG: info
+      CAMERA_DEVICE: "0"
+      FRAME_WIDTH: 640
+      FRAME_HEIGHT: 480
+      FPS: 30
+
+  # Video processor - OPTIMIZED VERSION (no text rendering)
+  - id: video-processor
+    build: cargo build --release -p video_processor
+    path: target/release/video_processor
+    inputs:
+      raw_frames: camera-capture/raw_frames
+      rover_telemetry: sim-interface/rover_telemetry
+      arm_telemetry: sim-interface/arm_telemetry
+    outputs:
+      - processed_frames
+      - stats
+    env:
+      RUST_LOG: info
+      JPEG_QUALITY: 85          # 1-100 (higher = better quality, larger size)
+      TARGET_WIDTH: 640
+      TARGET_HEIGHT: 480
+      OVERLAY_TELEMETRY: "true" # Draw telemetry HUD on video
+
+  # Web bridge
+  - id: web-bridge
+    build: cargo build --release -p web_bridge
+    path: target/release/web_bridge
+    inputs:
+      video_frames: video-processor/processed_frames
+      rover_telemetry: sim-interface/rover_telemetry
+      arm_telemetry: sim-interface/arm_telemetry
+    outputs:
+      - arm_command
+      - rover_command
+    env:
+      RUST_LOG: info
+      VIDEO_STREAMING_ENABLED: "true"
 
   # Arm controller
   - id: arm-controller
-    build: cargo build -p arm_controller
-    path: target/debug/arm_controller
+    build: cargo build --release -p arm_controller
+    path: target/release/arm_controller
     inputs:
-      arm_command: web-bridge/arm_command                   # From web bridge
-      arm_telemetry: sim-interface/arm_telemetry            # From simulation
+      arm_command: web-bridge/arm_command
+      arm_telemetry: sim-interface/arm_telemetry
     outputs:
       - processed_arm_command
     env:
-      RUST_LOG: info
+      RUST_LOG: warn  # ← Reduce logging
       ARM_CONFIG: config/arm_6dof.toml
 
   # Rover controller
   - id: rover-controller
-    build: cargo build -p rover_controller
-    path: target/debug/rover_controller
+    build: cargo build --release -p rover_controller
+    path: target/release/rover_controller
     inputs:
-      rover_command: web-bridge/rover_command               # From web bridge
-      rover_telemetry: sim-interface/rover_telemetry        # From simulation
+      rover_command: web-bridge/rover_command
+      rover_telemetry: sim-interface/rover_telemetry
     outputs:
       - processed_rover_command
     env:
-      RUST_LOG: info
+      RUST_LOG: warn  # ← Reduce logging
 
   # Simulation interface
   - id: sim-interface
-    build: cargo build -p sim_interface
-    path: target/debug/sim_interface
+    build: cargo build --release -p sim_interface
+    path: target/release/sim_interface
     inputs:
-      arm_command: arm-controller/processed_arm_command      # From arm controller
-      rover_command: rover-controller/processed_rover_command # From rover controller
+      arm_command: arm-controller/processed_arm_command
+      rover_command: rover-controller/processed_rover_command
     outputs:
-      - rover_telemetry   # Rover status feedback to rover controller and web bridge
-      - arm_telemetry     # Arm telemetry for web bridge
+      - rover_telemetry
+      - arm_telemetry
     env:
-      RUST_LOG: debug
+      RUST_LOG: warn  # ← Reduce logging
 
-  # Monitor node - observes all dataflow activity for debugging
-  - id: monitor
-    build: cargo build -p monitor
-    path: target/debug/monitor
-    inputs:
-      web_arm: web-bridge/arm_command                       # Web bridge arm output
-      web_rover: web-bridge/rover_command                   # Web bridge rover output
-      arm_processed: arm-controller/processed_arm_command    # Processed arm commands
-      rover_processed: rover-controller/processed_rover_command # Processed rover commands
-      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry from Unity
-      arm_telemetry: sim-interface/arm_telemetry            # Arm telemetry
-    env:
-      RUST_LOG: debug
+  # Monitor node - OPTIONAL (comment out for better performance)
+  # - id: monitor
+  #   build: cargo build --release -p monitor
+  #   path: target/release/monitor
+  #   inputs:
+  #     video_stats: video-processor/stats
+  #     camera_status: camera-capture/camera_status
+  #   env:
+  #     RUST_LOG: warn

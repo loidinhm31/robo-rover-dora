@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { io, Socket } from "socket.io-client";
 import { Joystick } from "react-joystick-component";
 import {
@@ -14,8 +20,20 @@ import {
   WebRoverCommand,
 } from "@repo/ui/types/robo-rover";
 import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick.js";
-import { Activity, Home, Radio, Zap, ChevronDown, ChevronUp, Gauge, Eye, EyeOff } from "lucide-react";
-import { URDFViewer } from "@repo/ui/components/urdf-viewer";
+import {
+  Activity,
+  Camera,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Gauge,
+  Home,
+  Radio,
+  Zap,
+} from "lucide-react";
+import { CameraViewer } from "@repo/ui/components/camera-viewer";
+import { RobotLocationMap } from "@repo/ui/components/location-map";
 
 const SOCKET_URL = "http://localhost:8080";
 const THROTTLE_DELAY = 100; // ms between updates
@@ -41,7 +59,10 @@ const RoboRoverController: React.FC = () => {
   const [roverTelemetry, setRoverTelemetry] = useState<RoverTelemetry | null>(
     null,
   );
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showLocationMap, setShowLocationMap] = useState(false);
 
   // LeKiwi joint position controls (now includes wheels)
   const [jointPositions, setJointPositions] =
@@ -63,11 +84,7 @@ const RoboRoverController: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState({
     armJoints: true,
     logs: false,
-    urdfViewer: true,
   });
-
-  // 3D Viewer visibility
-  const [show3DViewer, setShow3DViewer] = useState(true);
 
   const socketRef = useRef<Socket | null>(null);
   const lastCommandTime = useRef<number>(0);
@@ -177,7 +194,7 @@ const RoboRoverController: React.FC = () => {
         return;
       }
 
-      socketRef.current.emit("web_arm_command", command);
+      socketRef.current.emit("arm_command", command);
       setConnection((prev) => ({
         ...prev,
         commandsSent: prev.commandsSent + 1,
@@ -194,7 +211,7 @@ const RoboRoverController: React.FC = () => {
         return;
       }
 
-      socketRef.current.emit("web_rover_command", command);
+      socketRef.current.emit("rover_command", command);
       setConnection((prev) => ({
         ...prev,
         commandsSent: prev.commandsSent + 1,
@@ -449,70 +466,94 @@ const RoboRoverController: React.FC = () => {
           ⚠️ EMERGENCY STOP
         </button>
 
-        {/* 3D Visualization Section */}
-        {show3DViewer && (
-          <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Eye className="w-6 h-6 text-purple-400" />
-                <h2 className="text-2xl md:text-3xl font-bold text-white">
-                  3D ROBOT VISUALIZATION
-                </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Location Map Viewer */}
+          {showLocationMap && (
+            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-6 h-6 text-purple-400" />
+                  <h2 className="text-2xl md:text-3xl font-bold text-white">
+                    LOCATION MAP
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowLocationMap(false)}
+                  className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
+                >
+                  <EyeOff className="w-4 h-4" />
+                  Hide
+                </button>
               </div>
-              <button
-                onClick={() => setShow3DViewer(false)}
-                className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
-              >
-                <EyeOff className="w-4 h-4" />
-                Hide
-              </button>
-            </div>
-            <div className="glass-card-light rounded-2xl p-2 md:p-4">
-              <Suspense fallback={<div className="h-96 flex items-center justify-center text-white/60">Loading 3D Viewer...</div>}>
-                <URDFViewer
-                  urdfPath="/robots/LeKiwi.urdf"
-                  jointPositions={jointPositions}
-                  height="500px"
-                />
-              </Suspense>
-            </div>
-            <div className="mt-3 text-xs text-white/60 text-center">
-              Use mouse to rotate • Scroll to zoom • Drag to pan
-            </div>
-            {/* Wheel debug info */}
+              <div className="glass-card-light rounded-2xl p-2 md:p-4">
+                <Suspense
+                  fallback={
+                    <div className="h-96 flex items-center justify-center text-white/60">
+                      Loading 3D Viewer...
+                    </div>
+                  }
+                >
+                  <RobotLocationMap telemetry={roverTelemetry} />
 
-            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-              <div className="glass-card-light p-2 rounded-lg">
-                <div className="text-white/50">Wheel 1 (Bottom)</div>
-                <div className="text-cyan-300 font-mono">
-                  {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
-                </div>
+
+                </Suspense>
               </div>
-              <div className="glass-card-light p-2 rounded-lg">
-                <div className="text-white/50">Wheel 2 (Right)</div>
-                <div className="text-cyan-300 font-mono">
-                  {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
-                </div>
+              <div className="mt-3 text-xs text-white/60 text-center">
+                Use mouse to rotate • Scroll to zoom • Drag to pan
               </div>
-              <div className="glass-card-light p-2 rounded-lg">
-                <div className="text-white/50">Wheel 3 (Left)</div>
-                <div className="text-cyan-300 font-mono">
-                  {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="glass-card-light p-2 rounded-lg">
+                  <div className="text-white/50">Wheel 1 (Bottom)</div>
+                  <div className="text-cyan-300 font-mono">
+                    {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
+                  </div>
+                </div>
+                <div className="glass-card-light p-2 rounded-lg">
+                  <div className="text-white/50">Wheel 2 (Right)</div>
+                  <div className="text-cyan-300 font-mono">
+                    {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
+                  </div>
+                </div>
+                <div className="glass-card-light p-2 rounded-lg">
+                  <div className="text-white/50">Wheel 3 (Left)</div>
+                  <div className="text-cyan-300 font-mono">
+                    {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!show3DViewer && (
-          <button
-            onClick={() => setShow3DViewer(true)}
-            className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
-          >
-            <Eye className="w-5 h-5" />
-            Show 3D Visualization
-          </button>
-        )}
+          {/* Camera Viewer */}
+          {showCamera && (
+            <CameraViewer
+              isConnected={connection.isConnected}
+              socket={socketRef.current}
+              onClose={() => setShowCamera(false)}
+            />
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {!showLocationMap && (
+            <button
+              onClick={() => setShowLocationMap(true)}
+              className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+            >
+              <Eye className="w-5 h-5" />
+              Show Location Map
+            </button>
+          )}
+          {!showCamera && (
+            <button
+              onClick={() => setShowCamera(true)}
+              className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+            >
+              <Camera className="w-5 h-5" />
+              Show Camera Feed
+            </button>
+          )}
+        </div>
 
         {/* Main Control Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -617,7 +658,7 @@ const RoboRoverController: React.FC = () => {
                         <span className="text-purple-300 font-mono">
                           {jointPositions[
                             joint as keyof JointPositions
-                            ].toFixed(2)}{" "}
+                          ].toFixed(2)}{" "}
                           rad
                         </span>
                       </div>
@@ -729,8 +770,10 @@ const RoboRoverController: React.FC = () => {
             <div className="hidden md:block w-px h-6 bg-white/20"></div>
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
-              <span className="font-bold text-white">3D Visualization:</span>{" "}
-              {show3DViewer ? "Active" : "Hidden"}
+              <span className="font-bold text-white">
+                3D Visualization:
+              </span>{" "}
+              {showLocationMap ? "Active" : "Hidden"}
             </div>
           </div>
         </div>
