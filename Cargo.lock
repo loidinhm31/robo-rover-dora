@@ -2002,16 +2002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kornia-gst-capture"
-version = "0.1.0"
-dependencies = [
- "dora-node-api",
- "kornia-io",
- "robo_rover_lib",
- "serde_json",
-]
-
-[[package]]
 name = "kornia-image"
 version = "0.1.10-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2049,6 +2039,16 @@ checksum = "0a1ec72c26e100145f2a9478a680173fa4f61852e4114199e5be94d84e7d0920"
 dependencies = [
  "num-traits",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "kornia_capture"
+version = "0.1.0"
+dependencies = [
+ "dora-node-api",
+ "kornia-io",
+ "robo_rover_lib",
+ "serde_json",
 ]
 
 [[package]]

@@ -8,7 +8,7 @@ use kornia_io::gstreamer::{RTSPCameraConfig, V4L2CameraConfig};
 use robo_rover_lib::{CameraAction, CameraControl};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting kornia-gst-capture node");
+    println!("Starting capture node");
 
     // parse env variables
     let source_type =

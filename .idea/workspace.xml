@@ -11,7 +11,7 @@
       <package file="$PROJECT_DIR$/dispatcher_keyboard">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/kornia-gst-capture">
+      <package file="$PROJECT_DIR$/kornia_capture">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/robo_rover_lib">
@@ -32,12 +32,11 @@
     <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update stream with video and audio">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

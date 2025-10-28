@@ -7,7 +7,7 @@ members = [
     "robo_rover_lib",  # Shared library for common types and utilities
     "rover_controller",
     "web_bridge",
-    "kornia-gst-capture"
+    "kornia_capture"
 ]
 
 [workspace.dependencies]
