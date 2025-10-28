@@ -1,4 +1,13 @@
 nodes:
+  # Microphone audio capture (outputs raw PCM audio)
+  - id: dora-microphone
+    build: pip install dora-microphone --break-system-packages
+    path: dora-microphone
+    inputs:
+      tick: dora/timer/millis/50  # 20 Hz (~50ms audio chunks)
+    outputs:
+      - audio  # Raw PCM audio data with metadata
+
   # Keyboard input source
   - id: dora-keyboard
     build: pip install dora-keyboard
@@ -59,23 +68,6 @@ nodes:
       RUST_LOG: debug
       SOCKETIO_PORT: 4567
       UNITY_UPDATE_RATE: 60.0
-
-  # Monitor node - observes all dataflow activity for debugging
-  - id: monitor
-    build: cargo build -p monitor
-    path: target/debug/monitor
-    inputs:
-      keyboard: dora-keyboard/char                           # Original keyboard input
-      dispatcher_arm: dispatcher-keyboard/arm_command       # Dispatcher arm output
-      dispatcher_rover: dispatcher-keyboard/rover_command   # Dispatcher rover output
-      rover_processed: rover-controller/processed_rover_command # Processed rover commands
-      arm_processed: arm-controller/processed_arm_command    # Processed arm commands
-      rover_telemetry: sim-interface/rover_telemetry        # Rover telemetry
-      arm_telemetry: sim-interface/arm_telemetry            # Arm telemetry
-    env:
-      RUST_LOG: debug
-      MONITOR_ARM_COMMANDS: "true"
-      MONITOR_DETAILED_LOGGING: "true"
 
   # Optional: Add rerun visualization (commented out for now)
   # - id: visualization

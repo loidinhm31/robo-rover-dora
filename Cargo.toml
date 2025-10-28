@@ -4,19 +4,16 @@ members = [
     "arm_controller",
     "sim_interface",
     "dispatcher_keyboard",
-    "monitor",
-    "config_test",
     "robo_rover_lib",  # Shared library for common types and utilities
     "rover_controller",
     "web_bridge",
-    "camera_capture",
-    "video_processor"
+    "kornia-gst-capture"
 ]
 
 [workspace.dependencies]
 # Shared dependencies across all workspace members
-dora-node-api = "0.3.12"
-dora-core = "0.3.12"
+dora-node-api = "0.3.13"
+dora-core = "0.3.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"

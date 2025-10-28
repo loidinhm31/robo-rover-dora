@@ -23,5 +23,8 @@ tower-http = { version = "0.5", features = ["cors"] }
 # Base64 encoding for video frames
 base64 = "0.21"
 
+# Image processing for JPEG encoding
+image = "0.25"
+
 # Local shared library
 robo_rover_lib = { path = "../robo_rover_lib" }

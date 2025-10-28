@@ -1,294 +1,484 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Camera, Eye, EyeOff, Maximize2, Minimize2 } from "lucide-react";
+import {useEffect, useRef, useState} from "react";
+import {Camera, Eye, EyeOff, Maximize2, Minimize2, Volume2, VolumeX} from "lucide-react";
+import {Socket} from "socket.io-client";
 
-interface VideoFrame {
+interface JPEGVideoFrame {
   timestamp: number;
   frame_id: number;
   width: number;
   height: number;
-  format: string;
-  quality: number;
-  data: string; // base64 encoded JPEG
-  overlay_data?: {
-    rover_position?: [number, number];
-    rover_velocity?: number;
-    arm_position?: number[];
-    battery_level?: number;
-    signal_strength?: number;
-    timestamp_text: string;
-  };
+  codec: "jpeg";
+  data: number[]; // JPEG image as byte array
 }
 
-interface VideoStats {
+interface AudioFrame {
   timestamp: number;
-  frames_processed: number;
-  frames_dropped: number;
-  avg_frame_size_kb: number;
-  avg_processing_time_ms: number;
-  current_fps: number;
-  bandwidth_kbps: number;
+  frame_id: number;
+  sample_rate: number;
+  channels: number;
+  format: string; // "s16le", "f32le", etc.
+  data: number[]; // PCM audio data as byte array
+}
+
+interface StreamStats {
+  video_frames_received: number;
+  video_fps: number;
+  video_bitrate_kbps: number;
+  audio_frames_received: number;
+  audio_buffer_ms: number;
 }
 
 interface CameraViewerProps {
   isConnected: boolean;
-  socket: any; // Socket.IO socket
+  socket: Socket | null;
   onClose?: () => void;
 }
 
 export const CameraViewer: React.FC<CameraViewerProps> = ({
-                                                            isConnected,
-                                                            socket,
-                                                            onClose,
-                                                          }) => {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentFrame, setCurrentFrame] = useState<VideoFrame | null>(null);
-  const [videoStats, setVideoStats] = useState<VideoStats | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fps, setFps] = useState(0);
-
+  isConnected,
+  socket,
+  onClose,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+  const imgRef = useRef<HTMLImageElement>(new Image());
+
+  const [streamEnabled, setStreamEnabled] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [stats, setStats] = useState<StreamStats>({
+    video_frames_received: 0,
+    video_fps: 0,
+    video_bitrate_kbps: 0,
+    audio_frames_received: 0,
+    audio_buffer_ms: 0,
+  });
+
   const frameCountRef = useRef(0);
   const lastFpsUpdateRef = useRef(Date.now());
+  const bytesReceivedRef = useRef(0);
 
-  // Start/Stop video streaming
-  const toggleStreaming = () => {
-    if (!socket || !isConnected) return;
+  // Audio playback references
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<AudioBuffer[]>([]);
+  const nextPlayTimeRef = useRef<number>(0);
+  const isPlayingRef = useRef<boolean>(false);
+  const audioBufferThreshold = useRef<number>(3); // Minimum buffers before starting playback
+  const lowPassFilterRef = useRef<BiquadFilterNode | null>(null);
 
-    if (isStreaming) {
-      socket.emit("video_control", {
-        command: "stop",
-      });
-      setIsStreaming(false);
-    } else {
-      socket.emit("video_control", {
-        command: "start",
-        max_fps: 30,
-      });
-      setIsStreaming(true);
-    }
-  };
-
-  // Handle incoming video frames
+  // Handle video frames from Socket.IO
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket || !streamEnabled) return;
 
-    const handleVideoFrame = (frame: VideoFrame) => {
-      setCurrentFrame(frame);
+    const handleVideoFrame = (frame: JPEGVideoFrame) => {
+      setStats((prev) => ({
+        ...prev,
+        video_frames_received: prev.video_frames_received + 1,
+      }));
 
-      // Update FPS counter
-      frameCountRef.current++;
-      const now = Date.now();
-      const elapsed = now - lastFpsUpdateRef.current;
+      if (!canvasRef.current || !videoEnabled) return;
 
-      if (elapsed >= 1000) {
-        setFps(Math.round((frameCountRef.current / elapsed) * 1000));
-        frameCountRef.current = 0;
-        lastFpsUpdateRef.current = now;
-      }
+      try {
+        // Convert number array to Uint8Array
+        const jpegData = new Uint8Array(frame.data);
+        bytesReceivedRef.current += jpegData.length;
 
-      // Render frame to canvas
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext("2d");
-        if (ctx && frame.data) {
-          // Create image from base64 data
-          const img = new Image();
-          img.onload = () => {
-            // Set canvas size to match frame
-            canvasRef.current!.width = frame.width;
-            canvasRef.current!.height = frame.height;
+        // Create blob from JPEG data
+        const blob = new Blob([jpegData], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
 
-            // Draw image
-            ctx.drawImage(img, 0, 0, frame.width, frame.height);
+        // Load and render JPEG to canvas
+        const img = imgRef.current;
+        img.onload = () => {
+          if (canvasRef.current) {
+            const ctx = canvasRef.current.getContext('2d');
+            if (ctx) {
+              // Set canvas size to match frame
+              if (canvasRef.current.width !== frame.width ||
+                  canvasRef.current.height !== frame.height) {
+                canvasRef.current.width = frame.width;
+                canvasRef.current.height = frame.height;
+              }
 
-            // Draw additional overlay info if needed
-            if (frame.overlay_data) {
-              ctx.font = "14px monospace";
-              ctx.fillStyle = "#00ffff";
-              ctx.strokeStyle = "#000000";
-              ctx.lineWidth = 2;
-
-              const text = `FPS: ${fps} | Frame: ${frame.frame_id}`;
-              ctx.strokeText(text, 10, 25);
-              ctx.fillText(text, 10, 25);
+              // Draw JPEG image to canvas
+              ctx.drawImage(img, 0, 0, frame.width, frame.height);
             }
-          };
-          img.src = `data:image/jpeg;base64,${frame.data}`;
-          imageRef.current = img;
-        }
+          }
+
+          // Clean up blob URL
+          URL.revokeObjectURL(url);
+
+          // Update FPS counter
+          frameCountRef.current++;
+          const now = Date.now();
+          if (now - lastFpsUpdateRef.current >= 1000) {
+            const elapsed = (now - lastFpsUpdateRef.current) / 1000;
+            const fps = frameCountRef.current / elapsed;
+            const bitrate = (bytesReceivedRef.current * 8) / elapsed / 1000; // kbps
+
+            setStats(prev => ({
+              ...prev,
+              video_fps: fps,
+              video_bitrate_kbps: bitrate
+            }));
+
+            frameCountRef.current = 0;
+            bytesReceivedRef.current = 0;
+            lastFpsUpdateRef.current = now;
+          }
+        };
+
+        img.onerror = () => {
+          console.error("❌ Failed to load JPEG image");
+          URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      } catch (error) {
+        console.error("❌ Error processing video frame:", error);
       }
-    };
-
-    const handleVideoStats = (stats: VideoStats) => {
-      setVideoStats(stats);
-    };
-
-    const handleVideoStatus = (status: { streaming: boolean; fps?: number }) => {
-      setIsStreaming(status.streaming);
     };
 
     socket.on("video_frame", handleVideoFrame);
-    socket.on("video_stats", handleVideoStats);
-    socket.on("video_status", handleVideoStatus);
 
     return () => {
       socket.off("video_frame", handleVideoFrame);
-      socket.off("video_stats", handleVideoStats);
-      socket.off("video_status", handleVideoStatus);
     };
-  }, [socket, isConnected, fps]);
+  }, [socket, streamEnabled, videoEnabled]);
 
-  // Auto-start streaming when connected
+  // Initialize Audio Context
   useEffect(() => {
-    if (isConnected && socket && !isStreaming) {
-      // Auto-start after a short delay
-      const timer = setTimeout(() => {
-        socket.emit("video_control", {
-          command: "start",
-          max_fps: 30,
+    if (!streamEnabled || !audioEnabled) return;
+
+    // Create AudioContext on first use (must be after user interaction)
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // Create low-pass filter to reduce high-frequency noise
+        // This helps with resampling artifacts and microphone noise
+        lowPassFilterRef.current = audioContextRef.current.createBiquadFilter();
+        lowPassFilterRef.current.type = 'lowpass';
+        lowPassFilterRef.current.frequency.value = 7000; // Cut off above 7kHz (voice is typically below 4kHz)
+        lowPassFilterRef.current.Q.value = 1; // Moderate resonance
+        lowPassFilterRef.current.connect(audioContextRef.current.destination);
+
+        console.log("AudioContext initialized:", {
+          sampleRate: audioContextRef.current.sampleRate,
+          state: audioContextRef.current.state,
+          lowPassFilter: {
+            frequency: lowPassFilterRef.current.frequency.value,
+            type: lowPassFilterRef.current.type
+          }
         });
-        setIsStreaming(true);
-      }, 500);
-      return () => clearTimeout(timer);
+      } catch (error) {
+        console.error("❌ Failed to create AudioContext:", error);
+      }
     }
-  }, [isConnected, socket]);
 
-  // Cleanup on unmount
-  useEffect(() => {
+    // Resume audio context if suspended (browser autoplay policy)
+    if (audioContextRef.current?.state === "suspended") {
+      audioContextRef.current.resume().then(() => {
+        console.log("AudioContext resumed");
+      });
+    }
+
     return () => {
-      if (socket && isStreaming) {
-        socket.emit("video_control", { command: "stop" });
+      // Don't close AudioContext on cleanup - keep it for next enable
+    };
+  }, [streamEnabled, audioEnabled]);
+
+  // Handle audio frames from Socket.IO
+  useEffect(() => {
+    if (!socket || !streamEnabled || !audioEnabled) return;
+
+    const handleAudioFrame = async (frame: AudioFrame) => {
+      setStats((prev) => ({
+        ...prev,
+        audio_frames_received: prev.audio_frames_received + 1,
+      }));
+
+      if (!audioContextRef.current) {
+        console.warn("AudioContext not initialized");
+        return;
+      }
+
+      try {
+        const audioContext = audioContextRef.current;
+        const pcmData = new Uint8Array(frame.data);
+
+        // Log detailed frame info for debugging
+        if (stats.audio_frames_received < 5) {
+          console.log("Audio frame details:", {
+            frame_id: frame.frame_id,
+            timestamp: frame.timestamp,
+            sample_rate: frame.sample_rate,
+            channels: frame.channels,
+            format: frame.format,
+            data_bytes: pcmData.length,
+            first_10_bytes: Array.from(pcmData.slice(0, 10))
+          });
+        }
+
+        // Calculate number of samples (S16LE = 2 bytes per sample)
+        const totalSamples = pcmData.length / 2;
+        const samplesPerChannel = Math.floor(totalSamples / frame.channels);
+
+        if (samplesPerChannel <= 0) {
+          console.warn("Invalid audio frame: no samples");
+          return;
+        }
+
+        const durationMs = (samplesPerChannel / frame.sample_rate) * 1000;
+        if (stats.audio_frames_received < 5) {
+          console.log(`Calculated: ${samplesPerChannel} samples/channel, ${durationMs.toFixed(1)}ms duration`);
+        }
+
+        // Create AudioBuffer at the source sample rate
+        // The browser will handle resampling to the AudioContext rate
+        const audioBuffer = audioContext.createBuffer(
+          frame.channels,
+          samplesPerChannel,
+          frame.sample_rate
+        );
+
+        // Convert S16LE PCM to Float32 for each channel
+        if (frame.channels === 1) {
+          // Mono audio - simpler processing
+          const channelData = audioBuffer.getChannelData(0);
+          for (let i = 0; i < samplesPerChannel; i++) {
+            const offset = i * 2;
+            const byte0 = pcmData[offset] ?? 0;
+            const byte1 = pcmData[offset + 1] ?? 0;
+
+            // Combine bytes to 16-bit little-endian
+            const sample = byte0 | (byte1 << 8);
+
+            // Convert unsigned to signed
+            const signedSample = sample > 32767 ? sample - 65536 : sample;
+
+            // Normalize to [-1.0, 1.0]
+            channelData[i] = signedSample / 32768.0;
+          }
+        } else {
+          // Stereo/multi-channel - interleaved data
+          for (let channel = 0; channel < frame.channels; channel++) {
+            const channelData = audioBuffer.getChannelData(channel);
+
+            for (let i = 0; i < samplesPerChannel; i++) {
+              // Interleaved: [L0, R0, L1, R1, ...]
+              const sampleIndex = i * frame.channels + channel;
+              const offset = sampleIndex * 2;
+
+              const byte0 = pcmData[offset] ?? 0;
+              const byte1 = pcmData[offset + 1] ?? 0;
+
+              const sample = byte0 | (byte1 << 8);
+              const signedSample = sample > 32767 ? sample - 65536 : sample;
+              channelData[i] = signedSample / 32768.0;
+            }
+          }
+        }
+
+        // Queue audio buffer for playback
+        audioQueueRef.current.push(audioBuffer);
+
+        // Update buffer stats
+        const bufferDuration = audioQueueRef.current.reduce((sum, buf) => sum + buf.duration, 0);
+        setStats(prev => ({
+          ...prev,
+          audio_buffer_ms: bufferDuration * 1000
+        }));
+
+        // Start playback only if we have enough buffers to prevent underruns
+        if (!isPlayingRef.current && audioQueueRef.current.length >= audioBufferThreshold.current) {
+          console.log(`🔊 Starting audio playback with ${audioQueueRef.current.length} buffers (${bufferDuration.toFixed(3)}s)`);
+          isPlayingRef.current = true;
+          nextPlayTimeRef.current = audioContext.currentTime;
+          scheduleNextAudioBuffer();
+        }
+
+      } catch (error) {
+        console.error("Error processing audio frame:", error, frame);
       }
     };
-  }, [socket, isStreaming]);
+
+    // Schedule and play audio buffers from queue
+    const scheduleNextAudioBuffer = () => {
+      if (!audioContextRef.current) {
+        isPlayingRef.current = false;
+        return;
+      }
+
+      const audioContext = audioContextRef.current;
+
+      // Check if we have buffers to play
+      if (audioQueueRef.current.length === 0) {
+        console.warn("Audio buffer underrun - queue empty");
+        isPlayingRef.current = false;
+        return;
+      }
+
+      const audioBuffer = audioQueueRef.current.shift();
+
+      if (!audioBuffer) {
+        isPlayingRef.current = false;
+        return;
+      }
+
+      // Create buffer source
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+
+      // Connect through low-pass filter if available, otherwise direct
+      if (lowPassFilterRef.current) {
+        source.connect(lowPassFilterRef.current);
+      } else {
+        source.connect(audioContext.destination);
+      }
+
+      // Schedule playback with seamless timing
+      const currentTime = audioContext.currentTime;
+      const playTime = Math.max(currentTime, nextPlayTimeRef.current);
+
+      // Detect gaps in playback
+      if (playTime > currentTime + 0.05) {
+        console.warn(`Audio gap detected: ${((playTime - currentTime) * 1000).toFixed(1)}ms`);
+      }
+
+      source.start(playTime);
+      nextPlayTimeRef.current = playTime + audioBuffer.duration;
+
+      // Schedule next buffer before this one ends
+      source.onended = () => {
+        scheduleNextAudioBuffer();
+      };
+
+      // Log playback info periodically (every 10th buffer)
+      if (Math.random() < 0.1) {
+        console.log(`Audio: ${audioBuffer.duration.toFixed(3)}s buffer, queue: ${audioQueueRef.current.length}, rate: ${audioBuffer.sampleRate}Hz`);
+      }
+    };
+
+    socket.on("audio_frame", handleAudioFrame);
+
+    return () => {
+      socket.off("audio_frame", handleAudioFrame);
+
+      // Clear audio queue on cleanup
+      audioQueueRef.current = [];
+      isPlayingRef.current = false;
+    };
+  }, [socket, streamEnabled, audioEnabled]);
+
+  // Stream control
+  const toggleStream = () => {
+    if (!socket) return;
+
+    const newState = !streamEnabled;
+    setStreamEnabled(newState);
+
+    console.log(newState ? "Stream started" : "Stream stopped");
+  };
+
+  const toggleVideo = () => {
+    const newState = !videoEnabled;
+    setVideoEnabled(newState);
+  };
+
+  const toggleAudio = () => {
+    const newState = !audioEnabled;
+    setAudioEnabled(newState);
+
+    if (!newState) {
+      // Clear audio queue when disabling
+      audioQueueRef.current = [];
+      isPlayingRef.current = false;
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!canvasRef.current) return;
+
+    if (!isFullscreen) {
+      canvasRef.current.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+    setIsFullscreen(!isFullscreen);
+  };
 
   return (
-    <div className={`glass-card rounded-3xl shadow-2xl p-4 md:p-6 ${isFullscreen ? "fixed inset-4 z-50" : ""}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Camera className="w-6 h-6 md:w-8 md:h-8 text-green-400" />
-          <h2 className="text-2xl md:text-3xl font-bold text-white">CAMERA</h2>
-          {isStreaming && (
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-xs text-red-400 font-semibold">LIVE</span>
-            </div>
-          )}
-        </div>
+      <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+        {/* Canvas for rendering JPEG frames */}
+        <canvas
+            ref={canvasRef}
+            className="w-full h-full object-contain"
+            style={{ imageRendering: 'auto' }}
+        />
 
-        <div className="flex items-center gap-2">
+        {/* Controls overlay */}
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 glass-card-light rounded-lg hover:bg-white/20 transition-all"
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              onClick={toggleStream}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title={streamEnabled ? "Stop Stream" : "Start Stream"}
           >
-            {isFullscreen ? (
-              <Minimize2 className="w-5 h-5 text-white" />
-            ) : (
-              <Maximize2 className="w-5 h-5 text-white" />
-            )}
+            {streamEnabled ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
           </button>
 
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 glass-card-light rounded-lg hover:bg-white/20 transition-all"
-              title="Close camera"
-            >
-              <EyeOff className="w-5 h-5 text-white" />
-            </button>
-          )}
+          <button
+              onClick={toggleVideo}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title={videoEnabled ? "Disable Video" : "Enable Video"}
+              disabled={!streamEnabled}
+          >
+            <Camera className={`w-5 h-5 ${!videoEnabled ? "text-red-400" : ""}`} />
+          </button>
+
+          <button
+              onClick={toggleAudio}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title={audioEnabled ? "Mute Audio" : "Unmute Audio"}
+              disabled={!streamEnabled}
+          >
+            {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+          </button>
+
+          <button
+              onClick={toggleFullscreen}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title="Toggle Fullscreen"
+          >
+            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
         </div>
-      </div>
 
-      {/* Video Display */}
-      <div className="glass-card-light rounded-2xl overflow-hidden relative">
-        {!isConnected ? (
-          <div className="aspect-video bg-gray-900/50 flex items-center justify-center">
-            <div className="text-center">
-              <Camera className="w-16 h-16 text-white/30 mx-auto mb-2" />
-              <p className="text-white/50">Not Connected</p>
-            </div>
-          </div>
-        ) : !isStreaming ? (
-          <div className="aspect-video bg-gray-900/50 flex items-center justify-center">
-            <div className="text-center">
-              <Camera className="w-16 h-16 text-white/30 mx-auto mb-2" />
-              <p className="text-white/50 mb-3">Camera Ready</p>
-              <button
-                onClick={toggleStreaming}
-                className="btn-gradient px-6 py-2 rounded-xl"
-              >
-                Start Stream
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <canvas
-              ref={canvasRef}
-              className="w-full h-auto bg-black"
-              style={{ maxHeight: isFullscreen ? "calc(100vh - 200px)" : "500px" }}
-            />
-
-            {/* Stats Overlay */}
-            {videoStats && (
-              <div className="absolute top-2 right-2 glass-card-light rounded-lg p-2 text-xs">
-                <div className="text-white/90 font-mono space-y-1">
-                  <div>FPS: {fps}</div>
-                  <div>Quality: {currentFrame?.quality || 0}%</div>
-                  <div>Size: {videoStats.avg_frame_size_kb.toFixed(1)} KB</div>
-                  <div>Bandwidth: {videoStats.bandwidth_kbps.toFixed(0)} Kbps</div>
+        {/* Stats overlay */}
+        {streamEnabled && (
+            <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white">
+              <div className="space-y-1">
+                <div>Video: {stats.video_frames_received} frames | {stats.video_fps.toFixed(1)} fps</div>
+                <div>Bitrate: {stats.video_bitrate_kbps.toFixed(0)} kbps</div>
+                <div>Audio: {stats.audio_frames_received} frames | Buffer: {stats.audio_buffer_ms.toFixed(0)} ms</div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
+                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
                 </div>
               </div>
-            )}
+            </div>
+        )}
 
-            {/* Frame Info Overlay */}
-            {currentFrame?.overlay_data && (
-              <div className="absolute bottom-2 left-2 glass-card-light rounded-lg p-2 text-xs">
-                <div className="text-white/90 font-mono space-y-1">
-                  {currentFrame.overlay_data.rover_velocity !== undefined && (
-                    <div>Velocity: {currentFrame.overlay_data.rover_velocity.toFixed(2)} m/s</div>
-                  )}
-                  {currentFrame.overlay_data.battery_level !== undefined && (
-                    <div>Battery: {currentFrame.overlay_data.battery_level.toFixed(0)}%</div>
-                  )}
-                  <div className="text-white/60 text-[10px] mt-1">
-                    {currentFrame.overlay_data.timestamp_text}
-                  </div>
-                </div>
+        {/* Connection warning */}
+        {!isConnected && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+              <div className="text-white text-center">
+                <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg">Not Connected</p>
+                <p className="text-sm text-gray-400 mt-2">Waiting for connection...</p>
               </div>
-            )}
-          </>
+            </div>
         )}
       </div>
-
-      {/* Controls */}
-      {isConnected && (
-        <div className="mt-4 flex items-center justify-between">
-          <button
-            onClick={toggleStreaming}
-            className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-              isStreaming
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                : "btn-gradient"
-            }`}
-          >
-            {isStreaming ? "Stop Stream" : "Start Stream"}
-          </button>
-
-          <div className="text-sm text-white/60">
-            {currentFrame && (
-              <>
-                <span className="text-white/90 font-mono">{currentFrame.width}x{currentFrame.height}</span>
-                <span className="mx-2">•</span>
-                <span>Frame #{currentFrame.frame_id}</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   );
 };

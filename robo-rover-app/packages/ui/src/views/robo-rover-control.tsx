@@ -35,7 +35,7 @@ import {
 import { CameraViewer } from "@repo/ui/components/camera-viewer";
 import { RobotLocationMap } from "@repo/ui/components/location-map";
 
-const SOCKET_URL = "http://localhost:8080";
+const SOCKET_URL = "http://localhost:3030";
 const THROTTLE_DELAY = 100; // ms between updates
 
 // Extended JointPositions with wheel visualization

@@ -19,3 +19,5 @@ Graph
 dora graph dev-dataflow --open
 ```
 
+sudo pacman -S gstreamer gst-plugins-base
+
