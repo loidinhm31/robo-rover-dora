@@ -118,6 +118,20 @@ pub struct OverlayData {
     pub timestamp_text: String,
 }
 
+/// Camera control commands for gst-camera node
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CameraControl {
+    pub command: CameraAction,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraAction {
+    Start,
+    Stop,
+}
+
 /// Stream control commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamControl {

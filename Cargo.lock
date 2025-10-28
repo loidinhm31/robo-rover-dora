@@ -1335,7 +1335,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 7.0.6",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2007,12 +2007,15 @@ version = "0.1.0"
 dependencies = [
  "dora-node-api",
  "kornia-io",
+ "robo_rover_lib",
+ "serde_json",
 ]
 
 [[package]]
 name = "kornia-image"
 version = "0.1.10-rc.3"
-source = "git+https://github.com/kornia/kornia-rs.git?tag=v0.1.10-rc.3#219cd8f630f53b7d2b771f91cc7d958272d3696c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f6565115f617b26436d8e0f78afec9143ff180a15551094bb58399d023e81e3"
 dependencies = [
  "kornia-tensor",
  "num-traits",
@@ -2022,7 +2025,8 @@ dependencies = [
 [[package]]
 name = "kornia-io"
 version = "0.1.10-rc.3"
-source = "git+https://github.com/kornia/kornia-rs.git?tag=v0.1.10-rc.3#219cd8f630f53b7d2b771f91cc7d958272d3696c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "440ea7786ff9e022be0ec30d67d1e3fd3265d279cddec4226a4df7099c8ad93b"
 dependencies = [
  "circular-buffer",
  "gstreamer",
@@ -2040,7 +2044,8 @@ dependencies = [
 [[package]]
 name = "kornia-tensor"
 version = "0.1.10-rc.3"
-source = "git+https://github.com/kornia/kornia-rs.git?tag=v0.1.10-rc.3#219cd8f630f53b7d2b771f91cc7d958272d3696c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a1ec72c26e100145f2a9478a680173fa4f61852e4114199e5be94d84e7d0920"
 dependencies = [
  "num-traits",
  "thiserror 2.0.12",

@@ -29,32 +29,14 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Create visualization for LeKiwi urdf">
-      <change afterPath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update stream with video and audio">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/camera_capture/Cargo.toml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/camera_capture/src/main.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config_test/Cargo.toml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config_test/src/main.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dev-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/dev-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/monitor/Cargo.toml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/monitor/src/main.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/pnpm-lock.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/video_processor/Cargo.toml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/video_processor/assets/DejaVuSans.ttf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/video_processor/src/main.rs" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -102,7 +84,7 @@
     &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
     &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
     &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;settings.javascript.prettier&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust.cargo.check&quot;,
     &quot;ts.external.directory.path&quot;: &quot;/home/loidinh/ws/robo-rover-dora/robo-rover-app/packages/eslint-config/node_modules/typescript/lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
@@ -151,7 +133,8 @@
       <workItem from="1761586393901" duration="636000" />
       <workItem from="1761589971710" duration="495000" />
       <workItem from="1761607229640" duration="2838000" />
-      <workItem from="1761614561653" duration="4117000" />
+      <workItem from="1761614561653" duration="7373000" />
+      <workItem from="1761624055501" duration="1160000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -305,7 +288,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761335334070</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="Update stream with video and audio">
+      <option name="closed" value="true" />
+      <created>1761620816653</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1761620816653</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -341,7 +332,8 @@
     <MESSAGE value="Update Glassmorphic style for app" />
     <MESSAGE value="Change control layout for app" />
     <MESSAGE value="Create visualization for LeKiwi urdf" />
-    <option name="LAST_COMMIT_MESSAGE" value="Create visualization for LeKiwi urdf" />
+    <MESSAGE value="Update stream with video and audio" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update stream with video and audio" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

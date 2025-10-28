@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {Camera, Eye, EyeOff, Maximize2, Minimize2, Volume2, VolumeX} from "lucide-react";
+import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX} from "lucide-react";
 import {Socket} from "socket.io-client";
 
 interface JPEGVideoFrame {
@@ -45,6 +45,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [cameraEnabled, setCameraEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stats, setStats] = useState<StreamStats>({
     video_frames_received: 0,
@@ -397,6 +398,19 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     }
   };
 
+  const toggleCamera = () => {
+    if (!socket) return;
+
+    const newState = !cameraEnabled;
+    setCameraEnabled(newState);
+
+    socket.emit("camera_control", {
+      command: newState ? "start" : "stop"
+    });
+
+    console.log(newState ? "Camera enabled" : "Camera disabled");
+  };
+
   const toggleFullscreen = () => {
     if (!canvasRef.current) return;
 
@@ -425,6 +439,15 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
               title={streamEnabled ? "Stop Stream" : "Start Stream"}
           >
             {streamEnabled ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+          </button>
+
+          <button
+              onClick={toggleCamera}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title={cameraEnabled ? "Turn Camera Off" : "Turn Camera On"}
+              disabled={!isConnected}
+          >
+            <Power className={`w-5 h-5 ${!cameraEnabled ? "text-red-400" : "text-green-400"}`} />
           </button>
 
           <button

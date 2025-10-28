@@ -6,8 +6,8 @@ use dora_node_api::{
 use eyre::Result;
 use image::{ImageBuffer, Rgb, codecs::jpeg::JpegEncoder};
 use robo_rover_lib::{
-    ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority,
-    InputSource, RoverCommand, RoverCommandWithMetadata,
+    ArmCommand, ArmCommandWithMetadata, CameraAction, CameraControl, CommandMetadata,
+    CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
 };
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
@@ -115,10 +115,16 @@ impl ClientState {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebCameraCommand {
+    pub command: String,  // "start" or "stop"
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
     pub rover_command_queue: Arc<Mutex<Vec<WebRoverCommand>>>,
+    pub camera_command_queue: Arc<Mutex<Vec<WebCameraCommand>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
 }
 
@@ -127,6 +133,7 @@ impl SharedState {
         Self {
             arm_command_queue: Arc::new(Mutex::new(Vec::new())),
             rover_command_queue: Arc::new(Mutex::new(Vec::new())),
+            camera_command_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -171,6 +178,21 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        socket.on(
+            "camera_control",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_cmd) = serde_json::from_value::<WebCameraCommand>(data) {
+                    println!("Received camera control: {:?}", web_cmd.command);
+                    shared_state_clone
+                        .camera_command_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_cmd);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
             println!("Client disconnected: {}", socket_id);
@@ -189,9 +211,10 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Web Bridge...");
 
-    let (mut node, mut events) = DoraNode::init_from_env()?;
+    let (node, mut events) = DoraNode::init_from_env()?;
     let arm_command_output = DataId::from("arm_command".to_owned());
     let rover_command_output = DataId::from("rover_command".to_owned());
+    let camera_command_output = DataId::from("camera_command".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -219,10 +242,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         axum::serve(listener, app).await.unwrap();
     });
 
-    // Process arm commands
+    // Process commands
     let node_clone_arm = Arc::new(Mutex::new(node));
     let node_clone_rover = node_clone_arm.clone();
-    let node_clone_stream = node_clone_arm.clone();
+    let node_clone_camera = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -285,6 +308,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // Process camera control commands
+    let state_clone_camera = shared_state.clone();
+    let camera_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_camera.camera_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+                    if let Some(camera_cmd) = convert_web_command_to_camera_command(&web_cmd) {
+                        let timestamp = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64;
+
+                        let camera_control = CameraControl {
+                            command: camera_cmd,
+                            timestamp,
+                        };
+
+                        if let Ok(serialized) = serde_json::to_vec(&camera_control) {
+                            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                            if let Ok(mut node_guard) = node_clone_camera.lock() {
+                                let _ = node_guard.send_output(
+                                    camera_command_output.clone(),
+                                    Default::default(),
+                                    arrow_data,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
     println!(" Web Bridge initialized - waiting for...");
 
     // Event loop - handle video frames
@@ -305,17 +363,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut bytes = Vec::with_capacity(float32_array.len() * 2);
 
                             // Debug: Log first conversion for quality check
-                            static mut CONVERSION_COUNT: u32 = 0;
-                            unsafe {
-                                if CONVERSION_COUNT < 3 {
-                                    println!("Converting Float32 -> S16LE: {} samples", float32_array.len());
-                                    if float32_array.len() > 0 {
-                                        let first_samples: Vec<f32> = float32_array.values()[..10.min(float32_array.len())].to_vec();
-                                        println!("   First 10 float samples: {:?}", first_samples);
-                                    }
-                                    CONVERSION_COUNT += 1;
-                                }
-                            }
+                            // static mut CONVERSION_COUNT: u32 = 0;
+                            // unsafe {
+                            //     if CONVERSION_COUNT < 3 {
+                            //         println!("Converting Float32 -> S16LE: {} samples", float32_array.len());
+                            //         if float32_array.len() > 0 {
+                            //             let first_samples: Vec<f32> = float32_array.values()[..10.min(float32_array.len())].to_vec();
+                            //             println!("   First 10 float samples: {:?}", first_samples);
+                            //         }
+                            //         CONVERSION_COUNT += 1;
+                            //     }
+                            // }
 
                             for &sample in float32_array.values() {
                                 // Convert float32 [-1.0, 1.0] to int16 [-32768, 32767]
@@ -324,12 +382,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
 
                             // Debug: Log first conversion result
-                            unsafe {
-                                if CONVERSION_COUNT <= 3 && bytes.len() >= 20 {
-                                    let first_bytes: Vec<u8> = bytes[..20].to_vec();
-                                    println!("   First 20 S16LE bytes: {:?}", first_bytes);
-                                }
-                            }
+                            // unsafe {
+                            //     if CONVERSION_COUNT <= 3 && bytes.len() >= 20 {
+                            //         let first_bytes: Vec<u8> = bytes[..20].to_vec();
+                            //         println!("   First 20 S16LE bytes: {:?}", first_bytes);
+                            //     }
+                            // }
 
                             Some(bytes)
                         } else if let Some(list_array) = data.as_list_opt::<i32>() {
@@ -540,6 +598,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     socketio_handle.abort();
     arm_command_processor.abort();
     rover_command_processor.abort();
+    camera_command_processor.abort();
     println!("Web Bridge shutdown complete");
 
     Ok(())
@@ -602,6 +661,14 @@ fn convert_web_command_to_rover_command(web_cmd: &WebRoverCommand) -> Option<Rov
                 command_id,
             })
         }
+        _ => None,
+    }
+}
+
+fn convert_web_command_to_camera_command(web_cmd: &WebCameraCommand) -> Option<CameraAction> {
+    match web_cmd.command.as_str() {
+        "start" => Some(CameraAction::Start),
+        "stop" => Some(CameraAction::Stop),
         _ => None,
     }
 }

@@ -17,15 +17,13 @@ nodes:
     path: target/release/kornia-gst-capture
     inputs:
       tick: dora/timer/millis/33  # ~30 FPS
+      camera_control: web-bridge/camera_command
     outputs:
       - frame  # Raw RGB8 frames with metadata
     env:
       # Local webcam source
       SOURCE_TYPE: 'webcam'
       SOURCE_URI: "/dev/video0" # Device index (0 = default camera)
-      # For RTSP stream, use:
-      # SOURCE_TYPE: 'rtsp'
-      # SOURCE_URI: 'rtsp://username:password@ip:port/stream'
       IMAGE_COLS: '640'
       IMAGE_ROWS: '480'
       SOURCE_FPS: '30'
@@ -42,6 +40,7 @@ nodes:
     outputs:
       - arm_command
       - rover_command
+      - camera_command
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030
