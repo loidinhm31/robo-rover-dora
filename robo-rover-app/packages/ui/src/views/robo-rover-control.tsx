@@ -38,6 +38,10 @@ import { RobotLocationMap } from "@repo/ui/components/location-map";
 const SOCKET_URL = "http://localhost:3030";
 const THROTTLE_DELAY = 100; // ms between updates
 
+// Authentication credentials - should match web_bridge environment variables
+const AUTH_USERNAME = "admin";
+const AUTH_PASSWORD = "password";
+
 // Extended JointPositions with wheel visualization
 interface ExtendedJointPositions extends JointPositions {
   wheel1: number;
@@ -125,6 +129,10 @@ const RoboRoverController: React.FC = () => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      auth: {
+        username: AUTH_USERNAME,
+        password: AUTH_PASSWORD,
+      },
     });
 
     socket.on("connect", () => {
@@ -143,6 +151,14 @@ const RoboRoverController: React.FC = () => {
         isConnected: false,
         clientId: null,
       }));
+    });
+
+    socket.on("connect_error", (error) => {
+      addLog(`Connection error: ${error.message}`, "error");
+      // Check if it's an authentication error
+      if (error.message.includes("authentication") || error.message.includes("auth")) {
+        addLog("Authentication failed - check credentials", "error");
+      }
     });
 
     socket.on("command_ack", (data) => {

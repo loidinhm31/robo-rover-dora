@@ -49,6 +49,8 @@ nodes:
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030
+      AUTH_USERNAME: "admin"
+      AUTH_PASSWORD: "password"
 
   # Arm controller
   - id: arm-controller

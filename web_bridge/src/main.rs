@@ -18,11 +18,12 @@ use uuid;
 use axum::http::Method;
 use serde_json::Value;
 use socketioxide::{
-    extract::{Data, SocketRef},
+    extract::{Data, SocketRef, TryData},
     SocketIo,
 };
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
+use std::env;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JointPositions {
@@ -125,6 +126,12 @@ pub struct WebAudioCommand {
     pub command: String,  // "start" or "stop"
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AuthCredentials {
+    pub username: String,
+    pub password: String,
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
@@ -149,9 +156,29 @@ impl SharedState {
 fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
     let (layer, io) = SocketIo::new_layer();
 
-    io.ns("/", move |socket: SocketRef| {
+    // Get authentication credentials from environment variables
+    let auth_username = env::var("AUTH_USERNAME").unwrap_or_else(|_| "admin".to_string());
+    let auth_password = env::var("AUTH_PASSWORD").unwrap_or_else(|_| "password".to_string());
+
+    println!("Authentication enabled - Username: {}", auth_username);
+
+    io.ns("/", move |socket: SocketRef, TryData::<AuthCredentials>(auth)| {
+        // Validate authentication
+        let is_authenticated = match auth {
+            Ok(credentials) => {
+                credentials.username == auth_username && credentials.password == auth_password
+            }
+            Err(_) => false,
+        };
+
+        if !is_authenticated {
+            println!("Authentication failed for connection attempt");
+            socket.disconnect().ok();
+            return;
+        }
+
         let socket_id = socket.id.to_string();
-        println!("Client connected: {}", socket_id);
+        println!("Client authenticated and connected: {}", socket_id);
 
         // Add client to video streaming list
         let client_state = ClientState::new(socket_id.clone());
@@ -369,7 +396,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process audio control commands
     let state_clone_audio = shared_state.clone();
-    let audio_command_processor = tokio::spawn(async move {
+    let _audio_command_processor = tokio::spawn(async move {
         loop {
             if let Ok(mut queue) = state_clone_audio.audio_command_queue.lock() {
                 if !queue.is_empty() {
