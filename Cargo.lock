@@ -389,6 +389,8 @@ dependencies = [
  "dora-node-api",
  "eyre",
  "ringbuf",
+ "robo_rover_lib",
+ "serde_json",
 ]
 
 [[package]]

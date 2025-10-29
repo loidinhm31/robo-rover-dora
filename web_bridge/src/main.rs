@@ -6,8 +6,8 @@ use dora_node_api::{
 use eyre::Result;
 use image::{ImageBuffer, Rgb, codecs::jpeg::JpegEncoder};
 use robo_rover_lib::{
-    ArmCommand, ArmCommandWithMetadata, CameraAction, CameraControl, CommandMetadata,
-    CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
+    ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
+    CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
 };
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
@@ -120,11 +120,17 @@ pub struct WebCameraCommand {
     pub command: String,  // "start" or "stop"
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebAudioCommand {
+    pub command: String,  // "start" or "stop"
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
     pub rover_command_queue: Arc<Mutex<Vec<WebRoverCommand>>>,
     pub camera_command_queue: Arc<Mutex<Vec<WebCameraCommand>>>,
+    pub audio_command_queue: Arc<Mutex<Vec<WebAudioCommand>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
 }
 
@@ -134,6 +140,7 @@ impl SharedState {
             arm_command_queue: Arc::new(Mutex::new(Vec::new())),
             rover_command_queue: Arc::new(Mutex::new(Vec::new())),
             camera_command_queue: Arc::new(Mutex::new(Vec::new())),
+            audio_command_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -193,6 +200,21 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        socket.on(
+            "audio_control",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_cmd) = serde_json::from_value::<WebAudioCommand>(data) {
+                    println!("Received audio control: {:?}", web_cmd.command);
+                    shared_state_clone
+                        .audio_command_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_cmd);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
             println!("Client disconnected: {}", socket_id);
@@ -215,6 +237,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arm_command_output = DataId::from("arm_command".to_owned());
     let rover_command_output = DataId::from("rover_command".to_owned());
     let camera_command_output = DataId::from("camera_command".to_owned());
+    let audio_command_output = DataId::from("audio_command".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -246,6 +269,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_clone_arm = Arc::new(Mutex::new(node));
     let node_clone_rover = node_clone_arm.clone();
     let node_clone_camera = node_clone_arm.clone();
+    let node_clone_audio = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -331,6 +355,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Ok(mut node_guard) = node_clone_camera.lock() {
                                 let _ = node_guard.send_output(
                                     camera_command_output.clone(),
+                                    Default::default(),
+                                    arrow_data,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process audio control commands
+    let state_clone_audio = shared_state.clone();
+    let audio_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_audio.audio_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+                    if let Some(audio_cmd) = convert_web_command_to_audio_command(&web_cmd) {
+                        let timestamp = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64;
+
+                        let audio_control = AudioControl {
+                            command: audio_cmd,
+                            timestamp,
+                        };
+
+                        if let Ok(serialized) = serde_json::to_vec(&audio_control) {
+                            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                            if let Ok(mut node_guard) = node_clone_audio.lock() {
+                                let _ = node_guard.send_output(
+                                    audio_command_output.clone(),
                                     Default::default(),
                                     arrow_data,
                                 );
@@ -669,6 +728,14 @@ fn convert_web_command_to_camera_command(web_cmd: &WebCameraCommand) -> Option<C
     match web_cmd.command.as_str() {
         "start" => Some(CameraAction::Start),
         "stop" => Some(CameraAction::Stop),
+        _ => None,
+    }
+}
+
+fn convert_web_command_to_audio_command(web_cmd: &WebAudioCommand) -> Option<AudioAction> {
+    match web_cmd.command.as_str() {
+        "start" => Some(AudioAction::Start),
+        "stop" => Some(AudioAction::Stop),
         _ => None,
     }
 }

@@ -132,6 +132,20 @@ pub enum CameraAction {
     Stop,
 }
 
+/// Audio control commands for audio-capture node
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioControl {
+    pub command: AudioAction,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioAction {
+    Start,
+    Stop,
+}
+
 /// Stream control commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamControl {

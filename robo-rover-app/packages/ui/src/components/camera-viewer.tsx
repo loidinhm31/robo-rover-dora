@@ -415,14 +415,22 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   };
 
   const toggleAudio = () => {
+    if (!socket) return;
+
     const newState = !audioEnabled;
     setAudioEnabled(newState);
+
+    socket.emit("audio_control", {
+      command: newState ? "start" : "stop"
+    });
 
     if (!newState) {
       // Clear audio queue when disabling
       audioQueueRef.current = [];
       isPlayingRef.current = false;
     }
+
+    console.log(newState ? "Audio enabled" : "Audio disabled");
   };
 
   const toggleCamera = () => {
@@ -489,10 +497,10 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
           <button
               onClick={toggleAudio}
               className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={audioEnabled ? "Mute Audio" : "Unmute Audio"}
-              disabled={!streamEnabled}
+              title={audioEnabled ? "Turn Audio Off" : "Turn Audio On"}
+              disabled={!isConnected}
           >
-            {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+            {audioEnabled ? <Volume2 className="w-5 h-5 text-green-400" /> : <VolumeX className="w-5 h-5 text-red-400" />}
           </button>
 
           <button

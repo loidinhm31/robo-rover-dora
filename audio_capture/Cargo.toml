@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 dora-node-api = { workspace = true }
 eyre = { workspace = true }
+robo_rover_lib = { path = "../robo_rover_lib" }
+serde_json = { workspace = true }
 cpal = "0.15"
 ringbuf = "0.4"

@@ -32,14 +32,15 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update stream with video and audio">
-      <change afterPath="$PROJECT_DIR$/audio_capture/Cargo.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/audio_capture/src/main.rs" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Add capture audio node and fix stream audio">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/audio_capture/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/audio_capture/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/video_types.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,7 +138,7 @@
       <workItem from="1761607229640" duration="2838000" />
       <workItem from="1761614561653" duration="7373000" />
       <workItem from="1761624055501" duration="1160000" />
-      <workItem from="1761718208743" duration="2690000" />
+      <workItem from="1761718208743" duration="4995000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -299,7 +300,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761620816653</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="Add capture audio node and fix stream audio">
+      <option name="closed" value="true" />
+      <created>1761722183929</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1761722183929</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -336,7 +345,8 @@
     <MESSAGE value="Change control layout for app" />
     <MESSAGE value="Create visualization for LeKiwi urdf" />
     <MESSAGE value="Update stream with video and audio" />
-    <option name="LAST_COMMIT_MESSAGE" value="Update stream with video and audio" />
+    <MESSAGE value="Add capture audio node and fix stream audio" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add capture audio node and fix stream audio" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

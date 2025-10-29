@@ -4,6 +4,7 @@ nodes:
     path: target/release/audio_capture
     inputs:
       tick: dora/timer/millis/50  # 20 Hz (~50ms audio chunks)
+      audio_control: web-bridge/audio_command
     outputs:
       - audio  # Float32 audio data with metadata (sample_rate, channels, format)
     env:
@@ -44,6 +45,7 @@ nodes:
       - arm_command
       - rover_command
       - camera_command
+      - audio_command
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030
