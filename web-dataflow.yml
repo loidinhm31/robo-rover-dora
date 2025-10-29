@@ -1,12 +1,15 @@
 nodes:
-  # Microphone audio capture (outputs raw PCM audio)
-  - id: dora-microphone
-    build: pip install dora-microphone --break-system-packages
-    path: dora-microphone
+  - id: audio-capture
+    build: cargo build --release -p audio_capture
+    path: target/release/audio_capture
     inputs:
       tick: dora/timer/millis/50  # 20 Hz (~50ms audio chunks)
     outputs:
-      - audio  # Raw PCM audio data with metadata
+      - audio  # Float32 audio data with metadata (sample_rate, channels, format)
+    env:
+      SAMPLE_RATE: "16000"  # Hz (default: 16000)
+      CHANNELS: "1"  # Mono (default: 1)
+      CHUNK_SIZE: "800"  # Samples per chunk - 50ms at 16kHz (default: 800)
 
   # GStreamer camera capture (outputs raw RGB8 frames)
   # Supports local webcams and RTSP streams
@@ -33,7 +36,7 @@ nodes:
     build: cargo build --release -p web_bridge
     path: target/release/web_bridge
     inputs:
-      audio_frame: dora-microphone/audio
+      audio_frame: audio-capture/audio
       video_frame: gst-camera/frame
       rover_telemetry: sim-interface/rover_telemetry
       arm_telemetry: sim-interface/arm_telemetry

@@ -64,8 +64,10 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const nextPlayTimeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(false);
-  const audioBufferThreshold = useRef<number>(3); // Minimum buffers before starting playback
+  const audioBufferThreshold = useRef<number>(5); // Minimum buffers before starting playback (increased for stability)
   const lowPassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const maxBufferQueueSize = useRef<number>(20); // Max queue size to prevent excessive latency
 
   // Handle video frames from Socket.IO
   useEffect(() => {
@@ -156,12 +158,19 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       try {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
 
+        // Create gain node for volume control
+        gainNodeRef.current = audioContextRef.current.createGain();
+        gainNodeRef.current.gain.value = 1.0;
+
         // Create low-pass filter to reduce high-frequency noise
         // This helps with resampling artifacts and microphone noise
         lowPassFilterRef.current = audioContextRef.current.createBiquadFilter();
         lowPassFilterRef.current.type = 'lowpass';
-        lowPassFilterRef.current.frequency.value = 7000; // Cut off above 7kHz (voice is typically below 4kHz)
-        lowPassFilterRef.current.Q.value = 1; // Moderate resonance
+        lowPassFilterRef.current.frequency.value = 8000; // Cut off above 8kHz
+        lowPassFilterRef.current.Q.value = 0.7; // Gentle slope
+
+        // Connect audio chain: source -> gain -> filter -> destination
+        gainNodeRef.current.connect(lowPassFilterRef.current);
         lowPassFilterRef.current.connect(audioContextRef.current.destination);
 
         console.log("AudioContext initialized:", {
@@ -281,8 +290,15 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
           }
         }
 
-        // Queue audio buffer for playback
-        audioQueueRef.current.push(audioBuffer);
+        // Queue audio buffer for playback (with max queue size limit)
+        if (audioQueueRef.current.length < maxBufferQueueSize.current) {
+          audioQueueRef.current.push(audioBuffer);
+        } else {
+          // Drop oldest buffer if queue is full to prevent excessive latency
+          audioQueueRef.current.shift();
+          audioQueueRef.current.push(audioBuffer);
+          console.warn("Audio queue full, dropping oldest buffer");
+        }
 
         // Update buffer stats
         const bufferDuration = audioQueueRef.current.reduce((sum, buf) => sum + buf.duration, 0);
@@ -295,7 +311,8 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
         if (!isPlayingRef.current && audioQueueRef.current.length >= audioBufferThreshold.current) {
           console.log(`🔊 Starting audio playback with ${audioQueueRef.current.length} buffers (${bufferDuration.toFixed(3)}s)`);
           isPlayingRef.current = true;
-          nextPlayTimeRef.current = audioContext.currentTime;
+          // Initialize next play time with a small delay to build buffer
+          nextPlayTimeRef.current = audioContext.currentTime + 0.1;
           scheduleNextAudioBuffer();
         }
 
@@ -306,7 +323,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
 
     // Schedule and play audio buffers from queue
     const scheduleNextAudioBuffer = () => {
-      if (!audioContextRef.current) {
+      if (!audioContextRef.current || !gainNodeRef.current) {
         isPlayingRef.current = false;
         return;
       }
@@ -315,8 +332,10 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
 
       // Check if we have buffers to play
       if (audioQueueRef.current.length === 0) {
-        console.warn("Audio buffer underrun - queue empty");
+        console.warn("Audio buffer underrun - queue empty, stopping playback");
         isPlayingRef.current = false;
+        // Reset timing for next playback start
+        nextPlayTimeRef.current = 0;
         return;
       }
 
@@ -331,33 +350,41 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
 
-      // Connect through low-pass filter if available, otherwise direct
-      if (lowPassFilterRef.current) {
-        source.connect(lowPassFilterRef.current);
-      } else {
-        source.connect(audioContext.destination);
-      }
+      // Connect through gain node (which connects to filter -> destination)
+      source.connect(gainNodeRef.current);
 
       // Schedule playback with seamless timing
       const currentTime = audioContext.currentTime;
-      const playTime = Math.max(currentTime, nextPlayTimeRef.current);
 
-      // Detect gaps in playback
-      if (playTime > currentTime + 0.05) {
-        console.warn(`Audio gap detected: ${((playTime - currentTime) * 1000).toFixed(1)}ms`);
+      // Sync timing: if we're behind, catch up gradually
+      if (nextPlayTimeRef.current < currentTime) {
+        nextPlayTimeRef.current = currentTime;
+      }
+
+      const playTime = nextPlayTimeRef.current;
+
+      // Detect large gaps in playback (>100ms)
+      const gap = playTime - currentTime;
+      if (gap > 0.1) {
+        console.warn(`Audio timing drift: ${(gap * 1000).toFixed(1)}ms ahead`);
+        // Adjust to prevent excessive latency buildup
+        nextPlayTimeRef.current = currentTime + 0.05;
       }
 
       source.start(playTime);
       nextPlayTimeRef.current = playTime + audioBuffer.duration;
 
-      // Schedule next buffer before this one ends
-      source.onended = () => {
-        scheduleNextAudioBuffer();
-      };
+      // Schedule next buffer slightly before this one ends to ensure continuity
+      const schedulingTime = (audioBuffer.duration * 1000) - 10; // 10ms before end
+      setTimeout(() => {
+        if (isPlayingRef.current) {
+          scheduleNextAudioBuffer();
+        }
+      }, Math.max(schedulingTime, 0));
 
-      // Log playback info periodically (every 10th buffer)
-      if (Math.random() < 0.1) {
-        console.log(`Audio: ${audioBuffer.duration.toFixed(3)}s buffer, queue: ${audioQueueRef.current.length}, rate: ${audioBuffer.sampleRate}Hz`);
+      // Log playback info periodically
+      if (Math.random() < 0.05) {
+        console.log(`Audio: ${audioBuffer.duration.toFixed(3)}s buffer, queue: ${audioQueueRef.current.length}, latency: ${(gap * 1000).toFixed(1)}ms`);
       }
     };
 

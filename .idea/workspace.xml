@@ -8,6 +8,9 @@
       <package file="$PROJECT_DIR$/arm_controller">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/audio_capture">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/dispatcher_keyboard">
         <feature name="default" enabled="true" />
       </package>
@@ -30,12 +33,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update stream with video and audio">
+      <change afterPath="$PROJECT_DIR$/audio_capture/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/audio_capture/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia-gst-capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -52,7 +55,7 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
-    <option name="RESET_MODE" value="SOFT" />
+    <option name="RESET_MODE" value="HARD" />
   </component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="YxQ1BJwb" />
@@ -74,7 +77,7 @@
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/loidinh/ws/alie-client&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/loidinh/ws/robo-rover-dora&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -134,6 +137,7 @@
       <workItem from="1761607229640" duration="2838000" />
       <workItem from="1761614561653" duration="7373000" />
       <workItem from="1761624055501" duration="1160000" />
+      <workItem from="1761718208743" duration="2690000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
