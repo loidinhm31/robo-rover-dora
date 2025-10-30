@@ -14,7 +14,3 @@ ndarray = "0.15"
 ort = { version = "1.16.3", default-features = false, features = ["load-dynamic"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-[[bin]]
-name = "object_detector"
-path = "src/main.rs"

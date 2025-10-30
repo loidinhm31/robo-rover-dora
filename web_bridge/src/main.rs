@@ -9,6 +9,7 @@ use robo_rover_lib::{
     ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
 };
+use robo_rover_lib::types::DetectionFrame;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
@@ -663,6 +664,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         } else {
                                             client.mark_frame_dropped();
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "detections" => {
+                        // Handle detection frames from object_detector
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let detection_data = binary_array.value(0);
+
+                                // Deserialize DetectionFrame
+                                match serde_json::from_slice::<DetectionFrame>(detection_data) {
+                                    Ok(detection_frame) => {
+                                        // Forward detections to all connected clients
+                                        if let Ok(clients) = state_for_video.video_clients.lock() {
+                                            if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                                // Emit to all clients via Socket.IO
+                                                let _ = io.of("/").unwrap().emit("detections", serde_json::to_value(&detection_frame).unwrap());
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to deserialize detections: {}", e);
                                     }
                                 }
                             }

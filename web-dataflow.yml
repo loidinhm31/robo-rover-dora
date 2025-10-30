@@ -13,7 +13,6 @@ nodes:
       CHUNK_SIZE: "800"  # Samples per chunk - 50ms at 16kHz (default: 800)
 
   # GStreamer camera capture (outputs raw RGB8 frames)
-  # Supports local webcams and RTSP streams
   - id: gst-camera
 #    git: https://github.com/kornia/dora-nodes-hub.git
 #    rev: 5b309b6c6f95074f8d38f2a236142e2e0751ee19
@@ -33,8 +32,6 @@ nodes:
       SOURCE_FPS: "30"
 
   # Object detector - YOLOv12n inference
-  # Phase 1: Detection only - outputs detections but not yet visualized in web UI
-  # Phase 2: Connect detections to web-bridge for visualization overlay
   - id: object-detector
     build: cargo build --release -p object_detector
     path: target/release/object_detector
@@ -56,6 +53,7 @@ nodes:
     inputs:
       audio_frame: audio-capture/audio
       video_frame: gst-camera/frame
+      detections: object-detector/detections
       rover_telemetry: sim-interface/rover_telemetry
       arm_telemetry: sim-interface/arm_telemetry
     outputs:

@@ -1,6 +1,9 @@
 import {useEffect, useRef, useState} from "react";
-import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX} from "lucide-react";
+import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX, Target, Layers} from "lucide-react";
 import {Socket} from "socket.io-client";
+import {DetectionFrame, getClassColor} from "@repo/ui/types/robo-rover";
+
+type ViewMode = "camera" | "camera_with_detections" | "detections_only";
 
 interface JPEGVideoFrame {
   timestamp: number;
@@ -26,6 +29,9 @@ interface StreamStats {
   video_bitrate_kbps: number;
   audio_frames_received: number;
   audio_buffer_ms: number;
+  detections_received: number;
+  detection_fps: number;
+  total_objects_detected: number;
 }
 
 interface CameraViewerProps {
@@ -47,17 +53,24 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("camera_with_detections");
+  const [latestDetections, setLatestDetections] = useState<DetectionFrame | null>(null);
   const [stats, setStats] = useState<StreamStats>({
     video_frames_received: 0,
     video_fps: 0,
     video_bitrate_kbps: 0,
     audio_frames_received: 0,
     audio_buffer_ms: 0,
+    detections_received: 0,
+    detection_fps: 0,
+    total_objects_detected: 0,
   });
 
   const frameCountRef = useRef(0);
   const lastFpsUpdateRef = useRef(Date.now());
   const bytesReceivedRef = useRef(0);
+  const detectionCountRef = useRef(0);
+  const lastDetectionFpsUpdateRef = useRef(Date.now());
 
   // Audio playback references
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -68,6 +81,90 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const lowPassFilterRef = useRef<BiquadFilterNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const maxBufferQueueSize = useRef<number>(20); // Max queue size to prevent excessive latency
+
+  // Draw detection bounding boxes on canvas
+  const drawDetections = (ctx: CanvasRenderingContext2D, detections: DetectionFrame, canvasWidth: number, canvasHeight: number, overlay: boolean = true) => {
+    detections.detections.forEach((detection) => {
+      const { bbox, class_name, confidence } = detection;
+
+      // Convert normalized coordinates to pixel coordinates
+      const x1 = bbox.x1 * canvasWidth;
+      const y1 = bbox.y1 * canvasHeight;
+      const x2 = bbox.x2 * canvasWidth;
+      const y2 = bbox.y2 * canvasHeight;
+      const width = x2 - x1;
+      const height = y2 - y1;
+
+      // Get color for this class
+      const color = getClassColor(class_name);
+
+      // Draw bounding box
+      ctx.strokeStyle = color;
+      ctx.lineWidth = overlay ? 3 : 4;
+      ctx.strokeRect(x1, y1, width, height);
+
+      // Draw center point
+      if (!overlay) {
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      // Draw label background
+      const label = `${class_name} ${(confidence * 100).toFixed(0)}%`;
+      ctx.font = overlay ? "16px Arial" : "18px Arial";
+      const textMetrics = ctx.measureText(label);
+      const textHeight = overlay ? 20 : 24;
+      const padding = 6;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x1, y1 - textHeight - padding, textMetrics.width + padding * 2, textHeight + padding);
+
+      // Draw label text
+      ctx.fillStyle = "#000000";
+      ctx.fillText(label, x1 + padding, y1 - padding);
+    });
+  };
+
+  // Draw detections-only view (clean background with bounding boxes)
+  const drawDetectionsOnly = (ctx: CanvasRenderingContext2D, detections: DetectionFrame, canvasWidth: number, canvasHeight: number) => {
+    // Clear canvas with dark background
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Draw grid for reference (optional)
+    ctx.strokeStyle = "#333333";
+    ctx.lineWidth = 1;
+    const gridSize = 50;
+    for (let x = 0; x < canvasWidth; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvasHeight);
+      ctx.stroke();
+    }
+    for (let y = 0; y < canvasHeight; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvasWidth, y);
+      ctx.stroke();
+    }
+
+    // Draw center crosshair
+    ctx.strokeStyle = "#666666";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(canvasWidth / 2 - 20, canvasHeight / 2);
+    ctx.lineTo(canvasWidth / 2 + 20, canvasHeight / 2);
+    ctx.moveTo(canvasWidth / 2, canvasHeight / 2 - 20);
+    ctx.lineTo(canvasWidth / 2, canvasHeight / 2 + 20);
+    ctx.stroke();
+
+    // Draw detections
+    drawDetections(ctx, detections, canvasWidth, canvasHeight, false);
+  };
 
   // Handle video frames from Socket.IO
   useEffect(() => {
@@ -103,8 +200,30 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                 canvasRef.current.height = frame.height;
               }
 
-              // Draw JPEG image to canvas
-              ctx.drawImage(img, 0, 0, frame.width, frame.height);
+              // Render based on view mode
+              if (viewMode === "detections_only") {
+                // Detections-only view: show only bounding boxes on dark background
+                if (latestDetections && latestDetections.detections.length > 0) {
+                  drawDetectionsOnly(ctx, latestDetections, frame.width, frame.height);
+                } else {
+                  // No detections - show empty grid
+                  ctx.fillStyle = "#1a1a1a";
+                  ctx.fillRect(0, 0, frame.width, frame.height);
+                  ctx.fillStyle = "#666666";
+                  ctx.font = "20px Arial";
+                  ctx.textAlign = "center";
+                  ctx.fillText("No objects detected", frame.width / 2, frame.height / 2);
+                  ctx.textAlign = "left";
+                }
+              } else {
+                // Camera view or camera + detections view
+                ctx.drawImage(img, 0, 0, frame.width, frame.height);
+
+                // Draw detections overlay if view mode includes detections
+                if (viewMode === "camera_with_detections" && latestDetections) {
+                  drawDetections(ctx, latestDetections, frame.width, frame.height, true);
+                }
+              }
             }
           }
 
@@ -147,7 +266,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     return () => {
       socket.off("video_frame", handleVideoFrame);
     };
-  }, [socket, streamEnabled, videoEnabled]);
+  }, [socket, streamEnabled, videoEnabled, viewMode, latestDetections]);
 
   // Initialize Audio Context
   useEffect(() => {
@@ -399,6 +518,44 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     };
   }, [socket, streamEnabled, audioEnabled]);
 
+  // Handle detection frames from Socket.IO
+  useEffect(() => {
+    if (!socket || !streamEnabled) return;
+
+    const handleDetections = (detectionFrame: DetectionFrame) => {
+      setLatestDetections(detectionFrame);
+
+      // Update detection stats
+      setStats((prev) => ({
+        ...prev,
+        detections_received: prev.detections_received + 1,
+        total_objects_detected: detectionFrame.detections.length,
+      }));
+
+      // Update detection FPS
+      detectionCountRef.current++;
+      const now = Date.now();
+      if (now - lastDetectionFpsUpdateRef.current >= 1000) {
+        const elapsed = (now - lastDetectionFpsUpdateRef.current) / 1000;
+        const fps = detectionCountRef.current / elapsed;
+
+        setStats(prev => ({
+          ...prev,
+          detection_fps: fps,
+        }));
+
+        detectionCountRef.current = 0;
+        lastDetectionFpsUpdateRef.current = now;
+      }
+    };
+
+    socket.on("detections", handleDetections);
+
+    return () => {
+      socket.off("detections", handleDetections);
+    };
+  }, [socket, streamEnabled]);
+
   // Stream control
   const toggleStream = () => {
     if (!socket) return;
@@ -444,6 +601,21 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     });
 
     console.log(newState ? "Camera enabled" : "Camera disabled");
+  };
+
+  const cycleViewMode = () => {
+    const modes: ViewMode[] = ["camera", "camera_with_detections", "detections_only"];
+    const currentIndex = modes.indexOf(viewMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    const newMode = modes[nextIndex]!; // Safe because nextIndex is always valid
+    setViewMode(newMode);
+
+    const modeNames: Record<ViewMode, string> = {
+      camera: "Camera Only",
+      camera_with_detections: "Camera + Detections",
+      detections_only: "Detections Only"
+    };
+    console.log(`View mode: ${modeNames[newMode]}`);
   };
 
   const toggleFullscreen = () => {
@@ -504,6 +676,23 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
           </button>
 
           <button
+              onClick={cycleViewMode}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition group relative"
+              title="Cycle View Mode"
+          >
+            <Layers className={`w-5 h-5 ${
+              viewMode === "camera" ? "text-blue-400" :
+              viewMode === "camera_with_detections" ? "text-green-400" :
+              "text-purple-400"
+            }`} />
+            <span className="absolute right-full mr-2 px-2 py-1 bg-black/80 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+              {viewMode === "camera" && "Camera Only"}
+              {viewMode === "camera_with_detections" && "Camera + Detections"}
+              {viewMode === "detections_only" && "Detections Only"}
+            </span>
+          </button>
+
+          <button
               onClick={toggleFullscreen}
               className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
               title="Toggle Fullscreen"
@@ -512,6 +701,22 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
           </button>
         </div>
 
+        {/* View mode indicator badge */}
+        {streamEnabled && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+              <div className={`px-4 py-2 rounded-full backdrop-blur-md text-xs font-semibold flex items-center gap-2 ${
+                viewMode === "camera" ? "bg-blue-500/20 text-blue-300" :
+                viewMode === "camera_with_detections" ? "bg-green-500/20 text-green-300" :
+                "bg-purple-500/20 text-purple-300"
+              }`}>
+                <Layers className="w-4 h-4" />
+                {viewMode === "camera" && "Camera Only"}
+                {viewMode === "camera_with_detections" && "Camera + Detections"}
+                {viewMode === "detections_only" && "Detections Only"}
+              </div>
+            </div>
+        )}
+
         {/* Stats overlay */}
         {streamEnabled && (
             <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white">
@@ -519,6 +724,12 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                 <div>Video: {stats.video_frames_received} frames | {stats.video_fps.toFixed(1)} fps</div>
                 <div>Bitrate: {stats.video_bitrate_kbps.toFixed(0)} kbps</div>
                 <div>Audio: {stats.audio_frames_received} frames | Buffer: {stats.audio_buffer_ms.toFixed(0)} ms</div>
+                {viewMode !== "camera" && (
+                  <>
+                    <div>Detections: {stats.detections_received} frames | {stats.detection_fps.toFixed(1)} fps</div>
+                    <div>Objects: {stats.total_objects_detected} detected</div>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
                   <span>{isConnected ? "Connected" : "Disconnected"}</span>
@@ -534,6 +745,28 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                 <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="text-lg">Not Connected</p>
                 <p className="text-sm text-gray-400 mt-2">Waiting for connection...</p>
+              </div>
+            </div>
+        )}
+
+        {/* Detection list panel - only show when detections are visible */}
+        {viewMode !== "camera" && latestDetections && latestDetections.detections.length > 0 && (
+            <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white max-w-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-green-400" />
+                <span className="font-semibold">Detected Objects ({latestDetections.detections.length})</span>
+              </div>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {latestDetections.detections.map((detection, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between gap-2 py-1 px-2 bg-white/10 rounded"
+                    style={{ borderLeft: `3px solid ${getClassColor(detection.class_name)}` }}
+                  >
+                    <span className="font-medium">{detection.class_name}</span>
+                    <span className="text-gray-300">{(detection.confidence * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
               </div>
             </div>
         )}

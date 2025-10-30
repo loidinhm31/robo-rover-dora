@@ -179,6 +179,55 @@ export interface ClientToServerEvents {
   video_control: (control: VideoControl) => void;
 }
 
+// Object Detection Types (Phase 2)
+export interface BoundingBox {
+  x1: number; // Top-left x (normalized 0-1)
+  y1: number; // Top-left y (normalized 0-1)
+  x2: number; // Bottom-right x (normalized 0-1)
+  y2: number; // Bottom-right y (normalized 0-1)
+}
 
+export interface DetectionResult {
+  bbox: BoundingBox;
+  class_id: number;
+  class_name: string;
+  confidence: number;
+  tracking_id?: number; // Optional, assigned by tracker
+}
 
+export interface DetectionFrame {
+  frame_id: number;
+  timestamp: number;
+  width: number;
+  height: number;
+  detections: DetectionResult[];
+}
 
+// Detection visualization settings
+export interface DetectionDisplaySettings {
+  enabled: boolean;
+  showLabels: boolean;
+  showConfidence: boolean;
+  showBoundingBoxes: boolean;
+  minConfidence: number;
+  classColors: Record<string, string>;
+}
+
+// Default class colors for visualization
+export const DEFAULT_CLASS_COLORS: Record<string, string> = {
+  person: "#00ff00",
+  dog: "#ff00ff",
+  cat: "#ff8800",
+  car: "#0088ff",
+  bicycle: "#ffff00",
+  motorcycle: "#ff0088",
+  bus: "#8800ff",
+  truck: "#00ffff",
+  bird: "#88ff00",
+  // Add more classes as needed
+};
+
+// Helper function to get color for a class
+export function getClassColor(className: string): string {
+  return DEFAULT_CLASS_COLORS[className] || "#ffffff";
+}
