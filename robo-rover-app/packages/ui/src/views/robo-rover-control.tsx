@@ -15,6 +15,7 @@ import {
   JointPositions,
   LogEntry,
   RoverTelemetry,
+  TrackingTelemetry,
   validateJointPositions,
   WebArmCommand,
   WebRoverCommand,
@@ -22,6 +23,7 @@ import {
 import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick.js";
 import {
   Activity,
+  AlertTriangle,
   Camera,
   ChevronDown,
   ChevronUp,
@@ -61,6 +63,9 @@ const RoboRoverController: React.FC = () => {
   // Telemetry state
   const [armTelemetry, setArmTelemetry] = useState<ArmTelemetry | null>(null);
   const [roverTelemetry, setRoverTelemetry] = useState<RoverTelemetry | null>(
+    null,
+  );
+  const [servoTelemetry, setServoTelemetry] = useState<TrackingTelemetry | null>(
     null,
   );
 
@@ -188,6 +193,11 @@ const RoboRoverController: React.FC = () => {
           wheel3: prev.wheel3 as number,
         }));
       }
+    });
+
+    // Listen for servo telemetry (includes distance and control mode)
+    socket.on("servo_telemetry", (data: TrackingTelemetry) => {
+      setServoTelemetry(data);
     });
 
     socketRef.current = socket;
@@ -399,88 +409,126 @@ const RoboRoverController: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen gradient-bg relative overflow-hidden">
-      {/* Animated background elements */}
-      <div
-        className="cube-decoration top-20 left-10 bg-cyan-400"
-        style={{ animationDelay: "0s" }}
-      ></div>
-      <div
-        className="cube-decoration top-40 right-20 bg-blue-500"
-        style={{ animationDelay: "2s" }}
-      ></div>
-      <div
-        className="cube-decoration bottom-20 left-1/4 bg-orange-400"
-        style={{ animationDelay: "4s" }}
-      ></div>
-      <div
-        className="cube-decoration bottom-40 right-1/3 bg-yellow-400"
-        style={{ animationDelay: "1s" }}
-      ></div>
-      <div
-        className="cube-decoration top-1/2 left-1/2 bg-pink-400"
-        style={{ animationDelay: "3s" }}
-      ></div>
+    <div className="min-h-screen gradient-bg relative">
+      {/* Animated background elements - fixed positioning */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="cube-decoration top-20 left-10 bg-cyan-400"
+          style={{ animationDelay: "0s" }}
+        ></div>
+        <div
+          className="cube-decoration top-40 right-20 bg-blue-500"
+          style={{ animationDelay: "2s" }}
+        ></div>
+        <div
+          className="cube-decoration bottom-20 left-1/4 bg-orange-400"
+          style={{ animationDelay: "4s" }}
+        ></div>
+        <div
+          className="cube-decoration bottom-40 right-1/3 bg-yellow-400"
+          style={{ animationDelay: "1s" }}
+        ></div>
+        <div
+          className="cube-decoration top-1/2 left-1/2 bg-pink-400"
+          style={{ animationDelay: "3s" }}
+        ></div>
+      </div>
 
-      <div className="relative z-10 p-3 md:p-4 max-w-7xl mx-auto space-y-3 md:space-y-4">
-        {/* Header */}
-        <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 md:gap-4">
-              <Zap className="w-8 h-8 md:w-12 md:h-12 text-yellow-400 animate-pulse" />
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
-                  LEKIWI ROBOT
-                </h1>
-                <p className="text-xs md:text-sm text-white/80">
-                  6-DOF Arm + 3-Wheel Omnidirectional Base
-                </p>
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Header - Sticky on scroll - Compact design */}
+        <div className="sticky top-0 z-50 glass-card shadow-xl p-2 md:p-3 backdrop-blur-xl border-b border-white/10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+            {/* Left: Title and Status Indicators */}
+            <div className="flex items-center gap-2 md:gap-3 flex-wrap w-full md:w-auto">
+              <Zap className="w-6 h-6 text-yellow-400 animate-pulse" />
+              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                LEKIWI ROBOT
+              </h1>
+
+              {/* Connection Status - Inline */}
+              <div className="glass-card-light rounded-lg px-2 py-1 flex items-center gap-1.5">
+                {connection.isConnected ? (
+                  <>
+                    <Radio className="w-3 h-3 text-green-400 animate-pulse" />
+                    <span className="text-xs font-semibold text-green-300">
+                      ONLINE
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Radio className="w-3 h-3 text-red-400" />
+                    <span className="text-xs font-semibold text-red-300">
+                      OFFLINE
+                    </span>
+                  </>
+                )}
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-              <div className="glass-card-light rounded-2xl px-4 md:px-6 py-3 flex-1 md:flex-none">
-                <div className="flex items-center gap-2">
-                  {connection.isConnected ? (
+              {/* Control Mode - Inline */}
+              {servoTelemetry && (
+                <div className="glass-card-light rounded-lg px-2 py-1 flex items-center gap-1.5">
+                  {servoTelemetry.control_mode === "Autonomous" ? (
                     <>
-                      <Radio className="w-4 h-4 text-green-400 animate-pulse" />
-                      <span className="text-xs md:text-sm font-semibold text-green-300">
-                        CONNECTED
+                      <Zap className="w-3 h-3 text-blue-400 animate-pulse" />
+                      <span className="text-xs font-semibold text-blue-300">
+                        AUTO
                       </span>
                     </>
                   ) : (
                     <>
-                      <Radio className="w-4 h-4 text-red-400" />
-                      <span className="text-xs md:text-sm font-semibold text-red-300">
-                        OFFLINE
+                      <Gauge className="w-3 h-3 text-purple-400" />
+                      <span className="text-xs font-semibold text-purple-300">
+                        MANUAL
                       </span>
                     </>
                   )}
+                  {servoTelemetry.distance_estimate !== null && (
+                    <span className="text-xs text-white/80 font-mono ml-1">
+                      {servoTelemetry.distance_estimate.toFixed(1)}m
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs text-white/60 mt-1">
-                  {connection.commandsSent} commands
-                </div>
+              )}
+
+              {/* Commands Count */}
+              <div className="text-xs text-white/50 font-mono hidden md:block">
+                {connection.commandsSent} cmd
               </div>
+            </div>
+
+            {/* Right: Emergency Stop and Connect Button */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
               {!connection.isConnected && (
                 <button
                   onClick={connect}
-                  className="btn-gradient-cyan px-6 md:px-8 py-3 md:py-4 rounded-2xl text-sm md:text-lg whitespace-nowrap"
+                  className="btn-gradient-cyan px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap"
                 >
                   CONNECT
                 </button>
               )}
+
+              {/* Emergency Stop Button - Compact */}
+              <button
+                onClick={emergencyStop}
+                disabled={!connection.isConnected}
+                className="group relative px-4 md:px-6 py-2 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white rounded-xl font-black text-sm md:text-base shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.7)] transition-all duration-300 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none border border-red-300/50 active:scale-95 flex-1 md:flex-none"
+                style={{
+                  animation: connection.isConnected ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                }}
+              >
+                <div className="flex items-center gap-2 justify-center">
+                  <AlertTriangle className="w-4 h-4 animate-pulse" />
+                  <span className="tracking-wide">E-STOP</span>
+                </div>
+                {/* Shine effect */}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Emergency Stop */}
-        <button
-          onClick={emergencyStop}
-          disabled={!connection.isConnected}
-          className="w-full py-4 md:py-6 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-3xl font-bold text-lg md:text-xl shadow-2xl hover:shadow-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 glass-card"
-        >
-          ⚠️ EMERGENCY STOP
-        </button>
+        {/* Content area with padding to prevent hiding behind sticky header */}
+        <div className="p-3 md:p-4 space-y-3 md:space-y-4 pt-3 md:pt-4">
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Location Map Viewer */}
@@ -787,11 +835,12 @@ const RoboRoverController: React.FC = () => {
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
               <span className="font-bold text-white">
-                3D Visualization:
+                Location Map:
               </span>{" "}
               {showLocationMap ? "Active" : "Hidden"}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

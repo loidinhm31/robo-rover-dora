@@ -235,6 +235,8 @@ export function getClassColor(className: string): string {
 // Object Tracking Types (Phase 3)
 export type TrackingState = "Disabled" | "Enabled" | "Tracking" | "TargetLost";
 
+export type ControlMode = "Manual" | "Autonomous";
+
 export interface TrackingTarget {
   tracking_id: number;
   class_name: string;
@@ -249,6 +251,7 @@ export interface TrackingTelemetry {
   target: TrackingTarget | null;
   distance_estimate: number | null;
   control_output: ControlOutput | null;
+  control_mode: ControlMode;
   timestamp: number;
 }
 

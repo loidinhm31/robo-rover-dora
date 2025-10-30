@@ -10,7 +10,8 @@ members = [
     "kornia_capture",
     "audio_capture",
     "object_detector",
-    "object_tracker"
+    "object_tracker",
+    "visual_servo_controller",
 ]
 
 [workspace.dependencies]

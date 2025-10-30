@@ -786,6 +786,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
+                    "servo_telemetry" => {
+                        // Handle servo telemetry from visual-servo-controller
+                        // This includes distance estimation and control mode (auto/manual)
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let telemetry_data = binary_array.value(0);
+
+                                // Deserialize TrackingTelemetry (with enhanced distance and mode)
+                                match serde_json::from_slice::<TrackingTelemetry>(telemetry_data) {
+                                    Ok(telemetry) => {
+                                        // Forward enhanced telemetry to all connected clients
+                                        if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                            let _ = io.of("/").unwrap().emit("servo_telemetry", serde_json::to_value(&telemetry).unwrap());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to deserialize servo telemetry: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     _ => {}
                 },
                 Event::Stop(_) => {

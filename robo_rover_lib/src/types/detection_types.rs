@@ -232,13 +232,21 @@ pub enum TrackingState {
     TargetLost,
 }
 
+/// Control mode for rover
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ControlMode {
+    Manual,      // Manual control from web UI
+    Autonomous,  // Autonomous tracking/following
+}
+
 /// Telemetry data sent to web UI about tracking status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingTelemetry {
     pub state: TrackingState,
     pub target: Option<TrackingTarget>,
-    pub distance_estimate: Option<f32>,  // Relative distance estimate (0.0-1.0)
+    pub distance_estimate: Option<f32>,  // Distance in meters (from visual servo)
     pub control_output: Option<ControlOutput>,
+    pub control_mode: ControlMode,  // Current control mode
     pub timestamp: u64,
 }
 
@@ -249,6 +257,7 @@ impl TrackingTelemetry {
             target,
             distance_estimate: None,
             control_output: None,
+            control_mode: ControlMode::Manual,  // Default to manual
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -263,6 +272,11 @@ impl TrackingTelemetry {
 
     pub fn with_control(mut self, control: ControlOutput) -> Self {
         self.control_output = Some(control);
+        self
+    }
+
+    pub fn with_mode(mut self, mode: ControlMode) -> Self {
+        self.control_mode = mode;
         self
     }
 }

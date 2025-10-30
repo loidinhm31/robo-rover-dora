@@ -63,7 +63,32 @@ nodes:
       MIN_HITS: "3"  # Min detections before track is confirmed
       IOU_THRESHOLD: "0.3"  # Intersection over union threshold for matching
 
-
+  # Visual servoing controller - PID-based autonomous tracking
+  - id: visual-servo-controller
+    build: cargo build --release -p visual_servo_controller
+    path: target/release/visual_servo_controller
+    inputs:
+      tracking_telemetry: object-tracker/tracking_telemetry
+    outputs:
+      - servo_command  # RoverCommandWithMetadata for autonomous following
+      - servo_telemetry  # Enhanced TrackingTelemetry with distance and control mode
+    env:
+      RUST_LOG: info
+      # Lateral PID (centering control)
+      LATERAL_PID_KP: "1.5"
+      LATERAL_PID_KI: "0.0"
+      LATERAL_PID_KD: "0.2"
+      # Longitudinal PID (distance control)
+      LONGITUDINAL_PID_KP: "0.8"
+      LONGITUDINAL_PID_KI: "0.0"
+      LONGITUDINAL_PID_KD: "0.15"
+      # Safety constraints
+      MIN_DISTANCE: "1.0"  # Meters
+      MAX_VELOCITY: "0.5"  # m/s
+      MAX_ANGULAR_VELOCITY: "1.0"  # rad/s
+      # Control parameters
+      TARGET_BBOX_HEIGHT: "0.3"  # Target 30% of frame height
+      DEAD_ZONE: "0.05"  # 5% centering dead zone
 
   # Web bridge with binary streaming
   - id: web-bridge
@@ -75,6 +100,7 @@ nodes:
       detections: object-detector/detections
       tracked_detections: object-tracker/tracked_detections
       tracking_telemetry: object-tracker/tracking_telemetry
+      servo_telemetry: visual-servo-controller/servo_telemetry
       rover_telemetry: sim-interface/rover_telemetry
       arm_telemetry: sim-interface/arm_telemetry
     outputs:
