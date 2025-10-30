@@ -45,6 +45,25 @@ nodes:
       CONFIDENCE_THRESHOLD: "0.5"
       NMS_THRESHOLD: "0.4"
       TARGET_CLASSES: ""  # Optional: "person,dog,cat" or leave empty for all classes
+      ORT_DYLIB_PATH: "/usr/local/lib/libonnxruntime.so"
+
+  # Object tracker - SORT algorithm with Kalman filter
+  - id: object-tracker
+    build: cargo build --release -p object_tracker
+    path: target/release/object_tracker
+    inputs:
+      detections: object-detector/detections
+      tracking_command: web-bridge/tracking_command
+    outputs:
+      - tracked_detections  # DetectionFrame with tracking IDs assigned
+      - tracking_telemetry  # Current tracking state and selected target
+    env:
+      RUST_LOG: info
+      MAX_TRACKING_AGE: "30"  # Max frames to keep lost tracks
+      MIN_HITS: "3"  # Min detections before track is confirmed
+      IOU_THRESHOLD: "0.3"  # Intersection over union threshold for matching
+
+
 
   # Web bridge with binary streaming
   - id: web-bridge
@@ -54,6 +73,8 @@ nodes:
       audio_frame: audio-capture/audio
       video_frame: gst-camera/frame
       detections: object-detector/detections
+      tracked_detections: object-tracker/tracked_detections
+      tracking_telemetry: object-tracker/tracking_telemetry
       rover_telemetry: sim-interface/rover_telemetry
       arm_telemetry: sim-interface/arm_telemetry
     outputs:
@@ -61,6 +82,7 @@ nodes:
       - rover_command
       - camera_command
       - audio_command
+      - tracking_command
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030
@@ -86,6 +108,7 @@ nodes:
     path: target/release/rover_controller
     inputs:
       rover_command: web-bridge/rover_command
+      servo_command: visual-servo-controller/servo_command
       rover_telemetry: sim-interface/rover_telemetry
     outputs:
       - processed_rover_command

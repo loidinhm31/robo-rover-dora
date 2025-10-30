@@ -20,6 +20,9 @@
       <package file="$PROJECT_DIR$/object_detector">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/object_tracker">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/robo_rover_lib">
         <feature name="default" enabled="true" />
       </package>
@@ -29,18 +32,19 @@
       <package file="$PROJECT_DIR$/sim_interface">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/visual_servo_controller">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/web_bridge">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement yolo">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement object tracker">
+      <change afterPath="$PROJECT_DIR$/visual_servo_controller/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/visual_servo_controller/src/main.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/visual_servo_controller/src/pid.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,7 +145,7 @@
       <workItem from="1761718208743" duration="8662000" />
       <workItem from="1761752510959" duration="396000" />
       <workItem from="1761795187827" duration="10002000" />
-      <workItem from="1761825326698" duration="4598000" />
+      <workItem from="1761825326698" duration="7250000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -351,7 +355,31 @@
       <option name="project" value="LOCAL" />
       <updated>1761825585433</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL-00027" summary="Display bounding box for detections">
+      <option name="closed" value="true" />
+      <created>1761834896573</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1761834896573</updated>
+    </task>
+    <task id="LOCAL-00028" summary="Implement object tracker">
+      <option name="closed" value="true" />
+      <created>1761842263596</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1761842263596</updated>
+    </task>
+    <task id="LOCAL-00029" summary="Implement object tracker">
+      <option name="closed" value="true" />
+      <created>1761843883597</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1761843883597</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -392,7 +420,9 @@
     <MESSAGE value="Control audio hardware" />
     <MESSAGE value="Add basic authen for web_bridge node" />
     <MESSAGE value="Implement yolo" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement yolo" />
+    <MESSAGE value="Display bounding box for detections" />
+    <MESSAGE value="Implement object tracker" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement object tracker" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">
@@ -401,11 +431,6 @@
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/config_test/src/main.rs</url>
           <option name="timeStamp" value="1" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs</url>
-          <line>49</line>
-          <option name="timeStamp" value="5" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs</url>

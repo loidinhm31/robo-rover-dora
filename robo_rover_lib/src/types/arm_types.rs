@@ -35,7 +35,8 @@ pub enum InputSource {
     Keyboard,
     WebBridge,
     Autonomous,
-    RoverController
+    RoverController,
+    VisualServo,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

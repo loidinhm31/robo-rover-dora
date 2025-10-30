@@ -9,7 +9,7 @@ use robo_rover_lib::{
     ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
 };
-use robo_rover_lib::types::DetectionFrame;
+use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
@@ -133,12 +133,20 @@ pub struct AuthCredentials {
     pub password: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebTrackingCommand {
+    pub command_type: String,  // "enable", "disable", "select_target", "clear_target"
+    pub tracking_id: Option<u32>,  // For "select_target"
+    pub detection_index: Option<usize>,  // For "select_target" by index
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
     pub rover_command_queue: Arc<Mutex<Vec<WebRoverCommand>>>,
     pub camera_command_queue: Arc<Mutex<Vec<WebCameraCommand>>>,
     pub audio_command_queue: Arc<Mutex<Vec<WebAudioCommand>>>,
+    pub tracking_command_queue: Arc<Mutex<Vec<WebTrackingCommand>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
 }
 
@@ -149,6 +157,7 @@ impl SharedState {
             rover_command_queue: Arc::new(Mutex::new(Vec::new())),
             camera_command_queue: Arc::new(Mutex::new(Vec::new())),
             audio_command_queue: Arc::new(Mutex::new(Vec::new())),
+            tracking_command_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -243,6 +252,21 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        socket.on(
+            "tracking_command",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_cmd) = serde_json::from_value::<WebTrackingCommand>(data) {
+                    println!("Received tracking command: {:?}", web_cmd.command_type);
+                    shared_state_clone
+                        .tracking_command_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_cmd);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
             println!("Client disconnected: {}", socket_id);
@@ -266,6 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rover_command_output = DataId::from("rover_command".to_owned());
     let camera_command_output = DataId::from("camera_command".to_owned());
     let audio_command_output = DataId::from("audio_command".to_owned());
+    let tracking_command_output = DataId::from("tracking_command".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -298,6 +323,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_clone_rover = node_clone_arm.clone();
     let node_clone_camera = node_clone_arm.clone();
     let node_clone_audio = node_clone_arm.clone();
+    let node_clone_tracking = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -418,6 +444,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Ok(mut node_guard) = node_clone_audio.lock() {
                                 let _ = node_guard.send_output(
                                     audio_command_output.clone(),
+                                    Default::default(),
+                                    arrow_data,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process tracking commands
+    let state_clone_tracking = shared_state.clone();
+    let _tracking_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_tracking.tracking_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+                    if let Some(tracking_cmd) = convert_web_command_to_tracking_command(&web_cmd) {
+                        if let Ok(serialized) = serde_json::to_vec(&tracking_cmd) {
+                            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                            if let Ok(mut node_guard) = node_clone_tracking.lock() {
+                                let _ = node_guard.send_output(
+                                    tracking_command_output.clone(),
                                     Default::default(),
                                     arrow_data,
                                 );
@@ -693,6 +744,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
+                    "tracked_detections" => {
+                        // Handle tracked detection frames from object_tracker
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let detection_data = binary_array.value(0);
+
+                                // Deserialize DetectionFrame with tracking IDs
+                                match serde_json::from_slice::<DetectionFrame>(detection_data) {
+                                    Ok(detection_frame) => {
+                                        // Forward tracked detections to all connected clients
+                                        if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                            let _ = io.of("/").unwrap().emit("tracked_detections", serde_json::to_value(&detection_frame).unwrap());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to deserialize tracked detections: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "tracking_telemetry" => {
+                        // Handle tracking telemetry from object_tracker
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let telemetry_data = binary_array.value(0);
+
+                                // Deserialize TrackingTelemetry
+                                match serde_json::from_slice::<TrackingTelemetry>(telemetry_data) {
+                                    Ok(telemetry) => {
+                                        // Forward telemetry to all connected clients
+                                        if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                            let _ = io.of("/").unwrap().emit("tracking_telemetry", serde_json::to_value(&telemetry).unwrap());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to deserialize tracking telemetry: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
                     _ => {}
                 },
                 Event::Stop(_) => {
@@ -788,6 +881,29 @@ fn convert_web_command_to_audio_command(web_cmd: &WebAudioCommand) -> Option<Aud
     match web_cmd.command.as_str() {
         "start" => Some(AudioAction::Start),
         "stop" => Some(AudioAction::Stop),
+        _ => None,
+    }
+}
+
+fn convert_web_command_to_tracking_command(web_cmd: &WebTrackingCommand) -> Option<TrackingCommand> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    match web_cmd.command_type.as_str() {
+        "enable" => Some(TrackingCommand::Enable { timestamp }),
+        "disable" => Some(TrackingCommand::Disable { timestamp }),
+        "select_target" => {
+            if let Some(tracking_id) = web_cmd.tracking_id {
+                Some(TrackingCommand::SelectTargetById { tracking_id, timestamp })
+            } else if let Some(detection_index) = web_cmd.detection_index {
+                Some(TrackingCommand::SelectTarget { detection_index, timestamp })
+            } else {
+                None
+            }
+        }
+        "clear_target" => Some(TrackingCommand::ClearTarget { timestamp }),
         _ => None,
     }
 }

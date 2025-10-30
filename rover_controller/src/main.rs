@@ -60,31 +60,39 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                                 match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
                                     Ok(cmd_with_metadata) => {
-                                        if let Some(command) = cmd_with_metadata.command {
-                                            info!("Received rover command: {:?}", command);
+                                        info!("Received manual rover command (priority {:?})", cmd_with_metadata.metadata.priority);
+                                        rover_controller.manual_command = Some(cmd_with_metadata);
 
-                                            match rover_controller.process_command(command) {
-                                                Ok(_) => {
-                                                    let processed_cmd = rover_controller.get_processed_command();
-                                                    let serialized = serde_json::to_vec(&processed_cmd)?;
-                                                    let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
-
-                                                    node.send_output(
-                                                        output_id.clone(),
-                                                        Default::default(),
-                                                        arrow_data
-                                                    )?;
-
-                                                    info!("Sent processed rover command");
-                                                }
-                                                Err(e) => {
-                                                    warn!("Failed to execute rover command: {}", e);
-                                                }
-                                            }
+                                        // Process arbitrated command
+                                        if let Err(e) = rover_controller.process_arbitrated_command(&mut node, &output_id) {
+                                            warn!("Failed to process arbitrated command: {}", e);
                                         }
                                     }
                                     Err(e) => {
                                         warn!("Failed to parse rover command: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    "servo_command" => {
+                        if let Some(array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if array.len() > 0 {
+                                let bytes = array.value(0);
+
+                                match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
+                                    Ok(cmd_with_metadata) => {
+                                        info!("Received servo command (priority {:?})", cmd_with_metadata.metadata.priority);
+                                        rover_controller.servo_command = Some(cmd_with_metadata);
+
+                                        // Process arbitrated command
+                                        if let Err(e) = rover_controller.process_arbitrated_command(&mut node, &output_id) {
+                                            warn!("Failed to process arbitrated command: {}", e);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!("Failed to parse servo command: {}", e);
                                     }
                                 }
                             }
@@ -152,6 +160,10 @@ struct RoverController {
     command_history: Vec<RoverCommand>,
     kinematics: MecanumKinematics,
     control_rate_dt: f64,  // Control loop time step (seconds)
+
+    // Command arbitration
+    manual_command: Option<RoverCommandWithMetadata>,
+    servo_command: Option<RoverCommandWithMetadata>,
 }
 
 #[derive(Debug)]
@@ -181,7 +193,64 @@ impl RoverController {
             command_history: Vec::new(),
             kinematics: MecanumKinematics::new(mecanum_config),
             control_rate_dt: 0.05,  // 50ms = 20Hz control rate
+            manual_command: None,
+            servo_command: None,
         }
+    }
+
+    /// Select the highest priority command from available sources
+    /// Priority: Emergency (4) > High/Autonomous (3) > Normal/Manual (2) > Low (1)
+    fn select_command(&self) -> Option<&RoverCommandWithMetadata> {
+        match (&self.manual_command, &self.servo_command) {
+            (Some(manual), Some(servo)) => {
+                // Compare priorities - higher priority wins
+                if servo.metadata.priority >= manual.metadata.priority {
+                    info!("Using servo command (priority {:?} >= {:?})",
+                          servo.metadata.priority, manual.metadata.priority);
+                    Some(servo)
+                } else {
+                    info!("Manual override - using manual command (priority {:?} > {:?})",
+                          manual.metadata.priority, servo.metadata.priority);
+                    Some(manual)
+                }
+            }
+            (Some(manual), None) => {
+                debug!("Using manual command (no servo command available)");
+                Some(manual)
+            }
+            (None, Some(servo)) => {
+                debug!("Using servo command (no manual command available)");
+                Some(servo)
+            }
+            (None, None) => {
+                debug!("No commands available");
+                None
+            }
+        }
+    }
+
+    /// Process the arbitrated command (highest priority) and send output
+    fn process_arbitrated_command(&mut self, node: &mut DoraNode, output_id: &DataId) -> Result<()> {
+        if let Some(cmd_with_metadata) = self.select_command() {
+            if let Some(command) = &cmd_with_metadata.command {
+                info!("Processing arbitrated command: {:?}", command);
+
+                self.process_command(command.clone())?;
+
+                let processed_cmd = self.get_processed_command();
+                let serialized = serde_json::to_vec(&processed_cmd)?;
+                let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+
+                node.send_output(
+                    output_id.clone(),
+                    Default::default(),
+                    arrow_data
+                )?;
+
+                info!("Sent processed rover command");
+            }
+        }
+        Ok(())
     }
 
     fn process_command(&mut self, command: RoverCommand) -> Result<()> {

@@ -1,2 +1,6 @@
 target
 out
+
+# ONNX Runtime library (downloaded separately)
+onnxruntime-linux-x64-*/
+onnxruntime-*.tgz

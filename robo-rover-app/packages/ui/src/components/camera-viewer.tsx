@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from "react";
-import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX, Target, Layers} from "lucide-react";
+import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX, Target, Layers, Crosshair, XCircle} from "lucide-react";
 import {Socket} from "socket.io-client";
-import {DetectionFrame, getClassColor} from "@repo/ui/types/robo-rover";
+import {DetectionFrame, getClassColor, TrackingTelemetry, WebTrackingCommand} from "@repo/ui/types/robo-rover";
 
 type ViewMode = "camera" | "camera_with_detections" | "detections_only";
 
@@ -55,6 +55,8 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("camera_with_detections");
   const [latestDetections, setLatestDetections] = useState<DetectionFrame | null>(null);
+  const [trackedDetections, setTrackedDetections] = useState<DetectionFrame | null>(null);
+  const [trackingTelemetry, setTrackingTelemetry] = useState<TrackingTelemetry | null>(null);
   const [stats, setStats] = useState<StreamStats>({
     video_frames_received: 0,
     video_fps: 0,
@@ -85,7 +87,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   // Draw detection bounding boxes on canvas
   const drawDetections = (ctx: CanvasRenderingContext2D, detections: DetectionFrame, canvasWidth: number, canvasHeight: number, overlay: boolean = true) => {
     detections.detections.forEach((detection) => {
-      const { bbox, class_name, confidence } = detection;
+      const { bbox, class_name, confidence, tracking_id } = detection;
 
       // Convert normalized coordinates to pixel coordinates
       const x1 = bbox.x1 * canvasWidth;
@@ -95,18 +97,57 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       const width = x2 - x1;
       const height = y2 - y1;
 
+      // Check if this is the currently tracked object
+      const isTracked = trackingTelemetry?.target?.tracking_id === tracking_id;
+      const hasTrackingId = tracking_id !== undefined;
+
       // Get color for this class
       const color = getClassColor(class_name);
 
-      // Draw bounding box
-      ctx.strokeStyle = color;
-      ctx.lineWidth = overlay ? 3 : 4;
+      // Draw bounding box with different styles for tracked objects
+      if (isTracked) {
+        // Tracked object: thicker, pulsing border
+        ctx.strokeStyle = "#00ff00"; // Bright green for tracked target
+        ctx.lineWidth = overlay ? 5 : 6;
+        ctx.setLineDash([10, 5]); // Dashed line for emphasis
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = overlay ? 3 : 4;
+        ctx.setLineDash([]); // Solid line
+      }
       ctx.strokeRect(x1, y1, width, height);
+      ctx.setLineDash([]); // Reset dash
 
-      // Draw center point
-      if (!overlay) {
-        const centerX = (x1 + x2) / 2;
-        const centerY = (y1 + y2) / 2;
+      // Draw tracking ID badge if available
+      if (hasTrackingId) {
+        const idBadge = `ID: ${tracking_id}`;
+        ctx.font = "12px Arial";
+        const idMetrics = ctx.measureText(idBadge);
+        const idPadding = 4;
+
+        ctx.fillStyle = isTracked ? "#00ff00" : "#4444ff";
+        ctx.fillRect(x2 - idMetrics.width - idPadding * 2, y1, idMetrics.width + idPadding * 2, 18);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(idBadge, x2 - idMetrics.width - idPadding, y1 + 14);
+      }
+
+      // Draw center point and crosshair for tracked object
+      const centerX = (x1 + x2) / 2;
+      const centerY = (y1 + y2) / 2;
+
+      if (isTracked) {
+        // Crosshair for tracked target
+        ctx.strokeStyle = "#00ff00";
+        ctx.lineWidth = 2;
+        const crossSize = 15;
+        ctx.beginPath();
+        ctx.moveTo(centerX - crossSize, centerY);
+        ctx.lineTo(centerX + crossSize, centerY);
+        ctx.moveTo(centerX, centerY - crossSize);
+        ctx.lineTo(centerX, centerY + crossSize);
+        ctx.stroke();
+      } else if (!overlay) {
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI);
@@ -120,11 +161,11 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       const textHeight = overlay ? 20 : 24;
       const padding = 6;
 
-      ctx.fillStyle = color;
+      ctx.fillStyle = isTracked ? "#00ff00" : color;
       ctx.fillRect(x1, y1 - textHeight - padding, textMetrics.width + padding * 2, textHeight + padding);
 
       // Draw label text
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = isTracked ? "#000000" : "#000000";
       ctx.fillText(label, x1 + padding, y1 - padding);
     });
   };
@@ -203,8 +244,9 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
               // Render based on view mode
               if (viewMode === "detections_only") {
                 // Detections-only view: show only bounding boxes on dark background
-                if (latestDetections && latestDetections.detections.length > 0) {
-                  drawDetectionsOnly(ctx, latestDetections, frame.width, frame.height);
+                const detectionsToShow = trackedDetections || latestDetections;
+                if (detectionsToShow && detectionsToShow.detections.length > 0) {
+                  drawDetectionsOnly(ctx, detectionsToShow, frame.width, frame.height);
                 } else {
                   // No detections - show empty grid
                   ctx.fillStyle = "#1a1a1a";
@@ -220,8 +262,12 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                 ctx.drawImage(img, 0, 0, frame.width, frame.height);
 
                 // Draw detections overlay if view mode includes detections
-                if (viewMode === "camera_with_detections" && latestDetections) {
-                  drawDetections(ctx, latestDetections, frame.width, frame.height, true);
+                // Prefer tracked detections (with IDs) over raw detections
+                if (viewMode === "camera_with_detections") {
+                  const detectionsToShow = trackedDetections || latestDetections;
+                  if (detectionsToShow) {
+                    drawDetections(ctx, detectionsToShow, frame.width, frame.height, true);
+                  }
                 }
               }
             }
@@ -266,7 +312,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     return () => {
       socket.off("video_frame", handleVideoFrame);
     };
-  }, [socket, streamEnabled, videoEnabled, viewMode, latestDetections]);
+  }, [socket, streamEnabled, videoEnabled, viewMode, latestDetections, trackedDetections, trackingTelemetry]);
 
   // Initialize Audio Context
   useEffect(() => {
@@ -549,10 +595,22 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       }
     };
 
+    const handleTrackedDetections = (detectionFrame: DetectionFrame) => {
+      setTrackedDetections(detectionFrame);
+    };
+
+    const handleTrackingTelemetry = (telemetry: TrackingTelemetry) => {
+      setTrackingTelemetry(telemetry);
+    };
+
     socket.on("detections", handleDetections);
+    socket.on("tracked_detections", handleTrackedDetections);
+    socket.on("tracking_telemetry", handleTrackingTelemetry);
 
     return () => {
       socket.off("detections", handleDetections);
+      socket.off("tracked_detections", handleTrackedDetections);
+      socket.off("tracking_telemetry", handleTrackingTelemetry);
     };
   }, [socket, streamEnabled]);
 
@@ -629,13 +687,63 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     setIsFullscreen(!isFullscreen);
   };
 
+  // Tracking control functions
+  const sendTrackingCommand = (command: WebTrackingCommand) => {
+    if (!socket) return;
+    socket.emit("tracking_command", command);
+  };
+
+  const toggleTracking = () => {
+    const isEnabled = trackingTelemetry?.state !== "Disabled";
+    sendTrackingCommand({
+      command_type: isEnabled ? "disable" : "enable",
+    });
+    console.log(isEnabled ? "Tracking disabled" : "Tracking enabled");
+  };
+
+  const selectTrackingTarget = (trackingId: number) => {
+    sendTrackingCommand({
+      command_type: "select_target",
+      tracking_id: trackingId,
+    });
+    console.log(`Selected tracking target ID: ${trackingId}`);
+  };
+
+  const clearTrackingTarget = () => {
+    sendTrackingCommand({
+      command_type: "clear_target",
+    });
+    console.log("Cleared tracking target");
+  };
+
+  // Handle canvas click for target selection
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !trackedDetections) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width);
+    const y = ((event.clientY - rect.top) / rect.height);
+
+    // Find clicked detection
+    for (const detection of trackedDetections.detections) {
+      const { bbox, tracking_id } = detection;
+      if (x >= bbox.x1 && x <= bbox.x2 && y >= bbox.y1 && y <= bbox.y2) {
+        if (tracking_id !== undefined) {
+          selectTrackingTarget(tracking_id);
+          return;
+        }
+      }
+    }
+  };
+
   return (
       <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
         {/* Canvas for rendering JPEG frames */}
         <canvas
             ref={canvasRef}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain cursor-crosshair"
             style={{ imageRendering: 'auto' }}
+            onClick={handleCanvasClick}
         />
 
         {/* Controls overlay */}
@@ -691,6 +799,33 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
               {viewMode === "detections_only" && "Detections Only"}
             </span>
           </button>
+
+          {/* Tracking controls divider */}
+          <div className="h-px bg-white/20 my-1" />
+
+          <button
+              onClick={toggleTracking}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+              title={trackingTelemetry?.state !== "Disabled" ? "Disable Tracking" : "Enable Tracking"}
+              disabled={!isConnected}
+          >
+            <Crosshair className={`w-5 h-5 ${
+              trackingTelemetry?.state === "Tracking" ? "text-green-400" :
+              trackingTelemetry?.state === "Enabled" ? "text-yellow-400" :
+              trackingTelemetry?.state === "TargetLost" ? "text-red-400" :
+              "text-gray-400"
+            }`} />
+          </button>
+
+          {trackingTelemetry?.target && (
+            <button
+                onClick={clearTrackingTarget}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                title="Clear Tracking Target"
+            >
+              <XCircle className="w-5 h-5 text-red-400" />
+            </button>
+          )}
 
           <button
               onClick={toggleFullscreen}
@@ -749,24 +884,89 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
             </div>
         )}
 
+        {/* Tracking status panel */}
+        {trackingTelemetry && trackingTelemetry.state !== "Disabled" && (
+            <div className="absolute top-20 right-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white max-w-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <Crosshair className={`w-4 h-4 ${
+                  trackingTelemetry.state === "Tracking" ? "text-green-400" :
+                  trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
+                  "text-red-400"
+                }`} />
+                <span className="font-semibold">Tracking Status</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-300">State:</span>
+                  <span className={`font-medium ${
+                    trackingTelemetry.state === "Tracking" ? "text-green-400" :
+                    trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
+                    "text-red-400"
+                  }`}>{trackingTelemetry.state}</span>
+                </div>
+                {trackingTelemetry.target && (
+                  <>
+                    <div className="h-px bg-white/20 my-1" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-300">ID:</span>
+                      <span className="font-mono">{trackingTelemetry.target.tracking_id}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-300">Class:</span>
+                      <span style={{ color: getClassColor(trackingTelemetry.target.class_name) }}>
+                        {trackingTelemetry.target.class_name}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-300">Confidence:</span>
+                      <span>{(trackingTelemetry.target.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-300">Lost Frames:</span>
+                      <span className={trackingTelemetry.target.lost_frames > 10 ? "text-red-400" : ""}>
+                        {trackingTelemetry.target.lost_frames}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="mt-2 text-gray-400 italic text-xs">
+                  Click on detected objects to track
+                </div>
+              </div>
+            </div>
+        )}
+
         {/* Detection list panel - only show when detections are visible */}
-        {viewMode !== "camera" && latestDetections && latestDetections.detections.length > 0 && (
+        {viewMode !== "camera" && (trackedDetections || latestDetections) && (
             <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white max-w-xs">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-4 h-4 text-green-400" />
-                <span className="font-semibold">Detected Objects ({latestDetections.detections.length})</span>
+                <span className="font-semibold">Detected Objects ({(trackedDetections || latestDetections)?.detections.length || 0})</span>
               </div>
               <div className="space-y-1 max-h-48 overflow-y-auto">
-                {latestDetections.detections.map((detection, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between gap-2 py-1 px-2 bg-white/10 rounded"
-                    style={{ borderLeft: `3px solid ${getClassColor(detection.class_name)}` }}
-                  >
-                    <span className="font-medium">{detection.class_name}</span>
-                    <span className="text-gray-300">{(detection.confidence * 100).toFixed(0)}%</span>
-                  </div>
-                ))}
+                {(trackedDetections || latestDetections)?.detections.map((detection, index) => {
+                  const isTracked = trackingTelemetry?.target?.tracking_id === detection.tracking_id;
+                  return (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between gap-2 py-1 px-2 rounded cursor-pointer transition ${
+                        isTracked ? "bg-green-500/30" : "bg-white/10 hover:bg-white/20"
+                      }`}
+                      style={{ borderLeft: `3px solid ${isTracked ? "#00ff00" : getClassColor(detection.class_name)}` }}
+                      onClick={() => detection.tracking_id && selectTrackingTarget(detection.tracking_id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {detection.tracking_id !== undefined && (
+                          <span className="font-mono text-xs bg-white/20 px-1 rounded">
+                            {detection.tracking_id}
+                          </span>
+                        )}
+                        <span className="font-medium">{detection.class_name}</span>
+                      </div>
+                      <span className="text-gray-300">{(detection.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
         )}

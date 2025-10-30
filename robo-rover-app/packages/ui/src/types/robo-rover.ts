@@ -231,3 +231,36 @@ export const DEFAULT_CLASS_COLORS: Record<string, string> = {
 export function getClassColor(className: string): string {
   return DEFAULT_CLASS_COLORS[className] || "#ffffff";
 }
+
+// Object Tracking Types (Phase 3)
+export type TrackingState = "Disabled" | "Enabled" | "Tracking" | "TargetLost";
+
+export interface TrackingTarget {
+  tracking_id: number;
+  class_name: string;
+  bbox: BoundingBox;
+  last_seen: number;
+  confidence: number;
+  lost_frames: number;
+}
+
+export interface TrackingTelemetry {
+  state: TrackingState;
+  target: TrackingTarget | null;
+  distance_estimate: number | null;
+  control_output: ControlOutput | null;
+  timestamp: number;
+}
+
+export interface ControlOutput {
+  omega_z: number;
+  v_x: number;
+  error_x: number;
+  error_size: number;
+}
+
+export interface WebTrackingCommand {
+  command_type: "enable" | "disable" | "select_target" | "clear_target";
+  tracking_id?: number;
+  detection_index?: number;
+}
