@@ -17,6 +17,9 @@
       <package file="$PROJECT_DIR$/kornia_capture">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/object_detector">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/robo_rover_lib">
         <feature name="default" enabled="true" />
       </package>
@@ -32,11 +35,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Control audio hardware">
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Add basic authen for web_bridge node">
+      <change afterPath="$PROJECT_DIR$/object-tracking-framework-proposal.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -134,7 +139,9 @@
       <workItem from="1761607229640" duration="2838000" />
       <workItem from="1761614561653" duration="7373000" />
       <workItem from="1761624055501" duration="1160000" />
-      <workItem from="1761718208743" duration="7254000" />
+      <workItem from="1761718208743" duration="8662000" />
+      <workItem from="1761752510959" duration="396000" />
+      <workItem from="1761795187827" duration="10002000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -312,7 +319,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761727915187</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="Add basic authen for web_bridge node">
+      <option name="closed" value="true" />
+      <created>1761730203894</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1761730203894</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -351,7 +366,8 @@
     <MESSAGE value="Update stream with video and audio" />
     <MESSAGE value="Add capture audio node and fix stream audio" />
     <MESSAGE value="Control audio hardware" />
-    <option name="LAST_COMMIT_MESSAGE" value="Control audio hardware" />
+    <MESSAGE value="Add basic authen for web_bridge node" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add basic authen for web_bridge node" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

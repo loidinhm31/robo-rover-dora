@@ -32,6 +32,23 @@ nodes:
       IMAGE_ROWS: "480"
       SOURCE_FPS: "30"
 
+  # Object detector - YOLOv12n inference
+  # Phase 1: Detection only - outputs detections but not yet visualized in web UI
+  # Phase 2: Connect detections to web-bridge for visualization overlay
+  - id: object-detector
+    build: cargo build --release -p object_detector
+    path: target/release/object_detector
+    inputs:
+      frame: gst-camera/frame
+    outputs:
+      - detections  # DetectionFrame with bounding boxes, classes, confidence scores
+    env:
+      RUST_LOG: info
+      MODEL_PATH: "models/yolo12n.onnx"
+      CONFIDENCE_THRESHOLD: "0.5"
+      NMS_THRESHOLD: "0.4"
+      TARGET_CLASSES: ""  # Optional: "person,dog,cat" or leave empty for all classes
+
   # Web bridge with binary streaming
   - id: web-bridge
     build: cargo build --release -p web_bridge
