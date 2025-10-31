@@ -9,7 +9,7 @@ use robo_rover_lib::{
     ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
 };
-use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry};
+use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
@@ -803,6 +803,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         eprintln!("Failed to deserialize servo telemetry: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "transcription" => {
+                        // Handle speech transcription from speech_recognizer
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let transcription_data = binary_array.value(0);
+
+                                // Deserialize SpeechTranscription
+                                match serde_json::from_slice::<SpeechTranscription>(transcription_data) {
+                                    Ok(transcription) => {
+                                        println!("Transcription received: \"{}\" (confidence: {:.2})",
+                                            transcription.text, transcription.confidence);
+
+                                        // Forward transcription to all connected clients
+                                        if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                            let _ = io.of("/").unwrap().emit("transcription", serde_json::to_value(&transcription).unwrap());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to deserialize transcription: {}", e);
                                     }
                                 }
                             }

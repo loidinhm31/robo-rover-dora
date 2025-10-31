@@ -12,6 +12,22 @@ nodes:
       CHANNELS: "1"  # Mono (default: 1)
       CHUNK_SIZE: "800"  # Samples per chunk - 50ms at 16kHz (default: 800)
 
+  # Speech recognizer - Whisper-based speech-to-text
+  - id: speech-recognizer
+    build: cargo build --release -p speech_recognizer
+    path: target/release/speech_recognizer
+    inputs:
+      audio: audio-capture/audio
+    outputs:
+      - transcription  # SpeechTranscription with text, confidence, language
+    env:
+      RUST_LOG: info
+      WHISPER_MODEL_PATH: "models/ggml-tiny.bin"
+      SAMPLE_RATE: "16000"  # Must match audio-capture
+      BUFFER_DURATION_MS: "5000"  # 5 seconds of audio before transcription
+      CONFIDENCE_THRESHOLD: "0.5"  # Minimum confidence to output
+      ENERGY_THRESHOLD: "0.02"  # VAD threshold for detecting speech
+
   # GStreamer camera capture (outputs raw RGB8 frames)
   - id: gst-camera
 #    git: https://github.com/kornia/dora-nodes-hub.git
@@ -96,6 +112,7 @@ nodes:
     path: target/release/web_bridge
     inputs:
       audio_frame: audio-capture/audio
+      transcription: speech-recognizer/transcription
       video_frame: gst-camera/frame
       detections: object-detector/detections
       tracked_detections: object-tracker/tracked_detections

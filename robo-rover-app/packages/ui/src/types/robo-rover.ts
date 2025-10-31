@@ -267,3 +267,19 @@ export interface WebTrackingCommand {
   tracking_id?: number;
   detection_index?: number;
 }
+
+// Speech Recognition Types (Phase 7 - Voice Commands)
+export interface SpeechTranscription {
+  text: string;
+  confidence: number;
+  language: string;
+  duration_ms: number;
+  timestamp: number;
+}
+
+export interface SpeechStats {
+  total_transcriptions: number;
+  avg_confidence: number;
+  avg_processing_time_ms: number;
+  failed_transcriptions: number;
+}

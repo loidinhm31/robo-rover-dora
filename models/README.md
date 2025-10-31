@@ -1,6 +1,173 @@
-# YOLOv12 Models for Object Detection
+# Models Directory
 
-This directory contains YOLO models used by the `object_detector` node for real-time object detection.
+This directory contains AI models used by various Dora nodes:
+- **YOLO models** for object detection (`object_detector` node)
+- **Whisper models** for speech-to-text (`speech_recognizer` node)
+
+---
+
+# 🎤 Whisper Models for Speech-to-Text
+
+## Quick Setup (Raspberry Pi 5 Optimized)
+
+### Prerequisites
+
+1. **Install CMake** (required to build whisper-rs):
+```bash
+# Arch/Manjaro
+sudo pacman -S cmake
+
+# Ubuntu/Debian
+sudo apt install cmake build-essential
+
+# Check installation
+cmake --version
+```
+
+### Download Whisper Models
+
+The `speech_recognizer` node uses Whisper.cpp quantized models for efficient on-device speech recognition.
+
+**Recommended for Raspberry Pi 5:**
+
+```bash
+# Download Whisper tiny model (75 MB, ~1-2s inference for 5s audio)
+wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin -O models/ggml-tiny.bin
+
+# Verify download
+ls -lh models/ggml-tiny.bin
+```
+
+**Alternative models:**
+
+```bash
+# Base model (142 MB, ~3-4s inference, better accuracy)
+wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin -O models/ggml-base.bin
+
+# Small model (466 MB, ~10s inference, even better accuracy - NOT recommended for RPi5)
+wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin -O models/ggml-small.bin
+```
+
+## Whisper Model Comparison
+
+| Model | Size | Speed (RPi5) | Accuracy | RAM Usage | Recommended |
+|-------|------|--------------|----------|-----------|-------------|
+| **ggml-tiny.bin** | 75 MB | 1-2s | Good | ~200 MB | ✅ Best for RPi5 |
+| **ggml-base.bin** | 142 MB | 3-4s | Better | ~250 MB | ⚠️ Usable but slower |
+| ggml-small.bin | 466 MB | ~10s | Excellent | ~500 MB | ❌ Too slow |
+| ggml-medium.bin | 1.5 GB | ~30s | Excellent | ~1.5 GB | ❌ Too slow |
+| ggml-large-v3.bin | 3.1 GB | ~60s | Best | ~3 GB | ❌ Too slow |
+
+**Note:** Speed measured for 5 seconds of audio on Raspberry Pi 5 (4 cores at 2.4 GHz).
+
+## Quantized Models
+
+Whisper.cpp models are quantized to reduce size and improve inference speed:
+
+| Model Type | Description | Size Reduction | Speed |
+|------------|-------------|----------------|-------|
+| **ggml-*.bin** | Standard quantization | 3-4x smaller | 3-4x faster |
+| ggml-*-q5_0.bin | 5-bit quantization | 5x smaller | 5x faster |
+| ggml-*-q8_0.bin | 8-bit quantization | 2x smaller | 2x faster |
+
+For Raspberry Pi 5, the standard quantized models (ggml-*.bin) provide the best balance.
+
+## Usage in Dora Dataflow
+
+Add to your dataflow YAML (e.g., `web-dataflow.yml`):
+
+```yaml
+- id: speech-recognizer
+  build: cargo build --release -p speech_recognizer
+  path: target/release/speech_recognizer
+  inputs:
+    audio: audio-capture/audio
+  outputs:
+    - transcription
+  env:
+    WHISPER_MODEL_PATH: "models/ggml-tiny.bin"
+    SAMPLE_RATE: "16000"
+    BUFFER_DURATION_MS: "5000"
+    CONFIDENCE_THRESHOLD: "0.5"
+    ENERGY_THRESHOLD: "0.02"
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WHISPER_MODEL_PATH` | `models/ggml-tiny.bin` | Path to Whisper model file |
+| `SAMPLE_RATE` | `16000` | Audio sample rate (must match audio-capture) |
+| `BUFFER_DURATION_MS` | `5000` | Buffer audio for X ms before transcription |
+| `CONFIDENCE_THRESHOLD` | `0.5` | Minimum confidence to output transcription |
+| `ENERGY_THRESHOLD` | `0.02` | Voice Activity Detection (VAD) threshold |
+
+## Supported Languages
+
+Whisper supports 99 languages. To use a specific language:
+
+```yaml
+# In speech_recognizer/src/main.rs, modify line 116:
+params.set_language(Some("en"));  # English (default)
+# params.set_language(Some("es"));  # Spanish
+# params.set_language(Some("fr"));  # French
+# params.set_language(Some("de"));  # German
+# params.set_language(Some("vi"));  # Vietnamese
+```
+
+**Note:** Setting a specific language improves accuracy and speed by ~20%.
+
+## Performance Tips
+
+1. **Use tiny model** for real-time transcription on RPi5
+2. **Reduce buffer duration** to 3-4 seconds for faster response (at cost of accuracy)
+3. **Increase energy threshold** to 0.03-0.05 if background noise causes false triggers
+4. **Set language explicitly** rather than auto-detect for 20% speed boost
+5. **Use 4 threads** (default) - matches RPi5 CPU cores
+
+## Troubleshooting
+
+### Build fails with "cmake not found"
+```
+Solution: Install CMake (see Prerequisites above)
+```
+
+### Model not found error
+```
+ERROR: Whisper model not found at: models/ggml-tiny.bin
+Solution: Download the model (see Download Whisper Models above)
+```
+
+### Slow transcription (>10s for 5s audio)
+```
+Solution: Use ggml-tiny.bin instead of larger models
+```
+
+### Low quality transcriptions
+```
+Solution:
+- Check microphone quality (arecord -l)
+- Reduce background noise
+- Use ggml-base.bin for better accuracy (slower)
+- Adjust ENERGY_THRESHOLD to filter out noise
+```
+
+### Audio format mismatch
+```
+Error: Expected Float32Array from audio_capture
+Solution: Ensure audio-capture outputs Float32 at 16kHz mono
+```
+
+## References
+
+- [Whisper.cpp GitHub](https://github.com/ggerganov/whisper.cpp)
+- [Whisper.cpp Models](https://huggingface.co/ggerganov/whisper.cpp)
+- [OpenAI Whisper Paper](https://arxiv.org/abs/2212.04356)
+- [whisper-rs Rust Bindings](https://github.com/tazz4843/whisper-rs)
+
+---
+
+# 🔍 YOLOv12 Models for Object Detection
 
 ## Quick Start
 

@@ -32,6 +32,9 @@
       <package file="$PROJECT_DIR$/sim_interface">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/speech_recognizer">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/visual_servo_controller">
         <feature name="default" enabled="true" />
       </package>
@@ -41,19 +44,8 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement object tracker">
-      <change afterPath="$PROJECT_DIR$/visual_servo_controller/Cargo.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/visual_servo_controller/src/main.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/visual_servo_controller/src/pid.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Add speech_recognizer node for speech-to-text">
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/types/robo-rover.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/views/robo-rover-control.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/detection_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/detection_types.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,11 +106,11 @@
       <recent name="G:\ws\robo-rover-dora\model" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/models" />
       <recent name="$PROJECT_DIR$" />
       <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\packages\ui\src\components" />
-      <recent name="G:\ws\robo-rover-dora\robo_rover_lib\src\utils" />
     </key>
   </component>
   <component name="RustProjectSettings">
@@ -155,6 +147,7 @@
       <workItem from="1761752510959" duration="396000" />
       <workItem from="1761795187827" duration="10002000" />
       <workItem from="1761825326698" duration="7250000" />
+      <workItem from="1761870587382" duration="6937000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -396,7 +389,39 @@
       <option name="project" value="LOCAL" />
       <updated>1761844112573</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Add visual estimation">
+      <option name="closed" value="true" />
+      <created>1761849862911</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1761849862911</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Remove unused nodes">
+      <option name="closed" value="true" />
+      <created>1761871309199</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1761871309199</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Add speech_recognizer node for speech-to-text">
+      <option name="closed" value="true" />
+      <created>1761879353118</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1761879353118</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Add speech_recognizer node for speech-to-text">
+      <option name="closed" value="true" />
+      <created>1761879403820</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1761879403820</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -416,7 +441,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Try to add rover control" />
     <MESSAGE value="Implement web-bridge" />
     <MESSAGE value="Implement web-bridge" />
     <MESSAGE value="Refactor process command and telemetry" />
@@ -439,7 +463,10 @@
     <MESSAGE value="Implement yolo" />
     <MESSAGE value="Display bounding box for detections" />
     <MESSAGE value="Implement object tracker" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement object tracker" />
+    <MESSAGE value="Add visual estimation" />
+    <MESSAGE value="Remove unused nodes" />
+    <MESSAGE value="Add speech_recognizer node for speech-to-text" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add speech_recognizer node for speech-to-text" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

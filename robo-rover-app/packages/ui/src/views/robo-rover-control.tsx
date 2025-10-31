@@ -15,6 +15,7 @@ import {
   JointPositions,
   LogEntry,
   RoverTelemetry,
+  SpeechTranscription,
   TrackingTelemetry,
   validateJointPositions,
   WebArmCommand,
@@ -36,6 +37,7 @@ import {
 } from "lucide-react";
 import { CameraViewer } from "@repo/ui/components/camera-viewer";
 import { RobotLocationMap } from "@repo/ui/components/location-map";
+import { TranscriptionDisplay } from "@repo/ui/components/transcription-display";
 
 const SOCKET_URL = "http://localhost:3030";
 const THROTTLE_DELAY = 100; // ms between updates
@@ -69,9 +71,16 @@ const RoboRoverController: React.FC = () => {
     null,
   );
 
+  // Speech recognition state
+  const [transcription, setTranscription] = useState<SpeechTranscription | null>(
+    null,
+  );
+  const [isAudioActive, setIsAudioActive] = useState(false);
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showCamera, setShowCamera] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
+  const [showTranscription, setShowTranscription] = useState(true);
 
   // LeKiwi joint position controls (now includes wheels)
   const [jointPositions, setJointPositions] =
@@ -200,6 +209,12 @@ const RoboRoverController: React.FC = () => {
       setServoTelemetry(data);
     });
 
+    // Listen for speech transcriptions
+    socket.on("transcription", (data: SpeechTranscription) => {
+      setTranscription(data);
+      addLog(`Transcription: "${data.text}" (${(data.confidence * 100).toFixed(0)}%)`, "info");
+    });
+
     socketRef.current = socket;
   }, [addLog]);
 
@@ -245,6 +260,29 @@ const RoboRoverController: React.FC = () => {
     },
     [connection.isConnected, addLog],
   );
+
+  // Audio control functions
+  const startAudio = useCallback(() => {
+    if (!connection.isConnected || !socketRef.current) {
+      addLog("Cannot start audio - not connected", "error");
+      return;
+    }
+
+    socketRef.current.emit("audio_control", { command: "start" });
+    setIsAudioActive(true);
+    addLog("Audio capture started", "success");
+  }, [connection.isConnected, addLog]);
+
+  const stopAudio = useCallback(() => {
+    if (!connection.isConnected || !socketRef.current) {
+      addLog("Cannot stop audio - not connected", "error");
+      return;
+    }
+
+    socketRef.current.emit("audio_control", { command: "stop" });
+    setIsAudioActive(false);
+    addLog("Audio capture stopped", "info");
+  }, [connection.isConnected, addLog]);
 
   // Update joint position
   const updateJoint = useCallback((joint: keyof JointPositions, value: number) => {
@@ -511,7 +549,7 @@ const RoboRoverController: React.FC = () => {
               <button
                 onClick={emergencyStop}
                 disabled={!connection.isConnected}
-                className="group relative px-4 md:px-6 py-2 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white rounded-xl font-black text-sm md:text-base shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.7)] transition-all duration-300 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none border border-red-300/50 active:scale-95 flex-1 md:flex-none"
+                className="group relative px-4 md:px-6 py-2 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white rounded-xl font-black text-sm md:text-base shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.7)] transition-all duration-300 hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none border border-red-300/50 active:scale-95 flex-1 md:flex-none"
                 style={{
                   animation: connection.isConnected ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
                 }}
@@ -527,320 +565,331 @@ const RoboRoverController: React.FC = () => {
           </div>
         </div>
 
-        {/* Content area with padding to prevent hiding behind sticky header */}
         <div className="p-3 md:p-4 space-y-3 md:space-y-4 pt-3 md:pt-4">
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Location Map Viewer */}
-          {showLocationMap && (
-            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-6 h-6 text-purple-400" />
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    LOCATION MAP
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowLocationMap(false)}
-                  className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
-                >
-                  <EyeOff className="w-4 h-4" />
-                  Hide
-                </button>
-              </div>
-              <div className="glass-card-light rounded-2xl p-2 md:p-4">
-                <Suspense
-                  fallback={
-                    <div className="h-96 flex items-center justify-center text-white/60">
-                      Loading 3D Viewer...
-                    </div>
-                  }
-                >
-                  <RobotLocationMap telemetry={roverTelemetry} />
-
-
-                </Suspense>
-              </div>
-              <div className="mt-3 text-xs text-white/60 text-center">
-                Use mouse to rotate • Scroll to zoom • Drag to pan
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                <div className="glass-card-light p-2 rounded-lg">
-                  <div className="text-white/50">Wheel 1 (Bottom)</div>
-                  <div className="text-cyan-300 font-mono">
-                    {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Location Map Viewer */}
+            {showLocationMap && (
+              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-6 h-6 text-purple-400" />
+                    <h2 className="text-2xl md:text-3xl font-bold text-white">
+                      LOCATION MAP
+                    </h2>
                   </div>
-                </div>
-                <div className="glass-card-light p-2 rounded-lg">
-                  <div className="text-white/50">Wheel 2 (Right)</div>
-                  <div className="text-cyan-300 font-mono">
-                    {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
-                  </div>
-                </div>
-                <div className="glass-card-light p-2 rounded-lg">
-                  <div className="text-white/50">Wheel 3 (Left)</div>
-                  <div className="text-cyan-300 font-mono">
-                    {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Camera Viewer */}
-          {showCamera && (
-            <CameraViewer
-              isConnected={connection.isConnected}
-              socket={socketRef.current}
-              onClose={() => setShowCamera(false)}
-            />
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {!showLocationMap && (
-            <button
-              onClick={() => setShowLocationMap(true)}
-              className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
-            >
-              <Eye className="w-5 h-5" />
-              Show Location Map
-            </button>
-          )}
-          {!showCamera && (
-            <button
-              onClick={() => setShowCamera(true)}
-              className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
-            >
-              <Camera className="w-5 h-5" />
-              Show Camera Feed
-            </button>
-          )}
-        </div>
-
-        {/* Main Control Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-          {/* LEFT COLUMN: ROVER CONTROL */}
-          <div className="space-y-3 md:space-y-4">
-            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4 md:mb-6">
-                <Activity className="w-6 h-6 md:w-8 md:h-8 text-cyan-400" />
-                <h2 className="text-2xl md:text-3xl font-bold text-white">
-                  ROVER
-                </h2>
-              </div>
-
-              {/* Joystick Control */}
-              <div className="flex flex-col items-center space-y-4">
-                <div className="glass-card-light rounded-full p-4 md:p-6 relative">
-                  <Joystick
-                    size={window.innerWidth < 768 ? 180 : 240}
-                    baseColor="rgba(255, 255, 255, 0.1)"
-                    stickColor="linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)"
-                    move={handleJoystickMove}
-                    stop={handleJoystickStop}
-                    throttle={50}
-                  />
-                  <div className="absolute inset-0 rounded-full border-4 border-cyan-400/30 pointer-events-none"></div>
-                </div>
-
-                <div className="text-white/90 text-center font-medium text-sm">
-                  Drag to control rover movement
-                </div>
-              </div>
-
-              {/* Rotation Control */}
-              <div className="mt-4 glass-card-light rounded-2xl p-4 md:p-5 space-y-3">
-                <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
-                  <span>Rotation (ω)</span>
-                  <span className="text-cyan-300 font-mono">
-                    {roverVelocity.omega_z.toFixed(2)} rad/s
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-1.0"
-                  max="1.0"
-                  step="0.05"
-                  value={roverVelocity.omega_z}
-                  onChange={(e) =>
-                    setRoverVelocity((prev) => ({
-                      ...prev,
-                      omega_z: parseFloat(e.target.value),
-                    }))
-                  }
-                  className="glass-slider w-full"
-                />
-                <div className="flex justify-between text-xs text-white/50 font-mono">
-                  <span>-1.0</span>
-                  <span>0.0</span>
-                  <span>+1.0</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: ARM CONTROL */}
-          <div className="space-y-3 md:space-y-4">
-            <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-              <button
-                onClick={() =>
-                  setExpandedSections((prev) => ({
-                    ...prev,
-                    armJoints: !prev.armJoints,
-                  }))
-                }
-                className="w-full flex items-center justify-between mb-4"
-              >
-                <div className="flex items-center gap-2">
-                  <Gauge className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    ARM JOINTS
-                  </h2>
-                </div>
-                <div>
-                  {expandedSections.armJoints ? (
-                    <ChevronUp className="w-5 h-5 text-white/70" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-white/70" />
-                  )}
-                </div>
-              </button>
-
-              {expandedSections.armJoints && (
-                <div className="space-y-3 md:space-y-4">
-                  {Object.entries(JOINT_LIMITS).map(([joint, limits]) => (
-                    <div
-                      key={joint}
-                      className="glass-card-light rounded-2xl p-3 md:p-4 space-y-2"
-                    >
-                      <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
-                        <span className="capitalize">
-                          {joint.replace("_", " ")}
-                        </span>
-                        <span className="text-purple-300 font-mono">
-                          {jointPositions[
-                            joint as keyof JointPositions
-                          ].toFixed(2)}{" "}
-                          rad
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={limits.min}
-                        max={limits.max}
-                        step="0.01"
-                        value={jointPositions[joint as keyof JointPositions]}
-                        onChange={(e) =>
-                          updateJoint(
-                            joint as keyof JointPositions,
-                            parseFloat(e.target.value),
-                          )
-                        }
-                        className="glass-slider w-full"
-                      />
-                      <div className="flex justify-between text-xs text-white/50 font-mono">
-                        <span>{limits.min.toFixed(2)}</span>
-                        <span>0.00</span>
-                        <span>{limits.max.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  ))}
-
                   <button
-                    onClick={sendHome}
-                    disabled={!connection.isConnected}
-                    className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => setShowLocationMap(false)}
+                    className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
                   >
-                    <Home className="w-5 h-5" />
-                    HOME POSITION
+                    <EyeOff className="w-4 h-4" />
+                    Hide
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Activity Logs */}
-        <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-          <button
-            onClick={() =>
-              setExpandedSections((prev) => ({
-                ...prev,
-                logs: !prev.logs,
-              }))
-            }
-            className="w-full flex items-center justify-between"
-          >
-            <h2 className="text-xl md:text-2xl font-bold text-white">
-              ACTIVITY LOG ({logs.length})
-            </h2>
-            <div>
-              {expandedSections.logs ? (
-                <ChevronUp className="w-5 h-5 text-white/70" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-white/70" />
-              )}
-            </div>
-          </button>
-
-          {expandedSections.logs && (
-            <div className="backdrop-blur-md bg-black/40 rounded-2xl p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/10">
-              {logs.length === 0 ? (
-                <div className="text-white/30 text-center py-8">
-                  No activity yet...
-                </div>
-              ) : (
-                logs.slice(0, 10).map((log, idx) => (
-                  <div
-                    key={idx}
-                    className={`${
-                      log.type === "error"
-                        ? "text-red-300"
-                        : log.type === "success"
-                          ? "text-green-300"
-                          : log.type === "warning"
-                            ? "text-yellow-300"
-                            : "text-cyan-200"
-                    }`}
+                <div className="glass-card-light rounded-2xl p-2 md:p-4">
+                  <Suspense
+                    fallback={
+                      <div className="h-96 flex items-center justify-center text-white/60">
+                        Loading Location Map...
+                      </div>
+                    }
                   >
-                    <span className="text-white/40">
-                      [{new Date(log.timestamp).toLocaleTimeString()}]
-                    </span>{" "}
-                    {log.message}
+                    <RobotLocationMap telemetry={roverTelemetry} />
+
+
+                  </Suspense>
+                </div>
+                <div className="mt-3 text-xs text-white/60 text-center">
+                  Use mouse to rotate • Scroll to zoom • Drag to pan
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="glass-card-light p-2 rounded-lg">
+                    <div className="text-white/50">Wheel 1 (Bottom)</div>
+                    <div className="text-cyan-300 font-mono">
+                      {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
+                    </div>
                   </div>
-                ))
-              )}
+                  <div className="glass-card-light p-2 rounded-lg">
+                    <div className="text-white/50">Wheel 2 (Right)</div>
+                    <div className="text-cyan-300 font-mono">
+                      {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
+                    </div>
+                  </div>
+                  <div className="glass-card-light p-2 rounded-lg">
+                    <div className="text-white/50">Wheel 3 (Left)</div>
+                    <div className="text-cyan-300 font-mono">
+                      {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Camera Viewer */}
+            {showCamera && (
+              <CameraViewer
+                isConnected={connection.isConnected}
+                socket={socketRef.current}
+                onClose={() => setShowCamera(false)}
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {!showLocationMap && (
+              <button
+                onClick={() => setShowLocationMap(true)}
+                className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <Eye className="w-5 h-5" />
+                Show Location Map
+              </button>
+            )}
+            {!showCamera && (
+              <button
+                onClick={() => setShowCamera(true)}
+                className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <Camera className="w-5 h-5" />
+                Show Camera Feed
+              </button>
+            )}
+          </div>
+
+          {/* Speech Transcription Display */}
+          {showTranscription && (
+            <div className="mt-3">
+              <TranscriptionDisplay
+                transcription={transcription}
+                isAudioActive={isAudioActive}
+                maxHistory={5}
+                onStartAudio={startAudio}
+                onStopAudio={stopAudio}
+              />
             </div>
           )}
-        </div>
 
-        {/* Quick Info */}
-        <div className="glass-card rounded-3xl shadow-2xl p-3 md:p-4">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-xs md:text-sm text-white/80">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              <span>
-                <span className="font-bold text-white">Real-time Control</span>{" "}
-                - Arm + Wheels active
-              </span>
+          {/* Main Control Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            {/* LEFT COLUMN: ROVER CONTROL */}
+            <div className="space-y-3 md:space-y-4">
+              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+                <div className="flex items-center gap-2 mb-4 md:mb-6">
+                  <Activity className="w-6 h-6 md:w-8 md:h-8 text-cyan-400" />
+                  <h2 className="text-2xl md:text-3xl font-bold text-white">
+                    ROVER
+                  </h2>
+                </div>
+
+                {/* Joystick Control */}
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="glass-card-light rounded-full p-4 md:p-6 relative">
+                    <Joystick
+                      size={window.innerWidth < 768 ? 180 : 240}
+                      baseColor="rgba(255, 255, 255, 0.1)"
+                      stickColor="linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)"
+                      move={handleJoystickMove}
+                      stop={handleJoystickStop}
+                      throttle={50}
+                    />
+                    <div className="absolute inset-0 rounded-full border-4 border-cyan-400/30 pointer-events-none"></div>
+                  </div>
+
+                  <div className="text-white/90 text-center font-medium text-sm">
+                    Drag to control rover movement
+                  </div>
+                </div>
+
+                {/* Rotation Control */}
+                <div className="mt-4 glass-card-light rounded-2xl p-4 md:p-5 space-y-3">
+                  <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
+                    <span>Rotation (ω)</span>
+                    <span className="text-cyan-300 font-mono">
+                      {roverVelocity.omega_z.toFixed(2)} rad/s
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-1.0"
+                    max="1.0"
+                    step="0.05"
+                    value={roverVelocity.omega_z}
+                    onChange={(e) =>
+                      setRoverVelocity((prev) => ({
+                        ...prev,
+                        omega_z: parseFloat(e.target.value),
+                      }))
+                    }
+                    className="glass-slider w-full"
+                  />
+                  <div className="flex justify-between text-xs text-white/50 font-mono">
+                    <span>-1.0</span>
+                    <span>0.0</span>
+                    <span>+1.0</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="hidden md:block w-px h-6 bg-white/20"></div>
-            <div>
-              <span className="font-bold text-white">Throttle:</span>{" "}
-              {THROTTLE_DELAY}ms
-            </div>
-            <div className="hidden md:block w-px h-6 bg-white/20"></div>
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              <span className="font-bold text-white">
-                Location Map:
-              </span>{" "}
-              {showLocationMap ? "Active" : "Hidden"}
+
+            {/* RIGHT COLUMN: ARM CONTROL */}
+            <div className="space-y-3 md:space-y-4">
+              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+                <button
+                  onClick={() =>
+                    setExpandedSections((prev) => ({
+                      ...prev,
+                      armJoints: !prev.armJoints,
+                    }))
+                  }
+                  className="w-full flex items-center justify-between mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
+                    <h2 className="text-2xl md:text-3xl font-bold text-white">
+                      ARM JOINTS
+                    </h2>
+                  </div>
+                  <div>
+                    {expandedSections.armJoints ? (
+                      <ChevronUp className="w-5 h-5 text-white/70" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-white/70" />
+                    )}
+                  </div>
+                </button>
+
+                {expandedSections.armJoints && (
+                  <div className="space-y-3 md:space-y-4">
+                    {Object.entries(JOINT_LIMITS).map(([joint, limits]) => (
+                      <div
+                        key={joint}
+                        className="glass-card-light rounded-2xl p-3 md:p-4 space-y-2"
+                      >
+                        <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
+                          <span className="capitalize">
+                            {joint.replace("_", " ")}
+                          </span>
+                          <span className="text-purple-300 font-mono">
+                            {jointPositions[
+                              joint as keyof JointPositions
+                            ].toFixed(2)}{" "}
+                            rad
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={limits.min}
+                          max={limits.max}
+                          step="0.01"
+                          value={jointPositions[joint as keyof JointPositions]}
+                          onChange={(e) =>
+                            updateJoint(
+                              joint as keyof JointPositions,
+                              parseFloat(e.target.value),
+                            )
+                          }
+                          className="glass-slider w-full"
+                        />
+                        <div className="flex justify-between text-xs text-white/50 font-mono">
+                          <span>{limits.min.toFixed(2)}</span>
+                          <span>0.00</span>
+                          <span>{limits.max.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={sendHome}
+                      disabled={!connection.isConnected}
+                      className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Home className="w-5 h-5" />
+                      HOME POSITION
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Activity Logs */}
+          <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+            <button
+              onClick={() =>
+                setExpandedSections((prev) => ({
+                  ...prev,
+                  logs: !prev.logs,
+                }))
+              }
+              className="w-full flex items-center justify-between"
+            >
+              <h2 className="text-xl md:text-2xl font-bold text-white">
+                ACTIVITY LOG ({logs.length})
+              </h2>
+              <div>
+                {expandedSections.logs ? (
+                  <ChevronUp className="w-5 h-5 text-white/70" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-white/70" />
+                )}
+              </div>
+            </button>
+
+            {expandedSections.logs && (
+              <div className="backdrop-blur-md bg-black/40 rounded-2xl p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/10">
+                {logs.length === 0 ? (
+                  <div className="text-white/30 text-center py-8">
+                    No activity yet...
+                  </div>
+                ) : (
+                  logs.slice(0, 10).map((log, idx) => (
+                    <div
+                      key={idx}
+                      className={`${
+                        log.type === "error"
+                          ? "text-red-300"
+                          : log.type === "success"
+                            ? "text-green-300"
+                            : log.type === "warning"
+                              ? "text-yellow-300"
+                              : "text-cyan-200"
+                      }`}
+                    >
+                      <span className="text-white/40">
+                        [{new Date(log.timestamp).toLocaleTimeString()}]
+                      </span>{" "}
+                      {log.message}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Info */}
+          <div className="glass-card rounded-3xl shadow-2xl p-3 md:p-4">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-xs md:text-sm text-white/80">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                <span>
+                  <span className="font-bold text-white">Real-time Control</span>{" "}
+                  - Arm + Wheels active
+                </span>
+              </div>
+              <div className="hidden md:block w-px h-6 bg-white/20"></div>
+              <div>
+                <span className="font-bold text-white">Throttle:</span>{" "}
+                {THROTTLE_DELAY}ms
+              </div>
+              <div className="hidden md:block w-px h-6 bg-white/20"></div>
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                <span className="font-bold text-white">
+                  Location Map:
+                </span>{" "}
+                {showLocationMap ? "Active" : "Hidden"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
