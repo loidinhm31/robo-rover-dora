@@ -240,11 +240,11 @@ impl YoloDetector {
         
         let detection_frame = DetectionFrame::new(frame_id, width, height, detections);
         
-        info!(
-            "Frame {}: Detected {} objects",
-            frame_id,
-            detection_frame.detections.len()
-        );
+        // info!(
+        //     "Frame {}: Detected {} objects",
+        //     frame_id,
+        //     detection_frame.detections.len()
+        // );
         
         Ok(detection_frame)
     }

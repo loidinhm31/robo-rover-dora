@@ -944,6 +944,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "command_parser"
+version = "0.1.0"
+dependencies = [
+ "arrow 54.2.1",
+ "dora-node-api",
+ "eyre",
+ "once_cell",
+ "regex",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

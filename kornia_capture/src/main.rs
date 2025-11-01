@@ -74,14 +74,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 )?;
                             }
                         }
-                        "camera_control" => {
+                        "camera_control" | "camera_control_voice" => {
                             if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
                                 if binary_array.len() > 0 {
                                     let control_bytes = binary_array.value(0);
                                     if let Ok(camera_control) =
                                         serde_json::from_slice::<CameraControl>(control_bytes)
                                     {
-                                        println!("Camera control received: {:?}", camera_control.command);
+                                        let source = if id.as_str() == "camera_control_voice" { "voice" } else { "web" };
+                                        println!("Camera control received from {}: {:?}", source, camera_control.command);
                                         match camera_control.command {
                                             CameraAction::Start => {
                                                 if camera_opt.is_none() {
@@ -161,14 +162,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 )?;
                             }
                         }
-                        "camera_control" => {
+                        "camera_control" | "camera_control_voice" => {
                             if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
                                 if binary_array.len() > 0 {
                                     let control_bytes = binary_array.value(0);
                                     if let Ok(camera_control) =
                                         serde_json::from_slice::<CameraControl>(control_bytes)
                                     {
-                                        println!("Camera control received: {:?}", camera_control.command);
+                                        let source = if id.as_str() == "camera_control_voice" { "voice" } else { "web" };
+                                        println!("Camera control received from {}: {:?}", source, camera_control.command);
                                         match camera_control.command {
                                             CameraAction::Start => {
                                                 if camera_opt.is_none() {

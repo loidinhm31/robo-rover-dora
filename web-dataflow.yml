@@ -22,11 +22,26 @@ nodes:
       - transcription  # SpeechTranscription with text, confidence, language
     env:
       RUST_LOG: info
-      WHISPER_MODEL_PATH: "models/ggml-tiny.bin"
+      WHISPER_MODEL_PATH: "models/obj/ggml-tiny.bin"
       SAMPLE_RATE: "16000"  # Must match audio-capture
       BUFFER_DURATION_MS: "5000"  # 5 seconds of audio before transcription
       CONFIDENCE_THRESHOLD: "0.5"  # Minimum confidence to output
       ENERGY_THRESHOLD: "0.02"  # VAD threshold for detecting speech
+
+  # Command parser - NLU with pattern matching
+  - id: command-parser
+    build: cargo build --release -p command_parser
+    path: target/release/command_parser
+    inputs:
+      text: speech-recognizer/transcription
+    outputs:
+      - rover_command  # RoverCommand from parsed intent
+      - tracking_command  # TrackingCommand for object tracking
+      - camera_control  # CameraControl for camera on/off
+      - feedback  # String feedback for web UI
+    env:
+      RUST_LOG: info
+      CONFIDENCE_THRESHOLD: "0.7"  # Minimum confidence to execute command
 
   # GStreamer camera capture (outputs raw RGB8 frames)
   - id: gst-camera
@@ -37,6 +52,7 @@ nodes:
     inputs:
       tick: dora/timer/millis/33  # ~30 FPS
       camera_control: web-bridge/camera_command
+      camera_control_voice: command-parser/camera_control
     outputs:
       - frame  # Raw RGB8 frames with metadata
     env:
@@ -57,7 +73,7 @@ nodes:
       - detections  # DetectionFrame with bounding boxes, classes, confidence scores
     env:
       RUST_LOG: info
-      MODEL_PATH: "models/yolo12n.onnx"
+      MODEL_PATH: "models/obj/yolo12n.onnx"
       CONFIDENCE_THRESHOLD: "0.5"
       NMS_THRESHOLD: "0.4"
       TARGET_CLASSES: ""  # Optional: "person,dog,cat" or leave empty for all classes
@@ -70,6 +86,7 @@ nodes:
     inputs:
       detections: object-detector/detections
       tracking_command: web-bridge/tracking_command
+      tracking_command_voice: command-parser/tracking_command
     outputs:
       - tracked_detections  # DetectionFrame with tracking IDs assigned
       - tracking_telemetry  # Current tracking state and selected target
@@ -113,6 +130,7 @@ nodes:
     inputs:
       audio_frame: audio-capture/audio
       transcription: speech-recognizer/transcription
+      command_feedback: command-parser/feedback
       video_frame: gst-camera/frame
       detections: object-detector/detections
       tracked_detections: object-tracker/tracked_detections
@@ -151,6 +169,7 @@ nodes:
     path: target/release/rover_controller
     inputs:
       rover_command: web-bridge/rover_command
+      rover_command_voice: command-parser/rover_command
       servo_command: visual-servo-controller/servo_command
       rover_telemetry: sim-interface/rover_telemetry
     outputs:

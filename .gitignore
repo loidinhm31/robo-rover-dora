@@ -4,3 +4,6 @@ out
 # ONNX Runtime library (downloaded separately)
 onnxruntime-linux-x64-*/
 onnxruntime-*.tgz
+/venv
+/models/obj/*
+/models/venv

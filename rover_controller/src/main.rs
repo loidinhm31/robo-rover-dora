@@ -53,14 +53,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 *count += 1;
 
                 match id.as_str() {
-                    "rover_command" => {
+                    "rover_command" | "rover_command_voice" => {
                         if let Some(array) = data.as_any().downcast_ref::<BinaryArray>() {
                             if array.len() > 0 {
                                 let bytes = array.value(0);
 
                                 match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
                                     Ok(cmd_with_metadata) => {
-                                        info!("Received manual rover command (priority {:?})", cmd_with_metadata.metadata.priority);
+                                        let source = if id.as_str() == "rover_command_voice" { "voice" } else { "manual" };
+                                        info!("Received {} rover command (priority {:?})", source, cmd_with_metadata.metadata.priority);
                                         rover_controller.manual_command = Some(cmd_with_metadata);
 
                                         // Process arbitrated command

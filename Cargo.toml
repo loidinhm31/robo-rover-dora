@@ -13,6 +13,7 @@ members = [
     "object_tracker",
     "visual_servo_controller",
     "speech_recognizer",
+    "command_parser",
 ]
 
 [workspace.dependencies]

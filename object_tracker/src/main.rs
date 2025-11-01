@@ -244,7 +244,7 @@ impl ObjectTracker {
             .collect();
 
         for track_id in tracks_to_remove {
-            info!("Removing track {} (lost for {} frames)", track_id, self.max_age);
+            // info!("Removing track {} (lost for {} frames)", track_id, self.max_age);
             self.tracks.remove(&track_id);
 
             // Clear selected target if it was removed
@@ -487,7 +487,7 @@ fn main() -> Result<()> {
 
                         debug!("Sent tracking update");
                     }
-                    "tracking_command" => {
+                    "tracking_command" | "tracking_command_voice" => {
                         // Deserialize tracking command
                         let binary_data = if let Some(array) = data.as_any().downcast_ref::<BinaryArray>() {
                             array.value(0)
@@ -504,7 +504,8 @@ fn main() -> Result<()> {
                             }
                         };
 
-                        debug!("Received tracking command: {:?}", command);
+                        let source = if id.as_str() == "tracking_command_voice" { "voice" } else { "web" };
+                        debug!("Received {} tracking command: {:?}", source, command);
                         tracker.handle_tracking_command(command);
                     }
                     other => {

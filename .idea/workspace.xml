@@ -11,6 +11,9 @@
       <package file="$PROJECT_DIR$/audio_capture">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/command_parser">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/dispatcher_keyboard">
         <feature name="default" enabled="true" />
       </package>
@@ -45,7 +48,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Add speech_recognizer node for speech-to-text">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_detector/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/object_detector/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_tracker/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/object_tracker/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rover_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover_controller/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -100,17 +114,17 @@
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/models" />
       <recent name="G:\ws\robo-rover-dora\video_processor\assets" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
       <recent name="G:\ws\robo-rover-dora\robo_rover_lib" />
-      <recent name="G:\ws\robo-rover-dora\model" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/models/obj" />
       <recent name="$PROJECT_DIR$/models" />
       <recent name="$PROJECT_DIR$" />
       <recent name="G:\ws\robo-rover-dora\model" />
       <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
-      <recent name="G:\ws\robo-rover-dora\robo-rover-app\packages\ui\src\components" />
     </key>
   </component>
   <component name="RustProjectSettings">
@@ -147,7 +161,9 @@
       <workItem from="1761752510959" duration="396000" />
       <workItem from="1761795187827" duration="10002000" />
       <workItem from="1761825326698" duration="7250000" />
-      <workItem from="1761870587382" duration="6937000" />
+      <workItem from="1761870587382" duration="29474000" />
+      <workItem from="1761919898117" duration="6569000" />
+      <workItem from="1761931651584" duration="15836000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -421,7 +437,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761879403820</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="Add speech_recognizer node for speech-to-text">
+      <option name="closed" value="true" />
+      <created>1761879510127</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1761879510127</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

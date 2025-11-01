@@ -5,6 +5,7 @@ pub mod arm_telemetry;
 pub mod video_types;
 pub mod detection_types;
 pub mod speech_types;
+pub mod nlu_types;
 
 use serde::{Deserialize, Serialize};
 pub use arm_types::*;
@@ -14,6 +15,7 @@ pub use arm_telemetry::*;
 pub use video_types::*;
 pub use detection_types::*;
 pub use speech_types::*;
+pub use nlu_types::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandMetadata {

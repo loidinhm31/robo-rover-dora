@@ -37,6 +37,7 @@ pub enum InputSource {
     Autonomous,
     RoverController,
     VisualServo,
+    VoiceCommand,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
