@@ -22,7 +22,7 @@ nodes:
       - transcription  # SpeechTranscription with text, confidence, language
     env:
       RUST_LOG: info
-      WHISPER_MODEL_PATH: "models/obj/ggml-tiny.bin"
+      WHISPER_MODEL_PATH: "models/.cache/ggml/ggml-tiny.bin"
       SAMPLE_RATE: "16000"  # Must match audio-capture
       BUFFER_DURATION_MS: "5000"  # 5 seconds of audio before transcription
       CONFIDENCE_THRESHOLD: "0.5"  # Minimum confidence to output
@@ -42,6 +42,18 @@ nodes:
     env:
       RUST_LOG: info
       CONFIDENCE_THRESHOLD: "0.7"  # Minimum confidence to execute command
+
+  # Text-to-speech - Kokoro TTS voice feedback
+  - id: kokoro-tts
+    build: cargo build --release -p kokoro_tts
+    path: target/release/kokoro_tts
+    inputs:
+      tts_command: web-bridge/tts_command
+    env:
+      RUST_LOG: info
+      TTS_VOICE: "bf_isabella"  # Voice style (af_sky, af_bella, am_adam, etc.)
+      TTS_VOLUME: "0.8"
+      HOME: "models"
 
   # GStreamer camera capture (outputs raw RGB8 frames)
   - id: gst-camera
@@ -73,7 +85,7 @@ nodes:
       - detections  # DetectionFrame with bounding boxes, classes, confidence scores
     env:
       RUST_LOG: info
-      MODEL_PATH: "models/obj/yolo12n.onnx"
+      MODEL_PATH: "models/.cache/yolo/yolo12n.onnx"
       CONFIDENCE_THRESHOLD: "0.5"
       NMS_THRESHOLD: "0.4"
       TARGET_CLASSES: ""  # Optional: "person,dog,cat" or leave empty for all classes
@@ -144,6 +156,7 @@ nodes:
       - camera_command
       - audio_command
       - tracking_command
+      - tts_command
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030

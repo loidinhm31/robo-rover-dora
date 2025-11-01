@@ -140,6 +140,11 @@ pub struct WebTrackingCommand {
     pub detection_index: Option<usize>,  // For "select_target" by index
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebTtsCommand {
+    pub text: String,
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
@@ -147,6 +152,7 @@ struct SharedState {
     pub camera_command_queue: Arc<Mutex<Vec<WebCameraCommand>>>,
     pub audio_command_queue: Arc<Mutex<Vec<WebAudioCommand>>>,
     pub tracking_command_queue: Arc<Mutex<Vec<WebTrackingCommand>>>,
+    pub tts_command_queue: Arc<Mutex<Vec<WebTtsCommand>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
 }
 
@@ -158,6 +164,7 @@ impl SharedState {
             camera_command_queue: Arc::new(Mutex::new(Vec::new())),
             audio_command_queue: Arc::new(Mutex::new(Vec::new())),
             tracking_command_queue: Arc::new(Mutex::new(Vec::new())),
+            tts_command_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -267,6 +274,21 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        socket.on(
+            "tts_command",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_cmd) = serde_json::from_value::<WebTtsCommand>(data) {
+                    println!("Received TTS command: {}", web_cmd.text);
+                    shared_state_clone
+                        .tts_command_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_cmd);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
             println!("Client disconnected: {}", socket_id);
@@ -291,6 +313,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let camera_command_output = DataId::from("camera_command".to_owned());
     let audio_command_output = DataId::from("audio_command".to_owned());
     let tracking_command_output = DataId::from("tracking_command".to_owned());
+    let tts_command_output = DataId::from("tts_command".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -324,6 +347,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_clone_camera = node_clone_arm.clone();
     let node_clone_audio = node_clone_arm.clone();
     let node_clone_tracking = node_clone_arm.clone();
+    let node_clone_tts = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -473,6 +497,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     arrow_data,
                                 );
                             }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process TTS commands
+    let state_clone_tts = shared_state.clone();
+    let _tts_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_tts.tts_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+                    let tts_cmd = convert_web_command_to_tts_command(&web_cmd);
+                    if let Ok(serialized) = serde_json::to_vec(&tts_cmd) {
+                        let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                        if let Ok(mut node_guard) = node_clone_tts.lock() {
+                            let _ = node_guard.send_output(
+                                tts_command_output.clone(),
+                                Default::default(),
+                                arrow_data,
+                            );
                         }
                     }
                 }
@@ -951,6 +999,21 @@ fn convert_web_command_to_tracking_command(web_cmd: &WebTrackingCommand) -> Opti
         }
         "clear_target" => Some(TrackingCommand::ClearTarget { timestamp }),
         _ => None,
+    }
+}
+
+fn convert_web_command_to_tts_command(web_cmd: &WebTtsCommand) -> robo_rover_lib::TtsCommand {
+    use robo_rover_lib::TtsPriority;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    robo_rover_lib::TtsCommand {
+        text: web_cmd.text.clone(),
+        timestamp,
+        priority: TtsPriority::Normal,
     }
 }
 
