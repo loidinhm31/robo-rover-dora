@@ -1,0 +1,11 @@
+[package]
+name = "audio_playback"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dora-node-api = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+cpal = "0.15"
