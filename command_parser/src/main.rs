@@ -1,3 +1,4 @@
+use aho_corasick::AhoCorasick;
 use arrow::array::{Array, BinaryArray, StringArray};
 use dora_node_api::{dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
@@ -39,35 +40,80 @@ impl IntentPattern {
     }
 }
 
-/// Command parser with pattern matching
+/// Command parser with hybrid Aho-Corasick + Regex matching
 struct CommandParser {
-    patterns: Vec<IntentPattern>,
+    // Fast keyword matching with Aho-Corasick
+    keyword_matcher: AhoCorasick,
+    keyword_intents: Vec<Intent>,
+
+    // Complex pattern matching with Regex (for entity extraction)
+    regex_patterns: Vec<IntentPattern>,
+
     confidence_threshold: f32,
 }
 
 impl CommandParser {
     fn new() -> Self {
-        let patterns = vec![
-            // Motion control - Forward
+        // Define simple keywords for Aho-Corasick (case-insensitive)
+        // Format: (keyword, intent)
+        let keyword_mappings = vec![
+            // Motion - simple commands
+            ("stop", Intent::Stop),
+            ("halt", Intent::Stop),
+            ("freeze", Intent::Stop),
+            ("brake", Intent::Stop),
+            ("forward", Intent::MoveForward),
+            ("ahead", Intent::MoveForward),
+            ("backward", Intent::MoveBackward),
+            ("back", Intent::MoveBackward),
+            ("reverse", Intent::MoveBackward),
+            ("left", Intent::MoveLeft),
+            ("right", Intent::MoveRight),
+            // Arm - simple commands
+            ("open gripper", Intent::OpenGripper),
+            ("close gripper", Intent::CloseGripper),
+            ("grab", Intent::CloseGripper),
+            ("grasp", Intent::CloseGripper),
+            ("release", Intent::OpenGripper),
+            // Vision
+            ("stop tracking", Intent::StopTracking),
+            ("stop following", Intent::StopFollowing),
+            // Camera
+            ("start camera", Intent::StartCamera),
+            ("stop camera", Intent::StopCamera),
+            // Audio
+            ("start audio", Intent::StartAudio),
+            ("stop audio", Intent::StopAudio),
+            ("start microphone", Intent::StartAudio),
+            ("stop microphone", Intent::StopAudio),
+        ];
+
+        let keywords: Vec<&str> = keyword_mappings.iter().map(|(k, _)| *k).collect();
+        let intents: Vec<Intent> = keyword_mappings.iter().map(|(_, i)| i.clone()).collect();
+
+        // Build Aho-Corasick automaton (case-insensitive)
+        let keyword_matcher = AhoCorasick::builder()
+            .ascii_case_insensitive(true)
+            .build(&keywords)
+            .expect("Failed to build Aho-Corasick automaton");
+
+        // Define complex regex patterns for entity extraction and compound commands
+        let regex_patterns = vec![
+            // Motion control - with entities
             IntentPattern::new(
                 Intent::MoveForward,
                 vec![
                     r"(?i)(move|go|drive|head)\s+(forward|ahead|front|straight)",
                     r"(?i)(advance|proceed)\s*(forward)?",
-                    r"(?i)\bforward\b",  // Match "forward" as whole word
                 ],
             ),
-            // Motion control - Backward
             IntentPattern::new(
                 Intent::MoveBackward,
                 vec![
                     r"(?i)(move|go|drive|head)\s+(back|backward|reverse)",
-                    r"(?i)(back\s*up|reverse)",
-                    r"(?i)\bbackward\b",  // Match "backward" as whole word
-                    r"(?i)\bback\b",  // Match "back" as whole word
+                    r"(?i)back\s*up",
                 ],
             ),
-            // Motion control - Left
             IntentPattern::new(
                 Intent::MoveLeft,
                 vec![
@@ -75,7 +121,6 @@ impl CommandParser {
                     r"(?i)strafe\s+left",
                 ],
             ),
-            // Motion control - Right
             IntentPattern::new(
                 Intent::MoveRight,
                 vec![
@@ -83,7 +128,6 @@ impl CommandParser {
                     r"(?i)strafe\s+right",
                 ],
             ),
-            // Motion control - Turn Left
             IntentPattern::new(
                 Intent::TurnLeft,
                 vec![
@@ -91,7 +135,6 @@ impl CommandParser {
                     r"(?i)left\s+turn",
                 ],
             ),
-            // Motion control - Turn Right
             IntentPattern::new(
                 Intent::TurnRight,
                 vec![
@@ -99,17 +142,7 @@ impl CommandParser {
                     r"(?i)right\s+turn",
                 ],
             ),
-            // Motion control - Stop
-            IntentPattern::new(
-                Intent::Stop,
-                vec![
-                    r"(?i)^stop",  // Match "stop" at beginning (more flexible)
-                    r"(?i)\bstop\b",  // Match "stop" as whole word anywhere
-                    r"(?i)(halt|freeze|brake)",
-                    r"(?i)stop\s+(moving|now)",
-                ],
-            ),
-            // Arm control - Up
+            // Arm control
             IntentPattern::new(
                 Intent::MoveArmUp,
                 vec![
@@ -118,7 +151,6 @@ impl CommandParser {
                     r"(?i)raise\s+(the\s+)?arm",
                 ],
             ),
-            // Arm control - Down
             IntentPattern::new(
                 Intent::MoveArmDown,
                 vec![
@@ -127,7 +159,6 @@ impl CommandParser {
                     r"(?i)lower\s+(the\s+)?arm",
                 ],
             ),
-            // Arm control - Left
             IntentPattern::new(
                 Intent::MoveArmLeft,
                 vec![
@@ -135,7 +166,6 @@ impl CommandParser {
                     r"(?i)arm\s+left",
                 ],
             ),
-            // Arm control - Right
             IntentPattern::new(
                 Intent::MoveArmRight,
                 vec![
@@ -143,7 +173,6 @@ impl CommandParser {
                     r"(?i)arm\s+right",
                 ],
             ),
-            // Arm control - Forward
             IntentPattern::new(
                 Intent::MoveArmForward,
                 vec![
@@ -151,7 +180,6 @@ impl CommandParser {
                     r"(?i)arm\s+(forward|out)",
                 ],
             ),
-            // Arm control - Backward
             IntentPattern::new(
                 Intent::MoveArmBackward,
                 vec![
@@ -159,25 +187,7 @@ impl CommandParser {
                     r"(?i)arm\s+(back|in)",
                 ],
             ),
-            // Gripper control - Open
-            IntentPattern::new(
-                Intent::OpenGripper,
-                vec![
-                    r"(?i)open\s+(the\s+)?gripper",
-                    r"(?i)gripper\s+open",
-                    r"(?i)release",
-                ],
-            ),
-            // Gripper control - Close
-            IntentPattern::new(
-                Intent::CloseGripper,
-                vec![
-                    r"(?i)close\s+(the\s+)?gripper",
-                    r"(?i)gripper\s+close",
-                    r"(?i)grab|grasp",
-                ],
-            ),
-            // Vision control - Track
+            // Vision control - with object names
             IntentPattern::new(
                 Intent::TrackObject,
                 vec![
@@ -185,15 +195,6 @@ impl CommandParser {
                     r"(?i)start\s+tracking",
                 ],
             ),
-            // Vision control - Stop Tracking
-            IntentPattern::new(
-                Intent::StopTracking,
-                vec![
-                    r"(?i)stop\s+tracking",
-                    r"(?i)disable\s+tracking",
-                ],
-            ),
-            // Vision control - Follow
             IntentPattern::new(
                 Intent::FollowObject,
                 vec![
@@ -201,19 +202,10 @@ impl CommandParser {
                     r"(?i)start\s+following",
                 ],
             ),
-            // Vision control - Stop Following
-            IntentPattern::new(
-                Intent::StopFollowing,
-                vec![
-                    r"(?i)stop\s+following",
-                    r"(?i)disable\s+following",
-                ],
-            ),
-            // Camera control
+            // Camera control - detailed
             IntentPattern::new(
                 Intent::StartCamera,
                 vec![
-                    r"(?i)start\s+(the\s+)?camera",
                     r"(?i)turn\s+on\s+(the\s+)?camera",
                     r"(?i)enable\s+(the\s+)?camera",
                 ],
@@ -221,16 +213,14 @@ impl CommandParser {
             IntentPattern::new(
                 Intent::StopCamera,
                 vec![
-                    r"(?i)stop\s+(the\s+)?camera",
                     r"(?i)turn\s+off\s+(the\s+)?camera",
                     r"(?i)disable\s+(the\s+)?camera",
                 ],
             ),
-            // Audio control
+            // Audio control - detailed
             IntentPattern::new(
                 Intent::StartAudio,
                 vec![
-                    r"(?i)start\s+(the\s+)?(audio|microphone|mic)",
                     r"(?i)turn\s+on\s+(the\s+)?(audio|microphone|mic)",
                     r"(?i)enable\s+(the\s+)?(audio|microphone|mic)",
                 ],
@@ -238,7 +228,6 @@ impl CommandParser {
             IntentPattern::new(
                 Intent::StopAudio,
                 vec![
-                    r"(?i)stop\s+(the\s+)?(audio|microphone|mic)",
                     r"(?i)turn\s+off\s+(the\s+)?(audio|microphone|mic)",
                     r"(?i)disable\s+(the\s+)?(audio|microphone|mic)",
                 ],
@@ -251,7 +240,9 @@ impl CommandParser {
             .unwrap_or(0.7);
 
         Self {
-            patterns,
+            keyword_matcher,
+            keyword_intents: intents,
+            regex_patterns,
             confidence_threshold,
         }
     }
@@ -263,17 +254,36 @@ impl CommandParser {
 
         tracing::debug!("Original: '{}' -> Cleaned: '{}'", text, cleaned_text);
 
-        // Find matching intent
-        for pattern in &self.patterns {
+        // PHASE 1: Fast keyword matching with Aho-Corasick
+        if let Some(mat) = self.keyword_matcher.find(&cleaned_text) {
+            let matched_intent = &self.keyword_intents[mat.pattern()];
+            eprintln!("Aho-Corasick matched: {:?} (keyword: '{}')", matched_intent, &cleaned_text[mat.start()..mat.end()]);
+
+            let entities = self.extract_entities(&cleaned_text, matched_intent);
+            let parsed = ParsedCommand::new(matched_intent.clone(), text.to_string())
+                .with_entities(entities)
+                .with_confidence(0.95); // Very high confidence for exact keyword match
+
+            tracing::info!(
+                "Parsed via Aho-Corasick: {:?} with confidence {}",
+                parsed.intent,
+                parsed.confidence
+            );
+
+            return Ok(parsed);
+        }
+
+        // PHASE 2: Complex regex pattern matching (for entity extraction and compound commands)
+        for pattern in &self.regex_patterns {
             if pattern.matches(&cleaned_text) {
-                eprintln!("Matched pattern: {:?}", pattern.intent);
+                eprintln!("Regex matched: {:?}", pattern.intent);
                 let entities = self.extract_entities(&cleaned_text, &pattern.intent);
                 let parsed = ParsedCommand::new(pattern.intent.clone(), text.to_string())
                     .with_entities(entities)
-                    .with_confidence(0.9); // High confidence for pattern match
+                    .with_confidence(0.85); // High confidence for regex pattern match
 
-                tracing::debug!(
-                    "Parsed: {:?} with confidence {}",
+                tracing::info!(
+                    "Parsed via Regex: {:?} with confidence {}",
                     parsed.intent,
                     parsed.confidence
                 );
@@ -506,7 +516,11 @@ fn main() -> Result<()> {
     let parser = CommandParser::new();
     let (mut node, mut events) = DoraNode::init_from_env()?;
 
-    tracing::info!("Command parser initialized with {} patterns", parser.patterns.len());
+    tracing::info!(
+        "Command parser initialized: {} Aho-Corasick keywords, {} regex patterns",
+        parser.keyword_intents.len(),
+        parser.regex_patterns.len()
+    );
 
     while let Some(event) = events.recv() {
         match event {
