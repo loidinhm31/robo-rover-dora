@@ -20,37 +20,17 @@ fn init_tracing() -> tracing::subscriber::DefaultGuard {
 
 /// Setup models from local directory to cache
 fn setup_local_models() -> Result<()> {
-    let cache_dir = dirs::cache_dir()
-        .ok_or_else(|| eyre!("Could not determine cache directory"))?
-        .join("kokoros");
+    // Set KOKORO_CACHE_DIR to project's models/.cache directory
+    // This tells kokoro-tiny where to find/store models
+    let cache_dir = PathBuf::from("models/.cache/kokoro");
 
-    let local_model_dir = PathBuf::from("../../models/.cache");
-
-    let model_files = [
-        ("kokoro-v1.0.onnx", "Kokoro ONNX model"),
-        ("voices-v1.0.bin", "Voices data"),
-    ];
-
-    // Create cache directory if it doesn't exist
+    // Ensure cache directory exists
     fs::create_dir_all(&cache_dir)?;
 
-    for (filename, description) in &model_files {
-        let cache_path = cache_dir.join(filename);
-        let local_path = local_model_dir.join(filename);
+    // Set environment variable for kokoro-tiny to use this cache directory
+    std::env::set_var("KOKORO_CACHE_DIR", cache_dir.to_string_lossy().to_string());
 
-        // If file doesn't exist in cache but exists locally, copy it
-        if !cache_path.exists() {
-            if local_path.exists() {
-                tracing::info!("Installing {} from local directory...", description);
-                fs::copy(&local_path, &cache_path)?;
-                tracing::info!("✓ Installed: {}", cache_path.display());
-            } else {
-                tracing::warn!("Local model not found: {}", local_path.display());
-            }
-        } else {
-            tracing::debug!("{} already in cache: {}", description, cache_path.display());
-        }
-    }
+    tracing::info!("Kokoro cache directory set to: {}", cache_dir.display());
 
     Ok(())
 }
@@ -100,12 +80,12 @@ async fn main() -> Result<()> {
     loop {
         match events.recv() {
             Some(Event::Input { id, data, .. }) => match id.as_str() {
-                "tts_command" => {
+                "tts_command" | "tts_command_web" => {
                     if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
                         if binary_array.len() > 0 {
                             let command_bytes = binary_array.value(0);
                             if let Ok(tts_command) = serde_json::from_slice::<TtsCommand>(command_bytes) {
-                                tracing::info!("TTS command received: '{}'", tts_command.text);
+                                tracing::info!("TTS command received from {}: '{}'", id, tts_command.text);
 
                                 // Synthesize and play the text
                                 match tts.synthesize(&tts_command.text, Some(&default_voice)) {

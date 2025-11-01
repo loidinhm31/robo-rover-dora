@@ -508,6 +508,65 @@ fn convert_to_camera_control(parsed: &ParsedCommand) -> Option<CameraControl> {
     })
 }
 
+/// Generate natural voice feedback for the executed command
+fn create_voice_feedback(intent: &Intent, entities: &EntityExtraction) -> String {
+    match intent {
+        // Motion commands
+        Intent::MoveForward => {
+            if let Some(speed) = entities.speed {
+                format!("Moving forward at speed {:.1}", speed)
+            } else {
+                "Moving forward".to_string()
+            }
+        }
+        Intent::MoveBackward => "Moving backward".to_string(),
+        Intent::MoveLeft => "Moving left".to_string(),
+        Intent::MoveRight => "Moving right".to_string(),
+        Intent::TurnLeft => "Turning left".to_string(),
+        Intent::TurnRight => "Turning right".to_string(),
+        Intent::Stop => "Stopping".to_string(),
+
+        // Arm commands
+        Intent::MoveArmUp => "Raising arm".to_string(),
+        Intent::MoveArmDown => "Lowering arm".to_string(),
+        Intent::MoveArmLeft => "Moving arm left".to_string(),
+        Intent::MoveArmRight => "Moving arm right".to_string(),
+        Intent::MoveArmForward => "Extending arm".to_string(),
+        Intent::MoveArmBackward => "Retracting arm".to_string(),
+        Intent::OpenGripper => "Opening gripper".to_string(),
+        Intent::CloseGripper => "Closing gripper".to_string(),
+
+        // Vision commands
+        Intent::TrackObject => {
+            if let Some(obj) = &entities.object_name {
+                format!("Tracking {}", obj)
+            } else {
+                "Tracking object".to_string()
+            }
+        }
+        Intent::FollowObject => {
+            if let Some(obj) = &entities.object_name {
+                format!("Following {}", obj)
+            } else {
+                "Following object".to_string()
+            }
+        }
+        Intent::StopTracking => "Stopped tracking".to_string(),
+        Intent::StopFollowing => "Stopped following".to_string(),
+
+        // Camera control
+        Intent::StartCamera => "Camera started".to_string(),
+        Intent::StopCamera => "Camera stopped".to_string(),
+
+        // Audio control
+        Intent::StartAudio => "Microphone started".to_string(),
+        Intent::StopAudio => "Microphone stopped".to_string(),
+
+        // Unknown
+        Intent::Unknown => "Command not recognized".to_string(),
+    }
+}
+
 fn main() -> Result<()> {
     let _guard = init_tracing();
 
@@ -606,11 +665,31 @@ fn main() -> Result<()> {
                         )?;
                     }
 
-                    // Send feedback to web bridge
+                    // Send text feedback to web bridge
                     let feedback = format!("Executed: {:?}", parsed.intent);
                     let arrow_data = StringArray::from(vec![feedback.as_str()]);
                     node.send_output(
                         DataId::from("feedback".to_owned()),
+                        Default::default(),
+                        arrow_data,
+                    )?;
+
+                    // Send voice feedback via TTS
+                    let tts_text = create_voice_feedback(&parsed.intent, &parsed.entities);
+                    let tts_command = TtsCommand {
+                        text: tts_text,
+                        timestamp: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64,
+                        priority: TtsPriority::Normal,
+                    };
+
+                    tracing::info!("Sending TTS feedback: '{}'", tts_command.text);
+                    let serialized = serde_json::to_vec(&tts_command)?;
+                    let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                    node.send_output(
+                        DataId::from("tts_command".to_owned()),
                         Default::default(),
                         arrow_data,
                     )?;

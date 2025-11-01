@@ -9,6 +9,7 @@ members = [
     "web_bridge",
     "kornia_capture",
     "audio_capture",
+    "audio_playback",
     "object_detector",
     "object_tracker",
     "visual_servo_controller",
