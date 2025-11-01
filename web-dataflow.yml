@@ -17,7 +17,8 @@ nodes:
     build: cargo build --release -p speech_recognizer
     path: target/release/speech_recognizer
     inputs:
-      audio: audio-capture/audio
+      audio_rover: audio-capture/audio
+      audio_web: web-bridge/voice_command_audio
     outputs:
       - transcription  # SpeechTranscription with text, confidence, language
     env:
@@ -39,6 +40,7 @@ nodes:
       - tracking_command  # TrackingCommand for object tracking
       - camera_control  # CameraControl for camera on/off
       - feedback  # String feedback for web UI
+      - tts_command  # TtsCommand for voice feedback
     env:
       RUST_LOG: info
       CONFIDENCE_THRESHOLD: "0.7"  # Minimum confidence to execute command
@@ -48,12 +50,23 @@ nodes:
     build: cargo build --release -p kokoro_tts
     path: target/release/kokoro_tts
     inputs:
-      tts_command: web-bridge/tts_command
+      tts_command: command-parser/tts_command
+      tts_command_web: web-bridge/tts_command
     env:
       RUST_LOG: info
-      TTS_VOICE: "bf_isabella"  # Voice style (af_sky, af_bella, am_adam, etc.)
+      TTS_VOICE: "bf_emma"  # Voice style (af_sky, af_bella, am_adam, etc.)
       TTS_VOLUME: "0.8"
-      HOME: "models"
+
+  # Audio playback - Direct audio streaming from Web UI microphone
+  - id: audio-playback
+    build: cargo build --release -p audio_playback
+    path: target/release/audio_playback
+    inputs:
+      audio: web-bridge/audio_stream
+    env:
+      RUST_LOG: info
+      SAMPLE_RATE: "16000"  # Hz (must match Web UI microphone)
+      CHANNELS: "1"  # Mono
 
   # GStreamer camera capture (outputs raw RGB8 frames)
   - id: gst-camera
@@ -157,6 +170,8 @@ nodes:
       - audio_command
       - tracking_command
       - tts_command
+      - audio_stream  # Direct audio from Web UI microphone → audio_playback (walkie-talkie)
+      - voice_command_audio  # Audio from Web UI microphone → speech_recognizer (voice commands)
     env:
       RUST_LOG: info
       SOCKETIO_PORT: 3030

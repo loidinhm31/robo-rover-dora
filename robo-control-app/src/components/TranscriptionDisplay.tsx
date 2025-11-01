@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { SpeechTranscription } from "../types/robo-rover.js";
+import { SpeechTranscription } from "../types/robo.ts";
 import { Mic, MicOff, Volume2 } from "lucide-react";
 
 interface TranscriptionDisplayProps {

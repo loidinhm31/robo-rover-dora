@@ -86,8 +86,8 @@ fn main() -> Result<()> {
     loop {
         match events.recv() {
             Some(Event::Input { id, data, .. }) => match id.as_str() {
-                "audio" => {
-                    // Receive audio from audio_capture node
+                "audio_rover" | "audio_web" => {
+                    // Receive audio from either rover microphone or web UI
                     let audio_data = handle_audio_input(&*data)?;
 
                     // Append to buffer

@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX, Target, Layers, Crosshair, XCircle} from "lucide-react";
 import {Socket} from "socket.io-client";
-import {DetectionFrame, getClassColor, TrackingTelemetry, WebTrackingCommand} from "../types/robo-rover";
+import {DetectionFrame, getClassColor, TrackingTelemetry, WebTrackingCommand} from "../types/robo.ts";
 
 type ViewMode = "camera" | "camera_with_detections" | "detections_only";
 

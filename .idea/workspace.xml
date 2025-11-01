@@ -11,6 +11,9 @@
       <package file="$PROJECT_DIR$/audio_capture">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/audio_playback">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/command_parser">
         <feature name="default" enabled="true" />
       </package>
@@ -48,17 +51,23 @@
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
+    <cargoProject FILE="$PROJECT_DIR$/robo-control-app/src-tauri/Cargo.toml">
+      <package file="$PROJECT_DIR$/robo-control-app/src-tauri">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Add command parser node">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Refactor UI">
+      <change afterPath="$PROJECT_DIR$/audio_playback/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/command_parser/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/command_parser/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/command_parser/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/command_parser/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-rover-app/packages/ui/src/components/camera-viewer.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/CameraViewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/CameraViewer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/LocationMap.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/LocationMap.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/TranscriptionDisplay.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/TranscriptionDisplay.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/types/robo-rover.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/types/robo.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/speech_recognizer/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/speech_recognizer/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
@@ -89,36 +98,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/loidinh/ws/robo-rover-dora/models/obj&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust.cargo.check&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/loidinh/ws/robo-rover-dora/robo-rover-app/packages/eslint-config/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "/home/loidinh/ws/robo-rover-dora/robo-control-app/src/components/pages",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "npm.dev.executor": "Run",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "prettierjs.PrettierConfiguration.Package": "G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier",
+    "settings.editor.selected.configurable": "language.rust.cargo.check",
+    "ts.external.directory.path": "/home/loidinh/ws/robo-rover-dora/robo-control-app/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/models/obj" />
-      <recent name="$PROJECT_DIR$" />
-      <recent name="$PROJECT_DIR$/models" />
-      <recent name="G:\ws\robo-rover-dora\video_processor\assets" />
-      <recent name="G:\ws\robo-rover-dora\robo-rover-app\apps\native\public\robots" />
+      <recent name="$PROJECT_DIR$/robo-control-app/src/components/pages" />
+      <recent name="$PROJECT_DIR$/robo-control-app/src/types" />
+      <recent name="$PROJECT_DIR$/robo-control-app" />
+      <recent name="$PROJECT_DIR$/robo-control-app/src" />
+      <recent name="$PROJECT_DIR$/robo-control-app/src/components" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/models/.cache/yolo" />
@@ -127,6 +137,23 @@
       <recent name="$PROJECT_DIR$/models" />
       <recent name="$PROJECT_DIR$/models/obj" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="dev" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/robo-control-app/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="npm.dev" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
@@ -165,7 +192,8 @@
       <workItem from="1761870587382" duration="29474000" />
       <workItem from="1761919898117" duration="6569000" />
       <workItem from="1761931651584" duration="21345000" />
-      <workItem from="1761987131056" duration="5221000" />
+      <workItem from="1761987131056" duration="13065000" />
+      <workItem from="1762003043033" duration="13407000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -455,7 +483,39 @@
       <option name="project" value="LOCAL" />
       <updated>1761979037057</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="Implement aho-corasick to improve string search in command_parser">
+      <option name="closed" value="true" />
+      <created>1761993467052</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1761993467052</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Add kokoro_tts for text-to-speech">
+      <option name="closed" value="true" />
+      <created>1761993517901</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1761993517901</updated>
+    </task>
+    <task id="LOCAL-00039" summary="Refactor UI">
+      <option name="closed" value="true" />
+      <created>1762019281586</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1762019281586</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Refactor UI">
+      <option name="closed" value="true" />
+      <created>1762019380845</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1762019380845</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -475,9 +535,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Implement web-bridge" />
-    <MESSAGE value="Refactor process command and telemetry" />
-    <MESSAGE value="Implement Web control" />
     <MESSAGE value="Remove unnecessary files" />
     <MESSAGE value="Implement Web control app" />
     <MESSAGE value="Add keyboard function" />
@@ -500,7 +557,10 @@
     <MESSAGE value="Remove unused nodes" />
     <MESSAGE value="Add speech_recognizer node for speech-to-text" />
     <MESSAGE value="Add command parser node" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add command parser node" />
+    <MESSAGE value="Implement aho-corasick to improve string search in command_parser" />
+    <MESSAGE value="Add kokoro_tts for text-to-speech" />
+    <MESSAGE value="Refactor UI" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor UI" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

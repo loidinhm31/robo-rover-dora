@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { RoverTelemetry } from "../types/robo-rover.js";
+import { RoverTelemetry } from "../types/robo.ts";
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
 interface RobotLocationMapProps {

@@ -39,7 +39,7 @@ import {
   validateJointPositions,
   WebArmCommand,
   WebRoverCommand,
-} from "../../types/robo-rover.ts";
+} from "../../types/robo.ts";
 
 const SOCKET_URL = "http://localhost:3030";
 const THROTTLE_DELAY = 100; // ms between updates

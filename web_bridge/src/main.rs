@@ -1,5 +1,5 @@
 use dora_node_api::{
-    arrow::array::{Array, AsArray, BinaryArray, UInt8Array},
+    arrow::array::{Array, AsArray, BinaryArray, Float32Array, UInt8Array},
     dora_core::config::DataId,
     DoraNode, Event,
 };
@@ -145,6 +145,11 @@ pub struct WebTtsCommand {
     pub text: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebAudioStream {
+    pub audio_data: Vec<f32>,  // Float32 audio samples from Web UI microphone
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
@@ -153,6 +158,8 @@ struct SharedState {
     pub audio_command_queue: Arc<Mutex<Vec<WebAudioCommand>>>,
     pub tracking_command_queue: Arc<Mutex<Vec<WebTrackingCommand>>>,
     pub tts_command_queue: Arc<Mutex<Vec<WebTtsCommand>>>,
+    pub audio_stream_queue: Arc<Mutex<Vec<WebAudioStream>>>,
+    pub voice_command_audio_queue: Arc<Mutex<Vec<WebAudioStream>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
 }
 
@@ -165,6 +172,8 @@ impl SharedState {
             audio_command_queue: Arc::new(Mutex::new(Vec::new())),
             tracking_command_queue: Arc::new(Mutex::new(Vec::new())),
             tts_command_queue: Arc::new(Mutex::new(Vec::new())),
+            audio_stream_queue: Arc::new(Mutex::new(Vec::new())),
+            voice_command_audio_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -289,6 +298,36 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        socket.on(
+            "audio_stream",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_audio) = serde_json::from_value::<WebAudioStream>(data) {
+                    println!("Received audio stream: {} samples", web_audio.audio_data.len());
+                    shared_state_clone
+                        .audio_stream_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_audio);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
+        socket.on(
+            "voice_command_audio",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(web_audio) = serde_json::from_value::<WebAudioStream>(data) {
+                    println!("Received voice command audio: {} samples", web_audio.audio_data.len());
+                    shared_state_clone
+                        .voice_command_audio_queue
+                        .lock()
+                        .unwrap()
+                        .push(web_audio);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
             println!("Client disconnected: {}", socket_id);
@@ -314,6 +353,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio_command_output = DataId::from("audio_command".to_owned());
     let tracking_command_output = DataId::from("tracking_command".to_owned());
     let tts_command_output = DataId::from("tts_command".to_owned());
+    let audio_stream_output = DataId::from("audio_stream".to_owned());
+    let voice_command_audio_output = DataId::from("voice_command_audio".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -348,6 +389,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_clone_audio = node_clone_arm.clone();
     let node_clone_tracking = node_clone_arm.clone();
     let node_clone_tts = node_clone_arm.clone();
+    let node_clone_audio_stream = node_clone_arm.clone();
+    let node_clone_voice_command = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -529,7 +572,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    println!(" Web Bridge initialized - waiting for...");
+    // Process audio stream from Web UI microphone (walkie-talkie mode)
+    let state_clone_audio_stream = shared_state.clone();
+    let _audio_stream_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_audio_stream.audio_stream_queue.lock() {
+                if !queue.is_empty() {
+                    let web_audio = queue.remove(0);
+                    println!("Processing audio stream: {} samples", web_audio.audio_data.len());
+
+                    // Send audio data directly as Float32Array to audio_playback node
+                    let arrow_data = Float32Array::from(web_audio.audio_data);
+                    if let Ok(mut node_guard) = node_clone_audio_stream.lock() {
+                        let _ = node_guard.send_output(
+                            audio_stream_output.clone(),
+                            Default::default(),
+                            arrow_data,
+                        );
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process voice command audio from Web UI microphone (voice command mode)
+    let state_clone_voice_command = shared_state.clone();
+    let _voice_command_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_voice_command.voice_command_audio_queue.lock() {
+                if !queue.is_empty() {
+                    let web_audio = queue.remove(0);
+                    println!("Processing voice command audio: {} samples", web_audio.audio_data.len());
+
+                    // Send audio data as Float32Array to speech_recognizer node
+                    let arrow_data = Float32Array::from(web_audio.audio_data);
+                    if let Ok(mut node_guard) = node_clone_voice_command.lock() {
+                        let _ = node_guard.send_output(
+                            voice_command_audio_output.clone(),
+                            Default::default(),
+                            arrow_data,
+                        );
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    println!("Web Bridge initialized - waiting for...");
 
     // Event loop - handle video frames
     let state_for_video = shared_state.clone();
