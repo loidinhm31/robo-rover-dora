@@ -26,6 +26,7 @@ import { CameraViewer } from "../CameraViewer.tsx";
 import { RobotLocationMap } from "../LocationMap.tsx";
 import { TranscriptionDisplay } from "../TranscriptionDisplay.tsx";
 import { VoiceControls } from "../VoiceControls.tsx";
+import { FloatingMetrics } from "../FloatingMetrics.tsx";
 import {
   ArmTelemetry,
   ConnectionState,
@@ -35,6 +36,7 @@ import {
   LogEntry,
   RoverTelemetry,
   SpeechTranscription,
+  SystemMetrics,
   TrackingTelemetry,
   validateJointPositions,
   WebArmCommand,
@@ -78,6 +80,11 @@ const RoboRoverController: React.FC = () => {
     null,
   );
   const [isAudioActive, setIsAudioActive] = useState(false);
+
+  // Performance metrics state
+  const [performanceMetrics, setPerformanceMetrics] = useState<SystemMetrics | null>(
+    null,
+  );
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showCamera, setShowCamera] = useState(false);
@@ -214,6 +221,11 @@ const RoboRoverController: React.FC = () => {
     socket.on("transcription", (data: SpeechTranscription) => {
       setTranscription(data);
       addLog(`Transcription: "${data.text}" (${(data.confidence * 100).toFixed(0)}%)`, "info");
+    });
+
+    // Listen for performance metrics
+    socket.on("performance_metrics", (data: SystemMetrics) => {
+      setPerformanceMetrics(data);
     });
 
     socketRef.current = socket;
@@ -898,6 +910,9 @@ const RoboRoverController: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Performance Metrics */}
+      <FloatingMetrics metrics={performanceMetrics} socket={socketRef.current} />
     </div>
   );
 };

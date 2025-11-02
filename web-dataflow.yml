@@ -68,6 +68,17 @@ nodes:
       SAMPLE_RATE: "16000"  # Hz (must match Web UI microphone)
       CHANNELS: "1"  # Mono
 
+  # Performance monitor - System metrics collection
+  - id: performance-monitor
+    build: cargo build --release -p performance_monitor
+    path: target/release/performance_monitor
+    inputs:
+      tick: dora/timer/millis/5000  # Trigger metrics collection every 5 seconds
+    outputs:
+      - metrics  # SystemMetrics with CPU, memory, FPS, latency
+    env:
+      RUST_LOG: info
+
   # GStreamer camera capture (outputs raw RGB8 frames)
   - id: gst-camera
 #    git: https://github.com/kornia/dora-nodes-hub.git
@@ -163,6 +174,7 @@ nodes:
       servo_telemetry: visual-servo-controller/servo_telemetry
       rover_telemetry: sim-interface/rover_telemetry
       arm_telemetry: sim-interface/arm_telemetry
+      performance_metrics: performance-monitor/metrics
     outputs:
       - arm_command
       - rover_command

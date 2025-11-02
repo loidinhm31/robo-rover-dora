@@ -10,7 +10,7 @@ use robo_rover_lib::{
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
     init_tracing,
 };
-use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription};
+use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription, SystemMetrics};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
@@ -163,6 +163,7 @@ struct SharedState {
     pub audio_stream_queue: Arc<Mutex<Vec<WebAudioStream>>>,
     pub voice_command_audio_queue: Arc<Mutex<Vec<WebAudioStream>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
+    pub performance_monitoring_enabled: Arc<Mutex<bool>>,
 }
 
 impl SharedState {
@@ -177,6 +178,7 @@ impl SharedState {
             audio_stream_queue: Arc::new(Mutex::new(Vec::new())),
             voice_command_audio_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
+            performance_monitoring_enabled: Arc::new(Mutex::new(true)),
         }
     }
 }
@@ -326,6 +328,17 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
                         .lock()
                         .unwrap()
                         .push(web_audio);
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
+        socket.on(
+            "performance_control",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Some(enabled) = data.get("enabled").and_then(|v| v.as_bool()) {
+                    tracing::info!("Performance monitoring {}", if enabled { "enabled" } else { "disabled" });
+                    *shared_state_clone.performance_monitoring_enabled.lock().unwrap() = enabled;
                 }
             },
         );
@@ -971,6 +984,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Err(e) => {
                                         tracing::error!("Failed to deserialize transcription: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "performance_metrics" => {
+                        // Handle performance metrics from performance_monitor
+                        // Only forward if monitoring is enabled
+                        let monitoring_enabled = *state_for_video.performance_monitoring_enabled.lock().unwrap();
+
+                        if monitoring_enabled {
+                            if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                                if binary_array.len() > 0 {
+                                    let metrics_data = binary_array.value(0);
+
+                                    // Deserialize SystemMetrics
+                                    match serde_json::from_slice::<SystemMetrics>(metrics_data) {
+                                        Ok(metrics) => {
+                                            tracing::trace!(
+                                                "Performance metrics - CPU: {:.1}%, Memory: {:.0}MB, FPS: {:.1}, Latency: {:.1}ms",
+                                                metrics.total_cpu_percent,
+                                                metrics.total_memory_mb,
+                                                metrics.dataflow_fps,
+                                                metrics.end_to_end_latency_ms
+                                            );
+
+                                            // Forward metrics to all connected clients
+                                            if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                                let _ = io.of("/").unwrap().emit("performance_metrics", serde_json::to_value(&metrics).unwrap());
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::error!("Failed to deserialize performance metrics: {}", e);
+                                        }
                                     }
                                 }
                             }

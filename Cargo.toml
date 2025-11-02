@@ -16,6 +16,7 @@ members = [
     "speech_recognizer",
     "command_parser",
     "kokoro_tts",
+    "performance_monitor",
 ]
 
 [workspace.dependencies]

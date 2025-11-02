@@ -32,6 +32,9 @@
       <package file="$PROJECT_DIR$/object_tracker">
         <feature name="default" enabled="true" />
       </package>
+      <package file="$PROJECT_DIR$/performance_monitor">
+        <feature name="default" enabled="true" />
+      </package>
       <package file="$PROJECT_DIR$/robo_rover_lib">
         <feature name="default" enabled="true" />
       </package>
@@ -58,32 +61,15 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement audio playback">
-      <change afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/tracing.rs" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update README">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/arm_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/arm_controller/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/audio_capture/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/audio_capture/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_playback/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/audio_playback/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audio_playback/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/audio_playback/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/command_parser/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/command_parser/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kokoro_tts/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kokoro_tts/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia_capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kornia_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/kornia_capture/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/object_detector/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/object_detector/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/object_tracker/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/object_tracker/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/types/robo.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/types/robo.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/utils/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rover_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover_controller/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sim_interface/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/sim_interface/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sim_interface/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/sim_interface/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/speech_recognizer/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/speech_recognizer/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/speech_recognizer/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/speech_recognizer/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/visual_servo_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/visual_servo_controller/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -146,11 +132,11 @@
       <recent name="$PROJECT_DIR$/robo-control-app/src/components" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/models/scripts" />
       <recent name="$PROJECT_DIR$/models/.cache/yolo" />
       <recent name="$PROJECT_DIR$/models/.cache/ggml" />
       <recent name="$PROJECT_DIR$/models/.cache/kokoros" />
       <recent name="$PROJECT_DIR$/models" />
-      <recent name="$PROJECT_DIR$/models/obj" />
     </key>
   </component>
   <component name="RunManager">
@@ -209,7 +195,9 @@
       <workItem from="1761931651584" duration="21345000" />
       <workItem from="1761987131056" duration="13065000" />
       <workItem from="1762003043033" duration="16475000" />
-      <workItem from="1762059527991" duration="1186000" />
+      <workItem from="1762059527991" duration="10146000" />
+      <workItem from="1762070592640" duration="1934000" />
+      <workItem from="1762072906607" duration="19763000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -539,7 +527,23 @@
       <option name="project" value="LOCAL" />
       <updated>1762020144205</updated>
     </task>
-    <option name="localTasksCounter" value="42" />
+    <task id="LOCAL-00042" summary="Standardize tracing logs">
+      <option name="closed" value="true" />
+      <created>1762060733537</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1762060733537</updated>
+    </task>
+    <task id="LOCAL-00043" summary="Update README">
+      <option name="closed" value="true" />
+      <created>1762095507213</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1762095507213</updated>
+    </task>
+    <option name="localTasksCounter" value="44" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -559,8 +563,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Implement Web control app" />
-    <MESSAGE value="Add keyboard function" />
     <MESSAGE value="Clear source" />
     <MESSAGE value="Try to transfer data in websocket with Apache Arrow" />
     <MESSAGE value="Update for arm controller base on LeKiwi" />
@@ -584,7 +586,9 @@
     <MESSAGE value="Add kokoro_tts for text-to-speech" />
     <MESSAGE value="Refactor UI" />
     <MESSAGE value="Implement audio playback" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement audio playback" />
+    <MESSAGE value="Standardize tracing logs" />
+    <MESSAGE value="Update README" />
+    <option name="LAST_COMMIT_MESSAGE" value="Update README" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

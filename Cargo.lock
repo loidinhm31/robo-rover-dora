@@ -3634,7 +3634,7 @@ checksum = "3ff095ac36df870a11380877fb7e9b1e7529abfe994fd06a6d6d17ca1c77d30b"
 dependencies = [
  "eyre",
  "opentelemetry 0.29.1",
- "sysinfo",
+ "sysinfo 0.34.2",
  "tokio",
  "tracing",
 ]
@@ -3814,6 +3814,22 @@ name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
+
+[[package]]
+name = "performance_monitor"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dora-node-api",
+ "eyre",
+ "log",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
+ "sysinfo 0.31.4",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "pest"
@@ -4445,6 +4461,7 @@ dependencies = [
 name = "robo_rover_lib"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "eyre",
  "nalgebra",
  "serde",
@@ -5121,6 +5138,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.31.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "355dbe4f8799b304b05e1b0f05fc59b2a18d36645cf169607da45bde2f69a1be"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+ "memchr",
+ "ntapi",
+ "rayon",
+ "windows 0.57.0",
 ]
 
 [[package]]
