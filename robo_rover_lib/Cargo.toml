@@ -12,4 +12,5 @@ toml = { workspace = true }
 nalgebra = { workspace = true }
 eyre = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 uuid = { workspace = true }

@@ -2,7 +2,7 @@ use dora_node_api::arrow::array::{Array, BinaryArray, Float32Array};
 use dora_node_api::dora_core::config::DataId;
 use dora_node_api::{DoraNode, Event};
 use eyre::Result;
-use robo_rover_lib::SpeechTranscription;
+use robo_rover_lib::{SpeechTranscription, init_tracing};
 use std::env;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -14,7 +14,8 @@ const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
 const DEFAULT_ENERGY_THRESHOLD: f32 = 0.02; // VAD threshold
 
 fn main() -> Result<()> {
-    println!("Starting speech recognizer node...");
+    let _guard = init_tracing();
+    tracing::info!("Starting speech recognizer node...");
 
     // Read configuration from environment variables
     let model_path = env::var("WHISPER_MODEL_PATH")
@@ -40,23 +41,23 @@ fn main() -> Result<()> {
         .and_then(|s| s.parse().ok())
         .unwrap_or(DEFAULT_ENERGY_THRESHOLD);
 
-    println!("Configuration:");
-    println!("  Model path: {}", model_path);
-    println!("  Sample rate: {} Hz", sample_rate);
-    println!("  Buffer duration: {} ms", buffer_duration_ms);
-    println!("  Confidence threshold: {}", confidence_threshold);
-    println!("  Energy threshold: {}", energy_threshold);
+    tracing::info!("Configuration:");
+    tracing::info!("Model path: {}", model_path);
+    tracing::info!("Sample rate: {} Hz", sample_rate);
+    tracing::info!("Buffer duration: {} ms", buffer_duration_ms);
+    tracing::info!("Confidence threshold: {}", confidence_threshold);
+    tracing::info!("Energy threshold: {}", energy_threshold);
 
     // Load Whisper model
-    println!("Loading Whisper model from: {}", model_path);
+    tracing::info!("Loading Whisper model from: {}", model_path);
     let model_path = PathBuf::from(model_path);
 
     if !model_path.exists() {
-        eprintln!("ERROR: Whisper model not found at: {:?}", model_path);
-        eprintln!("Please download a Whisper model:");
-        eprintln!("  - Download from: https://huggingface.co/ggerganov/whisper.cpp/tree/main");
-        eprintln!("  - For Raspberry Pi 5, use: ggml-tiny.bin or ggml-base.bin");
-        eprintln!("  - Place in models/ directory");
+        tracing::error!("Whisper model not found at: {:?}", model_path);
+        tracing::error!("Please download a Whisper model:");
+        tracing::error!("Download from: https://huggingface.co/ggerganov/whisper.cpp/tree/main");
+        tracing::error!("For Raspberry Pi 5, use: ggml-tiny.bin or ggml-base.bin");
+        tracing::error!("Place in models/ directory");
         return Err(eyre::eyre!("Whisper model not found"));
     }
 
@@ -66,7 +67,7 @@ fn main() -> Result<()> {
     )
     .map_err(|e| eyre::eyre!("Failed to load Whisper model: {}", e))?;
 
-    println!("Whisper model loaded successfully!");
+    tracing::info!("Whisper model loaded successfully!");
 
     // Initialize Dora node
     let (mut node, mut events) = DoraNode::init_from_env()?;
@@ -81,7 +82,7 @@ fn main() -> Result<()> {
     let mut total_confidence = 0.0f32;
     let mut total_processing_time_ms = 0.0f32;
 
-    println!("Speech recognizer ready! Waiting for audio...");
+    tracing::info!("Speech recognizer ready! Waiting for audio...");
 
     loop {
         match events.recv() {
@@ -98,7 +99,7 @@ fn main() -> Result<()> {
                     let has_energy = calculate_energy(&audio_buffer) > energy_threshold;
 
                     if should_process && has_energy {
-                        println!("Processing {} samples ({:.2}s of audio)...",
+                        tracing::debug!("Processing {} samples ({:.2}s of audio)...",
                             audio_buffer.len(),
                             audio_buffer.len() as f32 / sample_rate as f32);
 
@@ -109,7 +110,7 @@ fn main() -> Result<()> {
                             Ok((text, confidence)) => {
                                 let processing_time = start_time.elapsed().as_millis() as f32;
 
-                                println!("Transcription: \"{}\" (confidence: {:.2}, time: {:.0}ms)",
+                                tracing::info!("Transcription: \"{}\" (confidence: {:.2}, time: {:.0}ms)",
                                     text, confidence, processing_time);
 
                                 // Update statistics
@@ -139,15 +140,15 @@ fn main() -> Result<()> {
                                         array,
                                     )?;
 
-                                    println!("✓ Sent transcription (avg conf: {:.2}, avg time: {:.0}ms)",
+                                    tracing::debug!("Sent transcription (avg conf: {:.2}, avg time: {:.0}ms)",
                                         total_confidence / total_transcriptions as f32,
                                         total_processing_time_ms / total_transcriptions as f32);
                                 } else {
-                                    println!("  Skipped: low confidence or empty text");
+                                    tracing::debug!("Skipped: low confidence or empty text");
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Transcription error: {}", e);
+                                tracing::error!("Transcription error: {}", e);
                             }
                         }
 
@@ -161,12 +162,12 @@ fn main() -> Result<()> {
                 _ => {}
             },
             Some(Event::Stop(_)) => {
-                println!("Stopping speech recognizer node...");
-                println!("Statistics:");
-                println!("  Total transcriptions: {}", total_transcriptions);
+                tracing::info!("Stopping speech recognizer node...");
+                tracing::info!("Statistics:");
+                tracing::info!("Total transcriptions: {}", total_transcriptions);
                 if total_transcriptions > 0 {
-                    println!("  Average confidence: {:.2}", total_confidence / total_transcriptions as f32);
-                    println!("  Average processing time: {:.0}ms", total_processing_time_ms / total_transcriptions as f32);
+                    tracing::info!("Average confidence: {:.2}", total_confidence / total_transcriptions as f32);
+                    tracing::info!("Average processing time: {:.0}ms", total_processing_time_ms / total_transcriptions as f32);
                 }
                 break;
             }

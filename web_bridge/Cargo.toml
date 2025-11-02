@@ -28,3 +28,5 @@ image = "0.25"
 
 # Local shared library
 robo_rover_lib = { path = "../robo_rover_lib" }
+log = "0.4.28"
+tracing = "0.1.41"

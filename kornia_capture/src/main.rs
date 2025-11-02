@@ -5,10 +5,12 @@ use dora_node_api::{
     DoraNode, Event, Parameter,
 };
 use kornia_io::gstreamer::{RTSPCameraConfig, V4L2CameraConfig};
-use robo_rover_lib::{CameraAction, CameraControl};
+use robo_rover_lib::{init_tracing, CameraAction, CameraControl};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting capture node");
+    let _guard = init_tracing();
+
+    tracing::info!("Starting camera capture node");
 
     // parse env variables
     let source_type =
@@ -40,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
             camera_opt.as_mut().unwrap().start()?;
-            println!("Camera started successfully");
+            tracing::info!("V4L2 camera started successfully");
 
             while let Some(event) = events.recv() {
                 match event {
@@ -82,11 +84,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         serde_json::from_slice::<CameraControl>(control_bytes)
                                     {
                                         let source = if id.as_str() == "camera_control_voice" { "voice" } else { "web" };
-                                        println!("Camera control received from {}: {:?}", source, camera_control.command);
+                                        tracing::info!("Camera control received from {}: {:?}", source, camera_control.command);
                                         match camera_control.command {
                                             CameraAction::Start => {
                                                 if camera_opt.is_none() {
-                                                    println!("Starting camera...");
+                                                    tracing::info!("Starting V4L2 camera");
                                                     let new_camera = V4L2CameraConfig::new()
                                                         .with_size([image_cols, image_rows].into())
                                                         .with_fps(source_fps)
@@ -94,33 +96,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                         .build()?;
                                                     new_camera.start()?;
                                                     camera_opt = Some(new_camera);
-                                                    println!("Camera started");
+                                                    tracing::info!("V4L2 camera started");
                                                 }
                                             }
                                             CameraAction::Stop => {
                                                 if let Some(camera) = camera_opt.take() {
-                                                    println!("Stopping camera...");
+                                                    tracing::info!("Stopping V4L2 camera");
                                                     camera.close()?;
-                                                    println!("Camera stopped");
+                                                    tracing::info!("V4L2 camera stopped");
                                                 }
                                             }
                                         }
                                     } else {
-                                        eprintln!("Failed to parse camera control command");
+                                        tracing::error!("Failed to parse camera control command");
                                     }
                                 }
                             }
                         }
-                        other => eprintln!("Ignoring unexpected input: {other}"),
+                        other => tracing::warn!("Ignoring unexpected input: {}", other),
                     },
                     Event::Stop(_) => {
-                        println!("Stop event received, closing camera");
+                        tracing::info!("Stop event received, closing camera");
                         if let Some(camera) = camera_opt.take() {
                             camera.close()?;
                         }
                         break;
                     }
-                    other => eprintln!("Received unexpected event: {other:?}"),
+                    other => tracing::debug!("Received unexpected event: {:?}", other),
                 }
             }
         }
@@ -128,7 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut camera_opt = Some(RTSPCameraConfig::new().with_url(&source_uri).build()?);
 
             camera_opt.as_mut().unwrap().start()?;
-            println!("RTSP Camera started successfully");
+            tracing::info!("RTSP camera started successfully");
 
             while let Some(event) = events.recv() {
                 match event {
@@ -170,41 +172,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         serde_json::from_slice::<CameraControl>(control_bytes)
                                     {
                                         let source = if id.as_str() == "camera_control_voice" { "voice" } else { "web" };
-                                        println!("Camera control received from {}: {:?}", source, camera_control.command);
+                                        tracing::info!("Camera control received from {}: {:?}", source, camera_control.command);
                                         match camera_control.command {
                                             CameraAction::Start => {
                                                 if camera_opt.is_none() {
-                                                    println!("Starting RTSP camera...");
+                                                    tracing::info!("Starting RTSP camera");
                                                     let new_camera = RTSPCameraConfig::new().with_url(&source_uri).build()?;
                                                     new_camera.start()?;
                                                     camera_opt = Some(new_camera);
-                                                    println!("RTSP camera started");
+                                                    tracing::info!("RTSP camera started");
                                                 }
                                             }
                                             CameraAction::Stop => {
                                                 if let Some(camera) = camera_opt.take() {
-                                                    println!("Stopping RTSP camera...");
+                                                    tracing::info!("Stopping RTSP camera");
                                                     camera.close()?;
-                                                    println!("RTSP camera stopped");
+                                                    tracing::info!("RTSP camera stopped");
                                                 }
                                             }
                                         }
                                     } else {
-                                        eprintln!("Failed to parse camera control command");
+                                        tracing::error!("Failed to parse camera control command");
                                     }
                                 }
                             }
                         }
-                        other => eprintln!("Ignoring unexpected input: {other}"),
+                        other => tracing::warn!("Ignoring unexpected input: {}", other),
                     },
                     Event::Stop(_) => {
-                        println!("Stop event received, closing RTSP camera");
+                        tracing::info!("Stop event received, closing RTSP camera");
                         if let Some(camera) = camera_opt.take() {
                             camera.close()?;
                         }
                         break;
                     }
-                    other => eprintln!("Received unexpected event: {other:?}"),
+                    other => tracing::debug!("Received unexpected event: {:?}", other),
                 }
             }
         }

@@ -9,6 +9,7 @@ dora-node-api = { workspace = true }
 eyre = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }
 
 # Whisper for speech recognition
 whisper-rs = "0.12"

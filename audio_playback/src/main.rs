@@ -3,19 +3,8 @@ use cpal::{Sample, SampleFormat, Stream, StreamConfig};
 use dora_node_api::arrow::array::{Array, BinaryArray, Float32Array, Int16Array};
 use dora_node_api::{DoraNode, Event};
 use eyre::Result;
+use robo_rover_lib::init_tracing;
 use std::sync::{Arc, Mutex};
-
-/// Initialize tracing for the node
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
-}
 
 /// Simple ring buffer for audio playback
 struct AudioBuffer {

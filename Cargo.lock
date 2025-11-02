@@ -667,6 +667,7 @@ dependencies = [
  "ringbuf",
  "robo_rover_lib",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -676,8 +677,8 @@ dependencies = [
  "cpal",
  "dora-node-api",
  "eyre",
+ "robo_rover_lib",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -2756,6 +2757,7 @@ dependencies = [
  "kornia-io",
  "robo_rover_lib",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -4449,6 +4451,7 @@ dependencies = [
  "serde_json",
  "toml 0.8.23",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -4897,6 +4900,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4996,6 +5000,7 @@ dependencies = [
  "robo_rover_lib",
  "serde",
  "serde_json",
+ "tracing",
  "whisper-rs",
 ]
 
@@ -6063,6 +6068,7 @@ dependencies = [
  "dora-node-api",
  "eyre",
  "image",
+ "log",
  "robo_rover_lib",
  "serde",
  "serde_json",
@@ -6070,6 +6076,7 @@ dependencies = [
  "tokio",
  "tower 0.4.13",
  "tower-http 0.5.2",
+ "tracing",
  "uuid",
 ]
 

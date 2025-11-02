@@ -8,3 +8,4 @@ dora-node-api = { version = "0.3.13", features = ["tracing"] }
 robo_rover_lib = { path = "../robo_rover_lib" }
 serde_json = "1.0"
 kornia-io = { version = "0.1.10-rc.3", features = ["gstreamer"] }
+tracing = { workspace = true }

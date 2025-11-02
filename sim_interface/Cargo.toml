@@ -11,6 +11,7 @@ dora-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 eyre = { workspace = true }
+tracing = { workspace = true }
 
 # Add SocketIO server
 tokio = { version = "1.24.2", features = ["full"] }

@@ -2,7 +2,7 @@ use dora_node_api::arrow::array::Array;
 use dora_node_api::{arrow::array::BinaryArray, dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
 use robo_rover_lib::{
-    BodyTwist, CommandMetadata, MecanumConfig,
+    init_tracing, BodyTwist, CommandMetadata, MecanumConfig,
     MecanumKinematics, RoverCommand, RoverTelemetry,
 };
 use std::collections::HashMap;
@@ -388,15 +388,4 @@ impl RoverController {
             },
         }
     }
-}
-
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
 }

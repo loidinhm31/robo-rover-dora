@@ -5,12 +5,14 @@ use dora_node_api::dora_core::config::DataId;
 use dora_node_api::{DoraNode, Event, MetadataParameters, Parameter};
 use eyre::Result;
 use ringbuf::{traits::*, HeapRb};
-use robo_rover_lib::{AudioAction, AudioControl};
+use robo_rover_lib::{init_tracing, AudioAction, AudioControl};
 use std::env;
 use std::sync::{Arc, Mutex};
 
 fn main() -> Result<()> {
-    println!("Starting audio capture node...");
+    let _guard = init_tracing();
+
+    tracing::info!("Starting audio capture node");
 
     // Read configuration from environment variables with defaults
     let sample_rate: u32 = env::var("SAMPLE_RATE")
@@ -28,8 +30,8 @@ fn main() -> Result<()> {
         .and_then(|s| s.parse().ok())
         .unwrap_or(800);
 
-    println!(
-        "Audio configuration from environment: {}Hz, {} channels, {} samples per chunk",
+    tracing::info!(
+        "Audio configuration: {}Hz, {} channels, {} samples per chunk",
         sample_rate, channels, chunk_size
     );
 
@@ -40,7 +42,7 @@ fn main() -> Result<()> {
         .default_input_device()
         .ok_or_else(|| eyre::eyre!("No default input device available"))?;
 
-    println!("Using audio device: {}", device.name()?);
+    tracing::info!("Using audio device: {}", device.name()?);
 
     // Configure audio stream
     let config = StreamConfig {
@@ -61,7 +63,7 @@ fn main() -> Result<()> {
     let consumer = Arc::new(Mutex::new(consumer));
 
     // Build audio input stream (using f32 samples)
-    let err_fn = |err| eprintln!("Audio stream error: {}", err);
+    let err_fn = |err| tracing::error!("Audio stream error: {}", err);
     let producer_clone = producer.clone();
 
     let mut stream_opt: Option<Stream> = Some(device.build_input_stream(
@@ -76,7 +78,7 @@ fn main() -> Result<()> {
     )?);
 
     stream_opt.as_ref().unwrap().play()?;
-    println!("Audio stream started successfully");
+    tracing::info!("Audio stream started successfully");
 
     let mut frame_count = 0u64;
     let mut audio_buffer = Vec::with_capacity(chunk_size);
@@ -118,7 +120,7 @@ fn main() -> Result<()> {
                             if frame_count <= 5 {
                                 let min = chunk.iter().cloned().fold(f32::INFINITY, f32::min);
                                 let max = chunk.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                                println!(
+                                tracing::debug!(
                                     "Sent audio frame {}: {} samples, range [{:.3}, {:.3}]",
                                     frame_count,
                                     chunk_size,
@@ -136,11 +138,11 @@ fn main() -> Result<()> {
                             if let Ok(audio_control) =
                                 serde_json::from_slice::<AudioControl>(control_bytes)
                             {
-                                println!("Audio control received: {:?}", audio_control.command);
+                                tracing::info!("Audio control received: {:?}", audio_control.command);
                                 match audio_control.command {
                                     AudioAction::Start => {
                                         if stream_opt.is_none() {
-                                            println!("Starting audio stream...");
+                                            tracing::info!("Starting audio stream");
                                             // Clear existing buffers and recreate stream
                                             audio_buffer.clear();
                                             if let Ok(mut cons) = consumer.lock() {
@@ -161,29 +163,29 @@ fn main() -> Result<()> {
                                             )?;
                                             new_stream.play()?;
                                             stream_opt = Some(new_stream);
-                                            println!("Audio stream started");
+                                            tracing::info!("Audio stream started");
                                         }
                                     }
                                     AudioAction::Stop => {
                                         if let Some(_stream) = stream_opt.take() {
-                                            println!("Stopping audio stream...");
+                                            tracing::info!("Stopping audio stream");
                                             // Stream is dropped here, stopping capture
                                             // Clear audio buffer
                                             audio_buffer.clear();
-                                            println!("Audio stream stopped");
+                                            tracing::info!("Audio stream stopped");
                                         }
                                     }
                                 }
                             } else {
-                                eprintln!("Failed to parse audio control command");
+                                tracing::error!("Failed to parse audio control command");
                             }
                         }
                     }
                 }
-                other => eprintln!("Ignoring unexpected input: {other}"),
+                other => tracing::warn!("Ignoring unexpected input: {}", other),
             },
             Some(Event::Stop(_)) => {
-                println!("Stop event received");
+                tracing::info!("Stop event received");
                 break;
             }
             Some(_) => {}
@@ -194,7 +196,7 @@ fn main() -> Result<()> {
     }
 
     drop(stream_opt);
-    println!("Audio capture stopped");
+    tracing::info!("Audio capture stopped");
     Ok(())
 }
 

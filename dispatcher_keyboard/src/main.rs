@@ -5,7 +5,7 @@ use dora_node_api::{
     Event
 };
 use eyre::Result;
-use robo_rover_lib::{ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata};
+use robo_rover_lib::{init_tracing, ArmCommand, ArmCommandWithMetadata, CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata};
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid;
@@ -13,7 +13,7 @@ use uuid;
 fn main() -> Result<(), Box<dyn Error>> {
     let _guard = init_tracing();
 
-    println!("Starting dispatcher keyboard - dispatcher node");
+    tracing::info!("Starting keyboard dispatcher node");
 
     let (mut node, mut events) = DoraNode::init_from_env()?;
 
@@ -23,19 +23,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut dispatcher = KeyboardDispatcher::new();
 
-    println!("Dispatcher keyboard initialized");
-    println!("Available commands:");
-    println!("  ROVER control (w,a,s,d,q,r):");
-    println!("    w/s - Throttle forward/backward");
-    println!("    a/d - Steer left/right");
-    println!("    q - Brake");
-    println!("    r - Reset to stopped state");
-    println!("  ARM control (j,k,l,i,u,o,h,space):");
-    println!("    k/j - Move X axis forward/backward");
-    println!("    l/i - Move Y axis right/left");
-    println!("    u/o - Move Z axis up/down");
-    println!("    h - Return to home position");
-    println!("    space - Stop arm movement");
+    tracing::info!("Keyboard dispatcher initialized");
+    tracing::info!("Available commands:");
+    tracing::info!("ROVER control (w,a,s,d,q,r):");
+    tracing::info!("w/s - Throttle forward/backward");
+    tracing::info!("a/d - Steer left/right");
+    tracing::info!("q - Brake");
+    tracing::info!("r - Reset to stopped state");
+    tracing::info!("ARM control (j,k,l,i,u,o,h,space):");
+    tracing::info!("k/j - Move X axis forward/backward");
+    tracing::info!("l/i - Move Y axis right/left");
+    tracing::info!("u/o - Move Z axis up/down");
+    tracing::info!("h - Return to home position");
+    tracing::info!("space - Stop arm movement");
 
     while let Some(event) = events.recv() {
         match event {
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             let char_data = string_array.value(0);
                             let trimmed_char = char_data.trim();
 
-                            println!("Processing keyboard input: '{}'", trimmed_char);
+                            tracing::debug!("Processing keyboard input: '{}'", trimmed_char);
 
                             // Process the keyboard input and get commands
                             let commands = dispatcher.process_input(trimmed_char);
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                             arrow_data
                                         )?;
 
-                                        println!("Sent ARM command: {:?}", arm_cmd);
+                                        tracing::debug!("Sent ARM command: {:?}", arm_cmd);
                                     }
                                     DispatchedCommand::Rover(rover_cmd, metadata) => {
                                         let cmd_with_metadata = RoverCommandWithMetadata {
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             Event::Stop(_) => {
-                println!("Stop event received - shutting down dispatcher keyboard");
+                tracing::info!("Stop event received - shutting down keyboard dispatcher");
                 break;
             }
             _ => {}
@@ -158,7 +158,7 @@ impl KeyboardDispatcher {
                 let rover_cmd = self.create_rover_command();
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                println!("ROVER: Throttle forward ({:.2})", self.current_rover_state.throttle);
+                tracing::debug!("ROVER: Throttle forward ({:.2})", self.current_rover_state.throttle);
             }
             "s" => {
                 // Throttle backward (Unity uses negative throttle for reverse)
@@ -169,9 +169,9 @@ impl KeyboardDispatcher {
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
                 if self.current_rover_state.is_reverse {
-                    println!("ROVER: Reverse movement (throttle: {:.2})", self.current_rover_state.throttle);
+                    tracing::debug!("ROVER: Reverse movement (throttle: {:.2})", self.current_rover_state.throttle);
                 } else {
-                    println!("ROVER: Slowing down (throttle: {:.2})", self.current_rover_state.throttle);
+                    tracing::debug!("ROVER: Slowing down (throttle: {:.2})", self.current_rover_state.throttle);
                 }
             }
             "a" => {
@@ -180,7 +180,7 @@ impl KeyboardDispatcher {
                 let rover_cmd = self.create_rover_command();
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                println!("ROVER: Steer left ({:.1} degrees)", self.current_rover_state.steering_angle);
+                tracing::debug!("ROVER: Steer left ({:.1} degrees)", self.current_rover_state.steering_angle);
             }
             "d" => {
                 // Steer right (negative steering angle)
@@ -188,7 +188,7 @@ impl KeyboardDispatcher {
                 let rover_cmd = self.create_rover_command();
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                println!("ROVER: Steer right ({:.1} degrees)", self.current_rover_state.steering_angle);
+                tracing::debug!("ROVER: Steer right ({:.1} degrees)", self.current_rover_state.steering_angle);
             }
             "q" => {
                 // Emergency brake (stop everything)
@@ -198,7 +198,7 @@ impl KeyboardDispatcher {
                 let rover_cmd = self.create_rover_command();
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                println!("ROVER: Emergency brake applied");
+                tracing::info!("ROVER: Emergency brake applied");
             }
             "r" => {
                 // Reset rover to stopped state
@@ -206,7 +206,7 @@ impl KeyboardDispatcher {
                 let rover_cmd = self.create_rover_command();
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Rover(rover_cmd, metadata));
-                println!("ROVER: Reset to stopped state");
+                tracing::info!("ROVER: Reset to stopped state");
             }
 
             // ARM CONTROLS (j,k,l,i,u,o,h) - matching original directional behavior
@@ -223,7 +223,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move X axis forward ({:.3} m)", self.move_scale);
+                tracing::debug!("ARM: Move X axis forward ({:.3} m)", self.move_scale);
             }
             "j" => {
                 // Move X axis backward (like original 's')
@@ -238,7 +238,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move X axis backward ({:.3} m)", -self.move_scale);
+                tracing::debug!("ARM: Move X axis backward ({:.3} m)", -self.move_scale);
             }
             "i" => {
                 // Move Y axis left (like original 'a')
@@ -253,7 +253,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move Y axis left ({:.3} m)", -self.move_scale);
+                tracing::debug!("ARM: Move Y axis left ({:.3} m)", -self.move_scale);
             }
             "l" => {
                 // Move Y axis right (like original 'd')
@@ -268,7 +268,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move Y axis right ({:.3} m)", self.move_scale);
+                tracing::debug!("ARM: Move Y axis right ({:.3} m)", self.move_scale);
             }
             "u" => {
                 // Move Z axis up
@@ -283,7 +283,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move Z axis up ({:.3} m)", self.move_scale);
+                tracing::debug!("ARM: Move Z axis up ({:.3} m)", self.move_scale);
             }
             "o" => {
                 // Move Z axis down
@@ -298,7 +298,7 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Move Z axis down ({:.3} m)", -self.move_scale);
+                tracing::debug!("ARM: Move Z axis down ({:.3} m)", -self.move_scale);
             }
             "h" | "home" => {
                 // Return to home position
@@ -308,18 +308,18 @@ impl KeyboardDispatcher {
                 };
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Return to home position");
+                tracing::info!("ARM: Return to home position");
             }
             " " | "space" => {
                 // Stop arm movement
                 let arm_cmd = ArmCommand::Stop;
                 let metadata = self.create_metadata();
                 commands.push(DispatchedCommand::Arm(arm_cmd, metadata));
-                println!("ARM: Stop movement");
+                tracing::info!("ARM: Stop movement");
             }
 
             _ => {
-                println!("Unknown command: '{}'. Use w,a,s,d,q,r for rover or k,j,i,l,u,o,h,space for arm", input);
+                tracing::warn!("Unknown command: '{}'. Use w,a,s,d,q,r for rover or k,j,i,l,u,o,h,space for arm", input);
             }
         }
 
@@ -351,17 +351,4 @@ impl KeyboardDispatcher {
             priority: CommandPriority::Normal,
         }
     }
-}
-
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
-        )
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
 }

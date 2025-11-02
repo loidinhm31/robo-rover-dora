@@ -10,10 +10,9 @@ use ndarray::{Array, IxDyn};
 use ort::{
     Environment, ExecutionProvider, GraphOptimizationLevel, SessionBuilder, Value,
 };
-use robo_rover_lib::types::{BoundingBox, DetectionFrame, DetectionResult};
+use robo_rover_lib::{init_tracing, types::{BoundingBox, DetectionFrame, DetectionResult}};
 use std::env;
 use tracing::{debug, error, info, warn};
-use tracing_subscriber;
 
 const YOLO_CLASSES: &[&str] = &[
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -248,17 +247,6 @@ impl YoloDetector {
         
         Ok(detection_frame)
     }
-}
-
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
 }
 
 fn main() -> Result<()> {

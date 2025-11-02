@@ -2,12 +2,11 @@ use dora_node_api::{self, arrow::array::BinaryArray, dora_core::config::DataId, 
 use dora_node_api::arrow::array::Array;
 use eyre::Result;
 use robo_rover_lib::{
-    BoundingBox, ControlMode, ControlOutput, RoverCommand, RoverCommandWithMetadata,
+    init_tracing, BoundingBox, ControlMode, ControlOutput, RoverCommand, RoverCommandWithMetadata,
     TrackingTelemetry, TrackingState, CommandMetadata, InputSource, CommandPriority,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
-use tracing_subscriber;
 
 mod pid;
 use pid::PIDController;
@@ -303,7 +302,6 @@ impl ServoController {
 }
 
 fn main() -> Result<()> {
-    // Initialize tracing
     let _guard = init_tracing();
 
     info!("Starting visual servo controller node");
@@ -380,15 +378,4 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
 }

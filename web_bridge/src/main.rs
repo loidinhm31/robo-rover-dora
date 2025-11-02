@@ -8,6 +8,7 @@ use image::{ImageBuffer, Rgb, codecs::jpeg::JpegEncoder};
 use robo_rover_lib::{
     ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
+    init_tracing,
 };
 use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription};
 use serde::{Deserialize, Serialize};
@@ -25,6 +26,7 @@ use socketioxide::{
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use std::env;
+use log::info;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JointPositions {
@@ -179,6 +181,7 @@ impl SharedState {
     }
 }
 
+
 fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
     let (layer, io) = SocketIo::new_layer();
 
@@ -186,7 +189,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
     let auth_username = env::var("AUTH_USERNAME").unwrap_or_else(|_| "admin".to_string());
     let auth_password = env::var("AUTH_PASSWORD").unwrap_or_else(|_| "password".to_string());
 
-    println!("Authentication enabled - Username: {}", auth_username);
+    tracing::info!("Authentication enabled - Username: {}", auth_username);
 
     io.ns("/", move |socket: SocketRef, TryData::<AuthCredentials>(auth)| {
         // Validate authentication
@@ -198,13 +201,13 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         };
 
         if !is_authenticated {
-            println!("Authentication failed for connection attempt");
+            tracing::warn!("Authentication failed for connection attempt");
             socket.disconnect().ok();
             return;
         }
 
         let socket_id = socket.id.to_string();
-        println!("Client authenticated and connected: {}", socket_id);
+        tracing::info!("Client authenticated and connected: {}", socket_id);
 
         // Add client to video streaming list
         let client_state = ClientState::new(socket_id.clone());
@@ -213,7 +216,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         let shared_state_clone = shared_state.clone();
         socket.on("arm_command", move |_socket: SocketRef, Data::<Value>(data)| {
             if let Ok(web_cmd) = serde_json::from_value::<WebArmCommand>(data) {
-                println!("Received arm command: {:?}", web_cmd.command_type);
+                tracing::debug!("Received arm command: {:?}", web_cmd.command_type);
                 shared_state_clone
                     .arm_command_queue
                     .lock()
@@ -227,7 +230,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "rover_command",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_cmd) = serde_json::from_value::<WebRoverCommand>(data) {
-                    println!("Received rover command: {:?}", web_cmd.command_type);
+                    tracing::debug!("Received rover command: {:?}", web_cmd.command_type);
                     shared_state_clone
                         .rover_command_queue
                         .lock()
@@ -242,7 +245,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "camera_control",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_cmd) = serde_json::from_value::<WebCameraCommand>(data) {
-                    println!("Received camera control: {:?}", web_cmd.command);
+                    tracing::debug!("Received camera control: {:?}", web_cmd.command);
                     shared_state_clone
                         .camera_command_queue
                         .lock()
@@ -257,7 +260,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "audio_control",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_cmd) = serde_json::from_value::<WebAudioCommand>(data) {
-                    println!("Received audio control: {:?}", web_cmd.command);
+                    tracing::debug!("Received audio control: {:?}", web_cmd.command);
                     shared_state_clone
                         .audio_command_queue
                         .lock()
@@ -272,7 +275,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "tracking_command",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_cmd) = serde_json::from_value::<WebTrackingCommand>(data) {
-                    println!("Received tracking command: {:?}", web_cmd.command_type);
+                    tracing::debug!("Received tracking command: {:?}", web_cmd.command_type);
                     shared_state_clone
                         .tracking_command_queue
                         .lock()
@@ -287,7 +290,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "tts_command",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_cmd) = serde_json::from_value::<WebTtsCommand>(data) {
-                    println!("Received TTS command: {}", web_cmd.text);
+                    tracing::debug!("Received TTS command: {}", web_cmd.text);
                     shared_state_clone
                         .tts_command_queue
                         .lock()
@@ -302,7 +305,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "audio_stream",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_audio) = serde_json::from_value::<WebAudioStream>(data) {
-                    println!("Received audio stream: {} samples", web_audio.audio_data.len());
+                    tracing::debug!("Received audio stream: {} samples", web_audio.audio_data.len());
                     shared_state_clone
                         .audio_stream_queue
                         .lock()
@@ -317,7 +320,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
             "voice_command_audio",
             move |_socket: SocketRef, Data::<Value>(data)| {
                 if let Ok(web_audio) = serde_json::from_value::<WebAudioStream>(data) {
-                    println!("Received voice command audio: {} samples", web_audio.audio_data.len());
+                    tracing::debug!("Received voice command audio: {} samples", web_audio.audio_data.len());
                     shared_state_clone
                         .voice_command_audio_queue
                         .lock()
@@ -330,7 +333,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         let shared_state_clone = shared_state.clone();
         socket.on_disconnect(move |socket: SocketRef| {
             let socket_id = socket.id.to_string();
-            println!("Client disconnected: {}", socket_id);
+            tracing::info!("Client disconnected: {}", socket_id);
 
             // Remove client from video list
             if let Ok(mut clients) = shared_state_clone.video_clients.lock() {
@@ -344,7 +347,9 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting Web Bridge...");
+    let _guard = init_tracing();
+
+    tracing::info!("Starting Web Bridge...");
 
     let (node, mut events) = DoraNode::init_from_env()?;
     let arm_command_output = DataId::from("arm_command".to_owned());
@@ -378,7 +383,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .unwrap();
 
-        println!("Socket.IO server listening on http://0.0.0.0:3030");
+        info!("Socket.IO server listening on http://0.0.0.0:3030");
         axum::serve(listener, app).await.unwrap();
     });
 
@@ -579,7 +584,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(mut queue) = state_clone_audio_stream.audio_stream_queue.lock() {
                 if !queue.is_empty() {
                     let web_audio = queue.remove(0);
-                    println!("Processing audio stream: {} samples", web_audio.audio_data.len());
+                    tracing::debug!("Processing audio stream: {} samples", web_audio.audio_data.len());
 
                     // Send audio data directly as Float32Array to audio_playback node
                     let arrow_data = Float32Array::from(web_audio.audio_data);
@@ -603,7 +608,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(mut queue) = state_clone_voice_command.voice_command_audio_queue.lock() {
                 if !queue.is_empty() {
                     let web_audio = queue.remove(0);
-                    println!("Processing voice command audio: {} samples", web_audio.audio_data.len());
+                    tracing::debug!("Processing voice command audio: {} samples", web_audio.audio_data.len());
 
                     // Send audio data as Float32Array to speech_recognizer node
                     let arrow_data = Float32Array::from(web_audio.audio_data);
@@ -620,7 +625,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    println!("Web Bridge initialized - waiting for...");
+    tracing::info!("Web Bridge initialized - waiting for events...");
 
     // Event loop - handle video frames
     let state_for_video = shared_state.clone();
@@ -689,7 +694,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Some(bytes)
                                 } else {
-                                    eprintln!("Audio list values type: {:?}", values.data_type());
+                                    tracing::warn!("Audio list values type: {:?}", values.data_type());
                                     None
                                 }
                             } else {
@@ -720,7 +725,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None
                             }
                         } else {
-                            eprintln!("Unknown audio array type: {:?}", data.data_type());
+                            tracing::warn!("Unknown audio array type: {:?}", data.data_type());
                             None
                         };
 
@@ -800,7 +805,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Verify expected size
                             let expected_size = (width * height * 3) as usize; // RGB8 = 3 bytes per pixel
                             if rgb_bytes.len() != expected_size {
-                                eprintln!("Frame size mismatch: got {} bytes, expected {}",
+                                tracing::error!("Frame size mismatch: got {} bytes, expected {}",
                                           rgb_bytes.len(), expected_size);
                                 continue;
                             }
@@ -818,7 +823,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         height,
                                         image::ExtendedColorType::Rgb8
                                     ) {
-                                        eprintln!("JPEG encoding error: {}", e);
+                                        tracing::error!("JPEG encoding error: {}", e);
                                         continue;
                                     }
                                 }
@@ -877,7 +882,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to deserialize detections: {}", e);
+                                        tracing::error!("Failed to deserialize detections: {}", e);
                                     }
                                 }
                             }
@@ -898,7 +903,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to deserialize tracked detections: {}", e);
+                                        tracing::error!("Failed to deserialize tracked detections: {}", e);
                                     }
                                 }
                             }
@@ -919,7 +924,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to deserialize tracking telemetry: {}", e);
+                                        tracing::error!("Failed to deserialize tracking telemetry: {}", e);
                                     }
                                 }
                             }
@@ -941,7 +946,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to deserialize servo telemetry: {}", e);
+                                        tracing::error!("Failed to deserialize servo telemetry: {}", e);
                                     }
                                 }
                             }
@@ -956,7 +961,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 // Deserialize SpeechTranscription
                                 match serde_json::from_slice::<SpeechTranscription>(transcription_data) {
                                     Ok(transcription) => {
-                                        println!("Transcription received: \"{}\" (confidence: {:.2})",
+                                        tracing::info!("Transcription received: \"{}\" (confidence: {:.2})",
                                             transcription.text, transcription.confidence);
 
                                         // Forward transcription to all connected clients
@@ -965,7 +970,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to deserialize transcription: {}", e);
+                                        tracing::error!("Failed to deserialize transcription: {}", e);
                                     }
                                 }
                             }
@@ -974,7 +979,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => {}
                 },
                 Event::Stop(_) => {
-                    println!("Stop event received");
+                    tracing::info!("Stop event received");
                     break;
                 }
                 _ => {}
@@ -988,7 +993,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     arm_command_processor.abort();
     rover_command_processor.abort();
     camera_command_processor.abort();
-    println!("Web Bridge shutdown complete");
+    tracing::info!("Web Bridge shutdown complete");
 
     Ok(())
 }

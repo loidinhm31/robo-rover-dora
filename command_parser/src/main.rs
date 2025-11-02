@@ -4,20 +4,8 @@ use dora_node_api::{dora_core::config::DataId, DoraNode, Event};
 use eyre::Result;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use robo_rover_lib::types::*;
+use robo_rover_lib::{init_tracing, types::*};
 use std::collections::HashMap;
-
-/// Initialize tracing for the node
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
-}
 
 /// Pattern for matching a specific intent
 #[derive(Debug)]
@@ -257,7 +245,7 @@ impl CommandParser {
         // PHASE 1: Fast keyword matching with Aho-Corasick
         if let Some(mat) = self.keyword_matcher.find(&cleaned_text) {
             let matched_intent = &self.keyword_intents[mat.pattern()];
-            eprintln!("Aho-Corasick matched: {:?} (keyword: '{}')", matched_intent, &cleaned_text[mat.start()..mat.end()]);
+            tracing::debug!("Aho-Corasick matched: {:?} (keyword: '{}')", matched_intent, &cleaned_text[mat.start()..mat.end()]);
 
             let entities = self.extract_entities(&cleaned_text, matched_intent);
             let parsed = ParsedCommand::new(matched_intent.clone(), text.to_string())
@@ -276,7 +264,7 @@ impl CommandParser {
         // PHASE 2: Complex regex pattern matching (for entity extraction and compound commands)
         for pattern in &self.regex_patterns {
             if pattern.matches(&cleaned_text) {
-                eprintln!("Regex matched: {:?}", pattern.intent);
+                tracing::debug!("Regex matched: {:?}", pattern.intent);
                 let entities = self.extract_entities(&cleaned_text, &pattern.intent);
                 let parsed = ParsedCommand::new(pattern.intent.clone(), text.to_string())
                     .with_entities(entities)
@@ -607,7 +595,7 @@ fn main() -> Result<()> {
                     };
 
                     let text = transcription.text.clone();
-                    eprintln!(
+                    tracing::info!(
                         "Received transcription: '{}' (confidence: {:.2})",
                         text,
                         transcription.confidence

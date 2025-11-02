@@ -2,21 +2,10 @@ use dora_node_api::arrow::array::{Array, BinaryArray};
 use dora_node_api::{DoraNode, Event};
 use eyre::{eyre, Result};
 use kokoro_tiny::TtsEngine;
-use robo_rover_lib::TtsCommand;
+use robo_rover_lib::{init_tracing, TtsCommand};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-
-fn init_tracing() -> tracing::subscriber::DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
-        .with_target(false)
-        .with_file(false)
-        .with_line_number(false)
-        .finish();
-
-    tracing::subscriber::set_default(subscriber)
-}
 
 /// Setup models from local directory to cache
 fn setup_local_models() -> Result<()> {
