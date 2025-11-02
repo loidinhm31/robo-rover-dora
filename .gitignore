@@ -6,4 +6,4 @@ onnxruntime-linux-x64-*/
 onnxruntime-*.tgz
 /venv
 /models/.cache/*
-/models/venv
+/models/scripts/venv

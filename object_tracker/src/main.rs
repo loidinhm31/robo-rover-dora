@@ -493,9 +493,24 @@ fn main() -> Result<()> {
                             }
                         };
 
-                        let source = if id.as_str() == "tracking_command_voice" { "voice" } else { "web" };
+                        let source = match id.as_str() {
+                            "tracking_command_voice" => "voice",
+                            "tracking_command_reid" => "re-id",
+                            _ => "web",
+                        };
                         debug!("Received {} tracking command: {:?}", source, command);
                         tracker.handle_tracking_command(command);
+
+                        // Send updated tracking telemetry immediately after command
+                        let telemetry = tracker.get_tracking_telemetry();
+                        let telemetry_json = serde_json::to_vec(&telemetry)?;
+                        let telemetry_data = BinaryArray::from_vec(vec![telemetry_json.as_slice()]);
+                        node.send_output(
+                            DataId::from("tracking_telemetry".to_owned()),
+                            Default::default(),
+                            telemetry_data,
+                        )?;
+                        debug!("Sent tracking telemetry after {} command", source);
                     }
                     other => {
                         warn!("Received unexpected input: {}", other);

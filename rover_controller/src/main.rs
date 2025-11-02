@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                                 match serde_json::from_slice::<RoverCommandWithMetadata>(bytes) {
                                     Ok(cmd_with_metadata) => {
-                                        info!("Received servo command (priority {:?})", cmd_with_metadata.metadata.priority);
+                                        debug!("Received servo command (priority {:?})", cmd_with_metadata.metadata.priority);
                                         rover_controller.servo_command = Some(cmd_with_metadata);
 
                                         // Process arbitrated command
@@ -234,7 +234,7 @@ impl RoverController {
     fn process_arbitrated_command(&mut self, node: &mut DoraNode, output_id: &DataId) -> Result<()> {
         if let Some(cmd_with_metadata) = self.select_command() {
             if let Some(command) = &cmd_with_metadata.command {
-                info!("Processing arbitrated command: {:?}", command);
+                debug!("Processing arbitrated command: {:?}", command);
 
                 self.process_command(command.clone())?;
 
@@ -248,7 +248,7 @@ impl RoverController {
                     arrow_data
                 )?;
 
-                info!("Sent processed rover command");
+                debug!("Sent processed rover command");
             }
         }
         Ok(())
@@ -257,7 +257,7 @@ impl RoverController {
     fn process_command(&mut self, command: RoverCommand) -> Result<()> {
         match &command {
             RoverCommand::Velocity { omega_z, v_x, v_y, .. } => {
-                info!("Processing velocity command: v_x={:.2} m/s, v_y={:.2} m/s, ω_z={:.2} rad/s",
+                debug!("Processing velocity command: v_x={:.2} m/s, v_y={:.2} m/s, ω_z={:.2} rad/s",
                      v_x, v_y, omega_z);
 
                 // Apply safety limits
@@ -283,7 +283,7 @@ impl RoverController {
                 // Convert to wheel speeds using Mecanum kinematics
                 let wheel_speeds = self.kinematics.body_twist_to_wheel_speeds(&twist);
 
-                info!("Computed wheel speeds: [{:.2}, {:.2}, {:.2}] rad/s",
+                debug!("Computed wheel speeds: [{:.2}, {:.2}, {:.2}] rad/s",
                      wheel_speeds[0], wheel_speeds[1], wheel_speeds[2]);
 
                 // Check wheel speed limits
@@ -302,7 +302,7 @@ impl RoverController {
                     self.current_wheel_positions[i] += delta_positions[i];
                 }
 
-                info!("Updated wheel positions: [{:.3}, {:.3}, {:.3}] rad",
+                debug!("Updated wheel positions: [{:.3}, {:.3}, {:.3}] rad",
                      self.current_wheel_positions[0],
                      self.current_wheel_positions[1],
                      self.current_wheel_positions[2]);

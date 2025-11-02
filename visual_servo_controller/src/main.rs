@@ -6,7 +6,7 @@ use robo_rover_lib::{
     TrackingTelemetry, TrackingState, CommandMetadata, InputSource, CommandPriority,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 mod pid;
 use pid::PIDController;
@@ -270,7 +270,7 @@ impl ServoController {
         let v_x = v_x.clamp(-self.config.max_velocity, self.config.max_velocity);
         let omega_z = omega_z.clamp(-self.config.max_angular_velocity, self.config.max_angular_velocity);
 
-        info!("Servo: error_x={:.3}, error_size={:.3}, distance={:.2}m, omega_z={:.3}, v_x={:.3}",
+        debug!("Servo: error_x={:.3}, error_size={:.3}, distance={:.2}m, omega_z={:.3}, v_x={:.3}",
               error_x, error_size, estimated_distance, omega_z, v_x);
 
         // Create enhanced telemetry with distance and mode

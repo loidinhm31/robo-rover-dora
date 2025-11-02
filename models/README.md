@@ -188,7 +188,7 @@ pip install ultralytics
 
 3. **Export to ONNX format:**
 ```bash
-python export_to_onnx.py
+python export_yolo_to_onnx.py
 ```
 
 This will create `yolo12n.onnx` in the current directory.
