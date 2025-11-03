@@ -43,12 +43,19 @@ import {
   WebRoverCommand,
 } from "../../types/robo.ts";
 
-const SOCKET_URL = "http://localhost:3030";
+// Load configuration from environment variables
+const SOCKET_URL = import.meta.env.VITE_SOCKET_IO_URL || "http://localhost:3030";
 const THROTTLE_DELAY = 100; // ms between updates
 
-// Authentication credentials - should match web_bridge environment variables
-const AUTH_USERNAME = "admin";
-const AUTH_PASSWORD = "password";
+// Authentication credentials - loaded from environment variables
+// CRITICAL: These must be set in .env file and match web_bridge configuration
+const AUTH_USERNAME = import.meta.env.VITE_AUTH_USERNAME;
+const AUTH_PASSWORD = import.meta.env.VITE_AUTH_PASSWORD;
+
+// Validate that credentials are configured
+if (!AUTH_USERNAME || !AUTH_PASSWORD) {
+  console.error("CRITICAL: Authentication credentials not configured. Please set VITE_AUTH_USERNAME and VITE_AUTH_PASSWORD in .env file");
+}
 
 // Extended JointPositions with wheel visualization
 interface ExtendedJointPositions extends JointPositions {

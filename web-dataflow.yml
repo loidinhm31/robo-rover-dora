@@ -186,9 +186,29 @@ nodes:
       - voice_command_audio  # Audio from Web UI microphone → speech_recognizer (voice commands)
     env:
       RUST_LOG: info
-      SOCKETIO_PORT: 3030
+      # Network Configuration
+      BIND_ADDRESS: "0.0.0.0"  # Change to 127.0.0.1 for localhost-only
+      SOCKET_IO_PORT: "3030"
+
+      # Authentication - CHANGE THESE VALUES IN PRODUCTION!
       AUTH_USERNAME: "admin"
       AUTH_PASSWORD: "password"
+
+      # CORS - Comma-separated allowed origins
+      ALLOWED_ORIGINS: "http://localhost:1420,http://localhost:3000"
+
+      # Rate Limiting
+      RATE_LIMIT_AUTH_PER_MINUTE: "5"
+      RATE_LIMIT_COMMANDS_PER_SECOND: "100"
+
+      # Input Validation Limits
+      MAX_TTS_TEXT_LENGTH: "1000"
+      MAX_AUDIO_SAMPLES_PER_MESSAGE: "16000"
+      MAX_WHEEL_VELOCITY: "2.0"
+
+      # Security
+      ENABLE_AUDIT_LOGGING: "true"
+      LOG_AUTH_ATTEMPTS: "true"
 
   # Arm controller
   - id: arm-controller

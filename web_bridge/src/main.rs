@@ -17,16 +17,19 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid;
 
-use axum::http::Method;
+use axum::http::{Method, HeaderValue};
 use serde_json::Value;
 use socketioxide::{
     extract::{Data, SocketRef, TryData},
     SocketIo,
 };
 use tower::ServiceBuilder;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use std::env;
 use log::info;
+
+mod security;
+use security::{AuthRateLimiter, CommandRateLimiter, parse_allowed_origins, log_auth_attempt, log_rate_limit_exceeded, log_validation_error};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JointPositions {
@@ -164,6 +167,8 @@ struct SharedState {
     pub voice_command_audio_queue: Arc<Mutex<Vec<WebAudioStream>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
     pub performance_monitoring_enabled: Arc<Mutex<bool>>,
+    pub auth_rate_limiter: Arc<AuthRateLimiter>,
+    pub command_rate_limiter: Arc<CommandRateLimiter>,
 }
 
 impl SharedState {
@@ -179,6 +184,8 @@ impl SharedState {
             voice_command_audio_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
             performance_monitoring_enabled: Arc::new(Mutex::new(true)),
+            auth_rate_limiter: Arc::new(AuthRateLimiter::new()),
+            command_rate_limiter: Arc::new(CommandRateLimiter::new()),
         }
     }
 }
@@ -188,36 +195,81 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
     let (layer, io) = SocketIo::new_layer();
 
     // Get authentication credentials from environment variables
-    let auth_username = env::var("AUTH_USERNAME").unwrap_or_else(|_| "admin".to_string());
-    let auth_password = env::var("AUTH_PASSWORD").unwrap_or_else(|_| "password".to_string());
+    let auth_username = env::var("AUTH_USERNAME").unwrap_or_else(|_| {
+        tracing::warn!("AUTH_USERNAME not set, using default 'admin' - CHANGE THIS IN PRODUCTION!");
+        "admin".to_string()
+    });
+    let auth_password = env::var("AUTH_PASSWORD").unwrap_or_else(|_| {
+        tracing::warn!("AUTH_PASSWORD not set, using default 'password' - CHANGE THIS IN PRODUCTION!");
+        "password".to_string()
+    });
 
     tracing::info!("Authentication enabled - Username: {}", auth_username);
+    tracing::info!("Security features: Rate limiting enabled, Input validation enabled");
 
     io.ns("/", move |socket: SocketRef, TryData::<AuthCredentials>(auth)| {
-        // Validate authentication
-        let is_authenticated = match auth {
-            Ok(credentials) => {
-                credentials.username == auth_username && credentials.password == auth_password
-            }
-            Err(_) => false,
-        };
+        let socket_id = socket.id.to_string();
 
-        if !is_authenticated {
-            tracing::warn!("Authentication failed for connection attempt");
+        // Check rate limit for authentication attempts
+        if !shared_state.auth_rate_limiter.check_auth_attempt(&socket_id) {
+            log_rate_limit_exceeded(&socket_id, "auth");
+            tracing::warn!("Rate limit exceeded for auth attempt from: {}", socket_id);
             socket.disconnect().ok();
             return;
         }
 
-        let socket_id = socket.id.to_string();
+        // Validate authentication
+        let (is_authenticated, username) = match auth {
+            Ok(credentials) => {
+                let auth_ok = credentials.username == auth_username && credentials.password == auth_password;
+                (auth_ok, credentials.username.clone())
+            }
+            Err(_) => (false, "unknown".to_string()),
+        };
+
+        // Log authentication attempt
+        log_auth_attempt(&socket_id, &username, is_authenticated);
+
+        if !is_authenticated {
+            tracing::warn!("Authentication failed for connection attempt from: {}", socket_id);
+            socket.disconnect().ok();
+            return;
+        }
+
         tracing::info!("Client authenticated and connected: {}", socket_id);
+
+        // Reset rate limiter on successful auth
+        shared_state.auth_rate_limiter.reset(&socket_id);
 
         // Add client to video streaming list
         let client_state = ClientState::new(socket_id.clone());
         shared_state.video_clients.lock().unwrap().push(client_state);
 
         let shared_state_clone = shared_state.clone();
+        let socket_id_clone = socket_id.clone();
         socket.on("arm_command", move |_socket: SocketRef, Data::<Value>(data)| {
+            // Check rate limit
+            if !shared_state_clone.command_rate_limiter.check_command(&socket_id_clone) {
+                log_rate_limit_exceeded(&socket_id_clone, "arm_command");
+                return;
+            }
+
             if let Ok(web_cmd) = serde_json::from_value::<WebArmCommand>(data) {
+                // Validate joint positions if present
+                if let Some(ref positions) = web_cmd.joint_positions {
+                    let joint_values = vec![
+                        positions.shoulder_pan, positions.shoulder_lift, positions.elbow_flex,
+                        positions.wrist_flex, positions.wrist_roll, positions.gripper
+                    ];
+                    for (i, &angle) in joint_values.iter().enumerate() {
+                        if let Err(e) = security::validation::validate_joint_position(angle) {
+                            log_validation_error(&socket_id_clone, &format!("Arm joint {}: {}", i, e));
+                            tracing::warn!("Arm command validation failed: {}", e);
+                            return;
+                        }
+                    }
+                }
+
                 tracing::debug!("Received arm command: {:?}", web_cmd.command_type);
                 shared_state_clone
                     .arm_command_queue
@@ -228,10 +280,29 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         });
 
         let shared_state_clone = shared_state.clone();
+        let socket_id_clone = socket_id.clone();
         socket.on(
             "rover_command",
             move |_socket: SocketRef, Data::<Value>(data)| {
+                // Check rate limit
+                if !shared_state_clone.command_rate_limiter.check_command(&socket_id_clone) {
+                    log_rate_limit_exceeded(&socket_id_clone, "rover_command");
+                    return;
+                }
+
                 if let Ok(web_cmd) = serde_json::from_value::<WebRoverCommand>(data) {
+                    // Validate wheel velocities if present
+                    let wheels = [web_cmd.wheel1, web_cmd.wheel2, web_cmd.wheel3, web_cmd.wheel4];
+                    for (i, wheel_opt) in wheels.iter().enumerate() {
+                        if let Some(velocity) = wheel_opt {
+                            if let Err(e) = security::validation::validate_wheel_velocity(*velocity) {
+                                log_validation_error(&socket_id_clone, &format!("Wheel {}: {}", i+1, e));
+                                tracing::warn!("Rover command validation failed: {}", e);
+                                return;
+                            }
+                        }
+                    }
+
                     tracing::debug!("Received rover command: {:?}", web_cmd.command_type);
                     shared_state_clone
                         .rover_command_queue
@@ -288,10 +359,24 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        let socket_id_clone = socket_id.clone();
         socket.on(
             "tts_command",
             move |_socket: SocketRef, Data::<Value>(data)| {
+                // Check rate limit
+                if !shared_state_clone.command_rate_limiter.check_command(&socket_id_clone) {
+                    log_rate_limit_exceeded(&socket_id_clone, "tts_command");
+                    return;
+                }
+
                 if let Ok(web_cmd) = serde_json::from_value::<WebTtsCommand>(data) {
+                    // Validate TTS text
+                    if let Err(e) = security::validation::validate_tts_text(&web_cmd.text) {
+                        log_validation_error(&socket_id_clone, &format!("TTS text: {}", e));
+                        tracing::warn!("TTS command validation failed: {}", e);
+                        return;
+                    }
+
                     tracing::debug!("Received TTS command: {}", web_cmd.text);
                     shared_state_clone
                         .tts_command_queue
@@ -303,10 +388,24 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
         );
 
         let shared_state_clone = shared_state.clone();
+        let socket_id_clone = socket_id.clone();
         socket.on(
             "audio_stream",
             move |_socket: SocketRef, Data::<Value>(data)| {
+                // Check rate limit (audio streams are less restricted)
+                if !shared_state_clone.command_rate_limiter.check_command(&socket_id_clone) {
+                    log_rate_limit_exceeded(&socket_id_clone, "audio_stream");
+                    return;
+                }
+
                 if let Ok(web_audio) = serde_json::from_value::<WebAudioStream>(data) {
+                    // Validate audio data
+                    if let Err(e) = security::validation::validate_audio_data(&web_audio.audio_data) {
+                        log_validation_error(&socket_id_clone, &format!("Audio stream: {}", e));
+                        tracing::warn!("Audio stream validation failed: {}", e);
+                        return;
+                    }
+
                     tracing::debug!("Received audio stream: {} samples", web_audio.audio_data.len());
                     shared_state_clone
                         .audio_stream_queue
@@ -380,23 +479,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start Socket.IO server
     let socketio_handle = tokio::spawn(async move {
+        // Get allowed origins from environment
+        let allowed_origins = parse_allowed_origins();
+        tracing::info!("CORS allowed origins: {:?}", allowed_origins);
+
+        // Convert to HeaderValue for CORS layer
+        let origins: Vec<HeaderValue> = allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse().ok())
+            .collect();
+
+        // Define allowed headers explicitly (required when using credentials)
+        let allowed_headers = [
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::ACCEPT,
+        ];
+
+        let cors_layer = if origins.is_empty() {
+            tracing::warn!("No valid CORS origins configured, defaulting to localhost");
+            CorsLayer::new()
+                .allow_origin([
+                    "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+                    "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+                ])
+                .allow_methods([Method::GET, Method::POST])
+                .allow_headers(allowed_headers)
+                .allow_credentials(true)
+        } else {
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([Method::GET, Method::POST])
+                .allow_headers(allowed_headers)
+                .allow_credentials(true)
+        };
+
         let app = axum::Router::new()
             .layer(
                 ServiceBuilder::new()
-                    .layer(
-                        CorsLayer::new()
-                            .allow_origin(Any)
-                            .allow_methods([Method::GET, Method::POST])
-                            .allow_headers(Any),
-                    )
+                    .layer(cors_layer)
                     .layer(layer),
             );
 
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:3030")
+        let bind_address = env::var("BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let port = env::var("SOCKET_IO_PORT").unwrap_or_else(|_| "3030".to_string());
+        let addr = format!("{}:{}", bind_address, port);
+
+        tracing::info!("Binding Socket.IO server to: {}", addr);
+
+        let listener = tokio::net::TcpListener::bind(&addr)
             .await
             .unwrap();
 
-        info!("Socket.IO server listening on http://0.0.0.0:3030");
+        info!("Socket.IO server listening on http://{}", addr);
         axum::serve(listener, app).await.unwrap();
     });
 

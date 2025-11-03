@@ -30,3 +30,8 @@ image = "0.25"
 robo_rover_lib = { path = "../robo_rover_lib" }
 log = "0.4.28"
 tracing = "0.1.41"
+
+# Security dependencies
+bcrypt = "0.15"
+jsonwebtoken = "9.2"
+governor = "0.6"

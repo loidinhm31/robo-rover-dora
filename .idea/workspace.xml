@@ -61,15 +61,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Update README">
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Minimize voice interfaces">
+      <change afterPath="$PROJECT_DIR$/web_bridge/src/security.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo-control-app/src/types/robo.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/types/robo.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -198,6 +196,7 @@
       <workItem from="1762059527991" duration="10146000" />
       <workItem from="1762070592640" duration="1934000" />
       <workItem from="1762072906607" duration="19763000" />
+      <workItem from="1762134636763" duration="24414000" />
     </task>
     <task id="LOCAL-00001" summary="Try to add rover control">
       <option name="closed" value="true" />
@@ -543,7 +542,31 @@
       <option name="project" value="LOCAL" />
       <updated>1762095507213</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="Update control for camera metrics">
+      <option name="closed" value="true" />
+      <created>1762142692783</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1762142692783</updated>
+    </task>
+    <task id="LOCAL-00045" summary="Update control for camera metrics">
+      <option name="closed" value="true" />
+      <created>1762145182053</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1762145182053</updated>
+    </task>
+    <task id="LOCAL-00046" summary="Minimize voice interfaces">
+      <option name="closed" value="true" />
+      <created>1762173509367</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1762173509367</updated>
+    </task>
+    <option name="localTasksCounter" value="47" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -563,8 +586,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Clear source" />
-    <MESSAGE value="Try to transfer data in websocket with Apache Arrow" />
     <MESSAGE value="Update for arm controller base on LeKiwi" />
     <MESSAGE value="Update for rover controller base on LeKiw" />
     <MESSAGE value="Update app to control LeKiwi" />
@@ -588,7 +609,9 @@
     <MESSAGE value="Implement audio playback" />
     <MESSAGE value="Standardize tracing logs" />
     <MESSAGE value="Update README" />
-    <option name="LAST_COMMIT_MESSAGE" value="Update README" />
+    <MESSAGE value="Update control for camera metrics" />
+    <MESSAGE value="Minimize voice interfaces" />
+    <option name="LAST_COMMIT_MESSAGE" value="Minimize voice interfaces" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">
