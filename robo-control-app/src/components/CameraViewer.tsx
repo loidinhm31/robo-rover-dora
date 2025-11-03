@@ -1,5 +1,24 @@
 import {useEffect, useRef, useState} from "react";
-import {Camera, Eye, EyeOff, Maximize2, Minimize2, Power, Volume2, VolumeX, Target, Layers, Crosshair, XCircle} from "lucide-react";
+import {
+  Activity,
+  Camera,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Crosshair,
+  Eye,
+  EyeOff,
+  Layers,
+  Maximize2,
+  Minimize2,
+  Power,
+  Target,
+  Volume2,
+  VolumeX,
+  X,
+  XCircle
+} from "lucide-react";
 import {Socket} from "socket.io-client";
 import {DetectionFrame, getClassColor, TrackingTelemetry, WebTrackingCommand} from "../types/robo.ts";
 
@@ -43,6 +62,7 @@ interface CameraViewerProps {
 export const CameraViewer: React.FC<CameraViewerProps> = ({
   isConnected,
   socket,
+  onClose,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(new Image());
@@ -56,6 +76,10 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
   const [latestDetections, setLatestDetections] = useState<DetectionFrame | null>(null);
   const [trackedDetections, setTrackedDetections] = useState<DetectionFrame | null>(null);
   const [trackingTelemetry, setTrackingTelemetry] = useState<TrackingTelemetry | null>(null);
+  const [showStats, setShowStats] = useState(true);
+  const [showDetections, setShowDetections] = useState(true);
+  const [showTracking, setShowTracking] = useState(true);
+  const [showControls, setShowControls] = useState(true);
   const [stats, setStats] = useState<StreamStats>({
     video_frames_received: 0,
     video_fps: 0,
@@ -745,94 +769,129 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
             onClick={handleCanvasClick}
         />
 
-        {/* Controls overlay */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
-          <button
-              onClick={toggleStream}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={streamEnabled ? "Stop Stream" : "Start Stream"}
-          >
-            {streamEnabled ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-          </button>
+        {/* Controls overlay with toggle */}
+        <div className="absolute top-4 right-4 flex flex-row gap-2">
+          {/* Control buttons */}
 
-          <button
-              onClick={toggleCamera}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={cameraEnabled ? "Turn Camera Off" : "Turn Camera On"}
-              disabled={!isConnected}
-          >
-            <Power className={`w-5 h-5 ${!cameraEnabled ? "text-red-400" : "text-green-400"}`} />
-          </button>
+            <div className="flex flex-col gap-2">
+              {/* Close button - only show if onClose is provided */}
+              {onClose && (
+                <>
+                  <button
+                      onClick={onClose}
+                      className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg backdrop-blur-md transition border border-red-400/30"
+                      title="Close Camera View"
+                  >
+                    <X className="w-5 h-5 text-red-400" />
+                  </button>
+                  <div className="h-px bg-white/20 my-1" />
+                </>
+              )}
 
-          <button
-              onClick={toggleVideo}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={videoEnabled ? "Disable Video" : "Enable Video"}
-              disabled={!streamEnabled}
-          >
-            <Camera className={`w-5 h-5 ${!videoEnabled ? "text-red-400" : ""}`} />
-          </button>
+              {/* Toggle button for controls */}
+              <button
+                  onClick={() => setShowControls(!showControls)}
+                  className="p-2 bg-black/40 hover:bg-black/60 border border-white/20 rounded-lg backdrop-blur-sm transition shadow-lg"
+                  title={showControls ? "Hide controls" : "Show controls"}
+              >
+                {showControls ? (
+                    <ChevronRight className="w-5 h-5 text-gray-300" />
+                ) : (
+                    <ChevronLeft className="w-5 h-5 text-blue-400" />
+                )}
+              </button>
 
-          <button
-              onClick={toggleAudio}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={audioEnabled ? "Turn Audio Off" : "Turn Audio On"}
-              disabled={!isConnected}
-          >
-            {audioEnabled ? <Volume2 className="w-5 h-5 text-green-400" /> : <VolumeX className="w-5 h-5 text-red-400" />}
-          </button>
+              {showControls && (
+              <>
+                <button
+                    onClick={toggleStream}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title={streamEnabled ? "Stop Stream" : "Start Stream"}
+                >
+                  {streamEnabled ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                </button>
 
-          <button
-              onClick={cycleViewMode}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition group relative"
-              title="Cycle View Mode"
-          >
-            <Layers className={`w-5 h-5 ${
-              viewMode === "camera" ? "text-blue-400" :
-              viewMode === "camera_with_detections" ? "text-green-400" :
-              "text-purple-400"
-            }`} />
-            <span className="absolute right-full mr-2 px-2 py-1 bg-black/80 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
-              {viewMode === "camera" && "Camera Only"}
-              {viewMode === "camera_with_detections" && "Camera + Detections"}
-              {viewMode === "detections_only" && "Detections Only"}
-            </span>
-          </button>
+                <button
+                    onClick={toggleCamera}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title={cameraEnabled ? "Turn Camera Off" : "Turn Camera On"}
+                    disabled={!isConnected}
+                >
+                  <Power className={`w-5 h-5 ${!cameraEnabled ? "text-red-400" : "text-green-400"}`} />
+                </button>
 
-          {/* Tracking controls divider */}
-          <div className="h-px bg-white/20 my-1" />
+                <button
+                    onClick={toggleVideo}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title={videoEnabled ? "Disable Video" : "Enable Video"}
+                    disabled={!streamEnabled}
+                >
+                  <Camera className={`w-5 h-5 ${!videoEnabled ? "text-red-400" : ""}`} />
+                </button>
 
-          <button
-              onClick={toggleTracking}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title={trackingTelemetry?.state !== "Disabled" ? "Disable Tracking" : "Enable Tracking"}
-              disabled={!isConnected}
-          >
-            <Crosshair className={`w-5 h-5 ${
-              trackingTelemetry?.state === "Tracking" ? "text-green-400" :
-              trackingTelemetry?.state === "Enabled" ? "text-yellow-400" :
-              trackingTelemetry?.state === "TargetLost" ? "text-red-400" :
-              "text-gray-400"
-            }`} />
-          </button>
+                <button
+                    onClick={toggleAudio}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title={audioEnabled ? "Turn Audio Off" : "Turn Audio On"}
+                    disabled={!isConnected}
+                >
+                  {audioEnabled ? <Volume2 className="w-5 h-5 text-green-400" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+                </button>
 
-          {trackingTelemetry?.target && (
-            <button
-                onClick={clearTrackingTarget}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-                title="Clear Tracking Target"
-            >
-              <XCircle className="w-5 h-5 text-red-400" />
-            </button>
-          )}
+                <button
+                    onClick={cycleViewMode}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition group relative"
+                    title="Cycle View Mode"
+                >
+                  <Layers className={`w-5 h-5 ${
+                      viewMode === "camera" ? "text-blue-400" :
+                          viewMode === "camera_with_detections" ? "text-green-400" :
+                              "text-purple-400"
+                  }`} />
+                  <span className="absolute right-full mr-2 px-2 py-1 bg-black/80 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                  {viewMode === "camera" && "Camera Only"}
+                    {viewMode === "camera_with_detections" && "Camera + Detections"}
+                    {viewMode === "detections_only" && "Detections Only"}
+                </span>
+                </button>
 
-          <button
-              onClick={toggleFullscreen}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
-              title="Toggle Fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-          </button>
+                {/* Tracking controls divider */}
+                <div className="h-px bg-white/20 my-1" />
+
+                <button
+                    onClick={toggleTracking}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title={trackingTelemetry?.state !== "Disabled" ? "Disable Tracking" : "Enable Tracking"}
+                    disabled={!isConnected}
+                >
+                  <Crosshair className={`w-5 h-5 ${
+                      trackingTelemetry?.state === "Tracking" ? "text-green-400" :
+                          trackingTelemetry?.state === "Enabled" ? "text-yellow-400" :
+                              trackingTelemetry?.state === "TargetLost" ? "text-red-400" :
+                                  "text-gray-400"
+                  }`} />
+                </button>
+
+                {trackingTelemetry?.target && (
+                    <button
+                        onClick={clearTrackingTarget}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                        title="Clear Tracking Target"
+                    >
+                      <XCircle className="w-5 h-5 text-red-400" />
+                    </button>
+                )}
+
+                <button
+                    onClick={toggleFullscreen}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
+                    title="Toggle Fullscreen"
+                >
+                  {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                </button>
+              </>
+              )}
+            </div>
         </div>
 
         {/* View mode indicator badge */}
@@ -853,22 +912,68 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
 
         {/* Stats overlay */}
         {streamEnabled && (
-            <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white">
-              <div className="space-y-1">
-                <div>Video: {stats.video_frames_received} frames | {stats.video_fps.toFixed(1)} fps</div>
-                <div>Bitrate: {stats.video_bitrate_kbps.toFixed(0)} kbps</div>
-                <div>Audio: {stats.audio_frames_received} frames | Buffer: {stats.audio_buffer_ms.toFixed(0)} ms</div>
-                {viewMode !== "camera" && (
-                  <>
-                    <div>Detections: {stats.detections_received} frames | {stats.detection_fps.toFixed(1)} fps</div>
-                    <div>Objects: {stats.total_objects_detected} detected</div>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
-                  <span>{isConnected ? "Connected" : "Disconnected"}</span>
+            <div className="absolute bottom-4 left-4 flex items-end">
+              {/* Stats panel */}
+              {showStats && (
+                <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-xs text-white shadow-lg">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    {/* Video stats */}
+                    <div className="flex items-center gap-1.5">
+                      <Camera className="w-3 h-3 text-blue-400" />
+                      <span className="text-gray-400">Video:</span>
+                    </div>
+                    <span className="font-mono text-blue-300">{stats.video_fps.toFixed(1)} fps</span>
+
+                    <span className="text-gray-400 col-start-1">Bitrate:</span>
+                    <span className="font-mono text-blue-300">{stats.video_bitrate_kbps.toFixed(0)} kbps</span>
+
+                    {/* Audio stats */}
+                    <div className="flex items-center gap-1.5 col-start-1">
+                      <Volume2 className="w-3 h-3 text-green-400" />
+                      <span className="text-gray-400">Audio:</span>
+                    </div>
+                    <span className="font-mono text-green-300">{stats.audio_frames_received} frames</span>
+
+                    <span className="text-gray-400 col-start-1">Buffer:</span>
+                    <span className="font-mono text-green-300">{stats.audio_buffer_ms.toFixed(0)} ms</span>
+
+                    {/* Detection stats - only show when detections are active */}
+                    {viewMode !== "camera" && (
+                      <>
+                        <div className="flex items-center gap-1.5 col-start-1">
+                          <Target className="w-3 h-3 text-purple-400" />
+                          <span className="text-gray-400">Detect:</span>
+                        </div>
+                        <span className="font-mono text-purple-300">{stats.detection_fps.toFixed(1)} fps</span>
+
+                        <span className="text-gray-400 col-start-1">Objects:</span>
+                        <span className="font-mono text-purple-300">{stats.total_objects_detected}</span>
+                      </>
+                    )}
+
+                    {/* Connection status */}
+                    <div className="col-span-2 flex items-center gap-2 pt-1 border-t border-white/10 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+                      <span className={isConnected ? "text-green-400" : "text-red-400"}>
+                        {isConnected ? "Connected" : "Disconnected"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Toggle button */}
+              <button
+                onClick={() => setShowStats(!showStats)}
+                className="p-2 bg-black/40 hover:bg-black/60 border border-white/20 rounded-lg backdrop-blur-sm transition shadow-lg"
+                title={showStats ? "Hide stats" : "Show stats"}
+              >
+                {showStats ? (
+                  <ChevronDown className="w-4 h-4 text-gray-300" />
+                ) : (
+                  <Activity className="w-4 h-4 text-blue-400" />
+                )}
+              </button>
             </div>
         )}
 
@@ -885,88 +990,124 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
 
         {/* Tracking status panel */}
         {trackingTelemetry && trackingTelemetry.state !== "Disabled" && (
-            <div className="absolute top-20 right-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white max-w-xs">
-              <div className="flex items-center gap-2 mb-2">
-                <Crosshair className={`w-4 h-4 ${
-                  trackingTelemetry.state === "Tracking" ? "text-green-400" :
-                  trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
-                  "text-red-400"
-                }`} />
-                <span className="font-semibold">Tracking Status</span>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-300">State:</span>
-                  <span className={`font-medium ${
-                    trackingTelemetry.state === "Tracking" ? "text-green-400" :
-                    trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
-                    "text-red-400"
-                  }`}>{trackingTelemetry.state}</span>
-                </div>
-                {trackingTelemetry.target && (
-                  <>
-                    <div className="h-px bg-white/20 my-1" />
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-gray-300">ID:</span>
-                      <span className="font-mono">{trackingTelemetry.target.tracking_id}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-gray-300">Class:</span>
-                      <span style={{ color: getClassColor(trackingTelemetry.target.class_name) }}>
-                        {trackingTelemetry.target.class_name}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-gray-300">Confidence:</span>
-                      <span>{(trackingTelemetry.target.confidence * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-gray-300">Lost Frames:</span>
-                      <span className={trackingTelemetry.target.lost_frames > 10 ? "text-red-400" : ""}>
-                        {trackingTelemetry.target.lost_frames}
-                      </span>
-                    </div>
-                  </>
+            <div className="absolute bottom-4 right-14 flex items-start">
+              {/* Tracking panel */}
+              {/* Toggle button */}
+              <button
+                  onClick={() => setShowTracking(!showTracking)}
+                  className="p-2 bg-black/40 hover:bg-black/60 border border-white/20 rounded-lg backdrop-blur-sm transition shadow-lg"
+                  title={showTracking ? "Hide tracking status" : "Show tracking status"}
+              >
+                {showTracking ? (
+                    <ChevronDown className="w-4 h-4 text-gray-300" />
+                ) : (
+                    <Crosshair className="w-4 h-4 text-yellow-400" />
                 )}
-                <div className="mt-2 text-gray-400 italic text-xs">
-                  Click on detected objects to track
+              </button>
+
+              {showTracking && (
+                <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-xs text-white max-w-xs shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Crosshair className={`w-4 h-4 ${
+                      trackingTelemetry.state === "Tracking" ? "text-green-400" :
+                      trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
+                      "text-red-400"
+                    }`} />
+                    <span className="font-semibold">Tracking Status</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-300">State:</span>
+                      <span className={`font-medium ${
+                        trackingTelemetry.state === "Tracking" ? "text-green-400" :
+                        trackingTelemetry.state === "Enabled" ? "text-yellow-400" :
+                        "text-red-400"
+                      }`}>{trackingTelemetry.state}</span>
+                    </div>
+                    {trackingTelemetry.target && (
+                      <>
+                        <div className="h-px bg-white/20 my-1" />
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-300">ID:</span>
+                          <span className="font-mono">{trackingTelemetry.target.tracking_id}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-300">Class:</span>
+                          <span style={{ color: getClassColor(trackingTelemetry.target.class_name) }}>
+                            {trackingTelemetry.target.class_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-300">Confidence:</span>
+                          <span>{(trackingTelemetry.target.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-300">Lost Frames:</span>
+                          <span className={trackingTelemetry.target.lost_frames > 10 ? "text-red-400" : ""}>
+                            {trackingTelemetry.target.lost_frames}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="mt-2 text-gray-400 italic text-xs">
+                      Click on detected objects to track
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
         )}
 
-        {/* Detection list panel - only show when detections are visible */}
+        {/* Detection list panel */}
         {viewMode !== "camera" && (trackedDetections || latestDetections) && (
-            <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md p-3 rounded-lg text-xs text-white max-w-xs">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-green-400" />
-                <span className="font-semibold">Detected Objects ({(trackedDetections || latestDetections)?.detections.length || 0})</span>
-              </div>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {(trackedDetections || latestDetections)?.detections.map((detection, index) => {
-                  const isTracked = trackingTelemetry?.target?.tracking_id === detection.tracking_id;
-                  return (
-                    <div
-                      key={index}
-                      className={`flex items-center justify-between gap-2 py-1 px-2 rounded cursor-pointer transition ${
-                        isTracked ? "bg-green-500/30" : "bg-white/10 hover:bg-white/20"
-                      }`}
-                      style={{ borderLeft: `3px solid ${isTracked ? "#00ff00" : getClassColor(detection.class_name)}` }}
-                      onClick={() => detection.tracking_id && selectTrackingTarget(detection.tracking_id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {detection.tracking_id !== undefined && (
-                          <span className="font-mono text-xs bg-white/20 px-1 rounded">
-                            {detection.tracking_id}
-                          </span>
-                        )}
-                        <span className="font-medium">{detection.class_name}</span>
-                      </div>
-                      <span className="text-gray-300">{(detection.confidence * 100).toFixed(0)}%</span>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="absolute top-4 left-4 flex items-start">
+              {/* Detection panel */}
+              {showDetections && (
+                <div className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-xs text-white max-w-xs shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-4 h-4 text-green-400" />
+                    <span className="font-semibold">Detected Objects ({(trackedDetections || latestDetections)?.detections.length || 0})</span>
+                  </div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded">
+                    {(trackedDetections || latestDetections)?.detections.map((detection, index) => {
+                      const isTracked = trackingTelemetry?.target?.tracking_id === detection.tracking_id;
+                      return (
+                        <div
+                          key={index}
+                          className={`flex items-center justify-between gap-2 py-1 px-2 rounded cursor-pointer transition ${
+                            isTracked ? "bg-green-500/30" : "bg-white/10 hover:bg-white/20"
+                          }`}
+                          style={{ borderLeft: `3px solid ${isTracked ? "#00ff00" : getClassColor(detection.class_name)}` }}
+                          onClick={() => detection.tracking_id && selectTrackingTarget(detection.tracking_id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {detection.tracking_id !== undefined && (
+                              <span className="font-mono text-xs bg-white/20 px-1 rounded">
+                                {detection.tracking_id}
+                              </span>
+                            )}
+                            <span className="font-medium">{detection.class_name}</span>
+                          </div>
+                          <span className="text-gray-300">{(detection.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Toggle button */}
+              <button
+                onClick={() => setShowDetections(!showDetections)}
+                className="p-2 bg-black/40 hover:bg-black/60 border border-white/20 rounded-lg backdrop-blur-sm transition shadow-lg"
+                title={showDetections ? "Hide detected objects" : "Show detected objects"}
+              >
+                {showDetections ? (
+                  <ChevronUp className="w-4 h-4 text-gray-300" />
+                ) : (
+                  <Target className="w-4 h-4 text-green-400" />
+                )}
+              </button>
             </div>
         )}
       </div>
