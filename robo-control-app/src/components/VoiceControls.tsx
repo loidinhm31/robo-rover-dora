@@ -1,13 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Socket } from "socket.io-client";
-import { Mic, MicOff, Volume2, Send, Radio, Headphones, AlertCircle, Shield, ChevronDown } from "lucide-react";
-
-// Declare Tauri global for TypeScript
-declare global {
-  interface Window {
-    __TAURI__?: any;
-  }
-}
+import { Mic, Volume2, Send, Radio, Headphones, AlertCircle, Shield, ChevronDown } from "lucide-react";
+import { DraggablePanel } from "./organisms";
+import { InputWithAction } from "./molecules";
+import { IconBadge, StatusBadge } from "./atoms";
 
 interface VoiceControlsProps {
   socket: Socket | null;
@@ -29,16 +25,10 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   // Voice mode state
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
-  const [permissionDenied, setPermissionDenied] = useState(false);
   const [permissionError, setPermissionError] = useState<string>("");
 
-  // Drag and visibility state
-  const [isVisible, setIsVisible] = useState(false); // Start minimized
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [hasMoved, setHasMoved] = useState(false);
+  // Visibility state
+  const [isVisible, setIsVisible] = useState(false);
 
   // Audio refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -48,32 +38,20 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
   const animationFrameRef = useRef<number | null>(null);
 
   // Send TTS command
-  const sendTTS = useCallback(() => {
-    if (!isConnected || !socket || !ttsText.trim()) {
+  const sendTTS = useCallback((text: string) => {
+    if (!isConnected || !socket || !text.trim()) {
       onLog?.("Cannot send TTS - not connected or empty text", "error");
       return;
     }
 
     setIsSendingTTS(true);
-    socket.emit("tts_command", { text: ttsText.trim() });
-    onLog?.(`TTS: "${ttsText.trim()}"`, "success");
+    socket.emit("tts_command", { text: text.trim() });
+    onLog?.(`TTS: "${text.trim()}"`, "success");
 
     setTimeout(() => {
-      setTtsText("");
       setIsSendingTTS(false);
     }, 300);
-  }, [isConnected, socket, ttsText, onLog]);
-
-  // Handle Enter key for TTS
-  const handleTTSKeyPress = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendTTS();
-      }
-    },
-    [sendTTS]
-  );
+  }, [isConnected, socket, onLog]);
 
   // Visualize audio level
   const visualizeAudioLevel = useCallback(() => {
@@ -91,19 +69,15 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
 
   // Request microphone permission
   const requestMicrophonePermission = useCallback(async (): Promise<MediaStream | null> => {
-    setPermissionDenied(false);
     setPermissionError("");
 
     try {
-
-      // Check if we're in a secure context
       if (!window.isSecureContext && window.location.hostname !== "localhost") {
         setPermissionError("Microphone requires HTTPS or localhost");
         onLog?.("Microphone requires HTTPS or localhost", "error");
         return null;
       }
 
-      // Request microphone with optimal settings
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -120,17 +94,14 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
 
       if (error instanceof Error) {
         if (error.name === "NotAllowedError") {
-          setPermissionDenied(true);
           setPermissionError(
-              "Microphone permission denied. Please allow microphone access in your browser settings."
+            "Microphone permission denied. Please allow microphone access in your browser settings."
           );
         } else if (error.name === "NotFoundError") {
           setPermissionError("No microphone found. Please connect a microphone.");
           onLog?.("No microphone device found", "error");
         } else if (error.name === "NotReadableError") {
-          setPermissionError(
-            "Microphone is already in use by another application."
-          );
+          setPermissionError("Microphone is already in use by another application.");
           onLog?.("Microphone already in use", "error");
         } else {
           setPermissionError(`Microphone error: ${error.message}`);
@@ -142,7 +113,7 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
     }
   }, [onLog]);
 
-  // Create AudioWorklet processor with configurable buffer size
+  // Create AudioWorklet processor
   const createAudioWorkletProcessor = useCallback((bufferSize: number, processorName: string) => {
     const processorCode = `
       class ${processorName} extends AudioWorkletProcessor {
@@ -163,13 +134,11 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
               this.bufferIndex++;
 
               if (this.bufferIndex >= this.bufferSize) {
-                // Send buffer to main thread
                 this.port.postMessage({
                   type: 'audio-data',
                   audioData: new Float32Array(this.buffer)
                 });
 
-                // Reset buffer
                 this.bufferIndex = 0;
                 this.buffer.fill(0);
               }
@@ -204,67 +173,30 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
       analyser.fftSize = 256;
       source.connect(analyser);
 
-      // Create and load AudioWorklet processor (4096 buffer for voice commands)
       const processorUrl = createAudioWorkletProcessor(4096, "VoiceCommandProcessor");
+      await audioContext.audioWorklet.addModule(processorUrl);
 
-      try {
-        await audioContext.audioWorklet.addModule(processorUrl);
-        onLog?.("Voice command AudioWorklet loaded", "success");
+      const workletNode = new AudioWorkletNode(audioContext, "VoiceCommandProcessor");
+      source.connect(workletNode);
 
-        // Create AudioWorkletNode
-        const workletNode = new AudioWorkletNode(
-          audioContext,
-          "VoiceCommandProcessor"
-        );
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      mediaStreamRef.current = stream;
+      setVoiceMode("voice_commands");
+      visualizeAudioLevel();
 
-        // Handle messages from the audio worklet
-        workletNode.port.onmessage = (event) => {
-          if (event.data.type === "audio-data" && socket?.connected) {
-            const audioData = event.data.audioData;
-
-            // Send to speech recognition
-            socket.emit("voice_command_audio", {
-              audio_data: Array.from(audioData),
-            });
-          }
-        };
-
-        source.connect(workletNode);
-
-        audioContextRef.current = audioContext;
-        processorRef.current = workletNode as any;
-        analyserRef.current = analyser;
-        mediaStreamRef.current = stream;
-
-        setVoiceMode("voice_commands");
-        onLog?.("Voice command mode started - speak your commands", "success");
-        visualizeAudioLevel();
-
-        // Clean up the blob URL
-        URL.revokeObjectURL(processorUrl);
-      } catch (workletError) {
-        onLog?.(`Failed to load AudioWorklet: ${workletError}`, "warning");
-        // Fallback: AudioWorklet not supported, will fail gracefully
-        stream.getTracks().forEach((track) => track.stop());
-        audioContext.close();
-      }
+      onLog?.("Voice commands started", "success");
     } catch (error) {
-      console.error("Failed to start voice commands:", error);
-      onLog?.("Failed to initialize voice command mode", "error");
+      console.error("Voice command error:", error);
+      onLog?.("Failed to start voice commands", "error");
+      stream.getTracks().forEach((track) => track.stop());
     }
-  }, [
-    isConnected,
-    socket,
-    onLog,
-    requestMicrophonePermission,
-    visualizeAudioLevel,
-    createAudioWorkletProcessor,
-  ]);
+  }, [isConnected, socket, onLog, requestMicrophonePermission, createAudioWorkletProcessor, visualizeAudioLevel]);
 
   // Start walkie-talkie mode
   const startWalkieTalkie = useCallback(async () => {
     if (!isConnected || !socket) {
-      onLog?.("Cannot start voice commands - not connected", "error");
+      onLog?.("Cannot start walkie-talkie - not connected", "error");
       return;
     }
 
@@ -273,78 +205,41 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
 
     try {
       const audioContext = new AudioContext({ sampleRate: 16000 });
-
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       source.connect(analyser);
 
-      // Create and load AudioWorklet processor (1024 buffer for low-latency walkie-talkie)
-      const processorUrl = createAudioWorkletProcessor(1024, "WalkieTalkieProcessor");
-      try {
-        await audioContext.audioWorklet.addModule(processorUrl);
-        onLog?.("Walkie-talkie AudioWorklet loaded", "success");
+      const processorUrl = createAudioWorkletProcessor(800, "WalkieTalkieProcessor");
+      await audioContext.audioWorklet.addModule(processorUrl);
 
-        // Create AudioWorkletNode
-        const workletNode = new AudioWorkletNode(
-          audioContext,
-          "WalkieTalkieProcessor"
-        );
+      const workletNode = new AudioWorkletNode(audioContext, "WalkieTalkieProcessor");
+      workletNode.port.onmessage = (event) => {
+        if (event.data.type === "audio-data") {
+          socket.emit("audio_stream", { audio_data: Array.from(event.data.audioData) });
+        }
+      };
 
-        // Handle messages from the audio worklet
-        workletNode.port.onmessage = (event) => {
-          if (event.data.type === "audio-data" && socket?.connected) {
-            const audioData = event.data.audioData;
+      source.connect(workletNode);
 
-            // Send to audio playback
-            socket.emit("audio_stream", {
-              audio_data: Array.from(audioData),
-            });
-          }
-        };
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      mediaStreamRef.current = stream;
+      setVoiceMode("walkie_talkie");
+      visualizeAudioLevel();
 
-        source.connect(workletNode);
-
-        audioContextRef.current = audioContext;
-        processorRef.current = workletNode as any;
-        analyserRef.current = analyser;
-        mediaStreamRef.current = stream;
-
-        setVoiceMode("walkie_talkie");
-        onLog?.("Walkie-talkie mode started - speak to rover", "success");
-        visualizeAudioLevel();
-
-        // // Clean up the blob URL
-        // URL.revokeObjectURL(processorUrl);
-      } catch (workletError) {
-        onLog?.(`Failed to load AudioWorklet: ${workletError}`, "warning");
-        // Fallback: AudioWorklet not supported, will fail gracefully
-        stream.getTracks().forEach((track) => track.stop());
-        audioContext.close();
-      }
+      onLog?.("Walkie-talkie started", "success");
     } catch (error) {
-      console.error("Failed to start walkie-talkie:", error);
-      onLog?.("Failed to initialize walkie-talkie mode", "error");
+      console.error("Walkie-talkie error:", error);
+      onLog?.("Failed to start walkie-talkie", "error");
+      stream.getTracks().forEach((track) => track.stop());
     }
-  }, [
-    isConnected,
-    socket,
-    onLog,
-    requestMicrophonePermission,
-    visualizeAudioLevel,
-    createAudioWorkletProcessor,
-  ]);
+  }, [isConnected, socket, onLog, requestMicrophonePermission, createAudioWorkletProcessor, visualizeAudioLevel]);
 
-  // Stop all voice modes
+  // Stop current voice mode
   const stopVoiceMode = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
     }
 
     if (audioContextRef.current) {
@@ -358,316 +253,180 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
     }
 
     analyserRef.current = null;
-    setAudioLevel(0);
-
-    // Store previous mode for logging
-    const previousMode = voiceMode;
-
-    // Update state first
+    processorRef.current = null;
     setVoiceMode("idle");
+    setAudioLevel(0);
+    onLog?.("Voice mode stopped", "info");
+  }, [onLog]);
 
-    // Defer log to avoid "Cannot update component during render" error
-    // This ensures the log happens after React completes the state update
-    setTimeout(() => {
-      if (previousMode === "voice_commands") {
-        onLog?.("Voice command mode stopped", "info");
-      } else if (previousMode === "walkie_talkie") {
-        onLog?.("Walkie-talkie mode stopped", "info");
-      }
-    }, 0);
-  }, [voiceMode, onLog]);
-
-  // Cleanup on disconnect
+  // Cleanup on unmount
   useEffect(() => {
-    if (!isConnected && voiceMode !== "idle") {
+    return () => {
       stopVoiceMode();
-    }
-  }, [isConnected, voiceMode, stopVoiceMode]);
-
-  // Cleanup on unmount only
-  useEffect(() => {
-    return () => {
-      // Cleanup function that runs only on unmount
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (processorRef.current) {
-        processorRef.current.disconnect();
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
     };
-  }, []);
+  }, [stopVoiceMode]);
 
-  // Handle drag start
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Allow dragging from drag-handle areas
-    const target = e.target as HTMLElement;
-    if (target.closest('.drag-handle')) {
-      setIsDragging(true);
-      setHasMoved(false);
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-      setDragStart({
-        x: e.clientX,
-        y: e.clientY,
-      });
-    }
-  }, []);
-
-  // Handle dragging
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        // Check if mouse has moved more than 5 pixels (drag threshold)
-        const dx = Math.abs(e.clientX - dragStart.x);
-        const dy = Math.abs(e.clientY - dragStart.y);
-        if (dx > 5 || dy > 5) {
-          setHasMoved(true);
-        }
-
-        setPosition({
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y,
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, dragOffset, dragStart]);
-
-  // Calculate position style - only apply fixed positioning if dragged
-  const isDragged = position.x !== 0 || position.y !== 0;
-  const positionStyle = isDragged ? {
-    position: 'fixed' as const,
-    left: `${position.x}px`,
-    top: `${position.y}px`,
-    transform: 'none',
-    zIndex: 40,
-  } : {};
-
-  // Collapsed indicator
-  if (!isVisible) {
-    return (
-      <div
-        style={isDragged ? positionStyle : {}}
-        onMouseDown={handleMouseDown}
-        className={`${isDragged ? '' : 'fixed top-20 right-6'} z-40`}
-      >
-        <button
-          onClick={() => {
-            // Only expand if we didn't drag
-            if (!hasMoved) {
-              setIsVisible(true);
-            }
-          }}
-          className="group flex items-center gap-2 px-3 py-2 glass-card border border-slate-700/50 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 drag-handle cursor-move"
-        >
-          <Volume2 className="w-4 h-4 text-orange-400" />
-          <span className="text-xs font-bold text-white uppercase tracking-wide">Voice</span>
-          <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-300" />
-        </button>
-      </div>
-    );
-  }
+  // Collapsed content
+  const collapsedContent = (
+    <button className="group flex items-center gap-2 px-3 py-1.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/50 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 drag-handle cursor-move">
+      <Volume2 className="w-3.5 h-3.5 text-orange-400" />
+      <span className="text-[10px] font-bold text-white uppercase tracking-wide">Voice</span>
+      <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-300" />
+    </button>
+  );
 
   return (
-    <div
-      className={`glass-card rounded-2xl shadow-xl p-3 space-y-2 ${isDragging ? 'cursor-grabbing' : ''}`}
-      style={positionStyle}
-      onMouseDown={handleMouseDown}
+    <DraggablePanel
+      title="VOICE COMMUNICATION"
+      isVisible={isVisible}
+      onToggleVisible={() => setIsVisible(!isVisible)}
+      initialPosition={{ x: 15, y: 55 }}
+      collapsedContent={collapsedContent}
+      className="max-w-md"
+      contentClassName="flex-1 overflow-y-auto custom-scrollbar p-0"
+      showControls={true}
     >
-      <div className="drag-handle flex items-center justify-between cursor-move">
-        <div className="flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-orange-400" />
-          <h2 className="text-lg font-bold text-white">VOICE COMMUNICATION</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isConnected && (
-            <span className="text-xs text-yellow-400 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Offline
-            </span>
-          )}
-          <button
-            onClick={() => setIsVisible(false)}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 transition-all"
-            title="Minimize voice controls"
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Permission Error */}
-      {permissionDenied && (
-        <div className="rounded-lg p-2 border-l-2 border-red-500 bg-red-500/10">
-          <div className="flex items-start gap-2">
-            <Shield className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-xs text-red-300 font-semibold">Mic Access Denied</p>
-              <p className="text-xs text-white/70 mt-0.5">{permissionError}</p>
-            </div>
+      <div className="space-y-3">
+        {/* Connection Warning */}
+        {!isConnected && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs text-yellow-400">Not connected to server</span>
           </div>
-        </div>
-      )}
+        )}
 
-      {permissionError && !permissionDenied && (
-        <div className="rounded-lg p-2 flex items-center gap-2 text-yellow-300 border border-yellow-400/30 bg-yellow-500/5">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span className="text-xs">{permissionError}</span>
-        </div>
-      )}
+        {/* Permission Error */}
+        {permissionError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-red-400" />
+            <span className="text-xs text-red-400">{permissionError}</span>
+          </div>
+        )}
 
-      {/* Type 1: Text-to-Speech */}
-      <div className="glass-card-light rounded-xl p-2.5">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Volume2 className="w-4 h-4 text-orange-300" />
-          <h3 className="text-sm font-semibold text-white">TTS</h3>
-        </div>
-
-        <div className="flex gap-1.5">
-          <input
-            type="text"
+        {/* TTS Section */}
+        <div className="glass-card-light rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Volume2 className="w-4 h-4 text-orange-400" />
+            <h3 className="text-sm font-semibold text-white">Text-to-Speech</h3>
+          </div>
+          <InputWithAction
             value={ttsText}
-            onChange={(e) => setTtsText(e.target.value)}
-            onKeyDown={handleTTSKeyPress}
-            placeholder="Type to speak..."
-            disabled={!isConnected}
-            className="flex-1 px-2.5 py-2 text-sm bg-black/30 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            onChange={setTtsText}
+            onSubmit={sendTTS}
+            placeholder="Type message to speak..."
+            icon={Send}
+            disabled={!isConnected || isSendingTTS}
           />
-          <button
-            onClick={sendTTS}
-            disabled={!isConnected || !ttsText.trim() || isSendingTTS}
-            className="px-3 py-2 btn-gradient-orange rounded-lg font-semibold flex items-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
-          >
-            <Send className={`w-4 h-4 ${isSendingTTS ? "animate-pulse" : ""}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Type 2: Voice Commands */}
-      <div className="glass-card-light rounded-xl p-2.5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <Headphones className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-semibold text-white">Voice Commands</h3>
-          </div>
-          {voiceMode === "voice_commands" && (
-            <span className="text-xs text-blue-400 font-mono">
-              {(audioLevel * 100).toFixed(0)}%
-            </span>
-          )}
         </div>
 
-        <button
-          onClick={voiceMode === "voice_commands" ? stopVoiceMode : startVoiceCommands}
-          disabled={!isConnected || voiceMode === "walkie_talkie"}
-          className={`w-full py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            voiceMode === "voice_commands"
-              ? "bg-gradient-to-br from-red-600 to-orange-500 text-white animate-pulse"
-              : "btn-gradient-cyan hover:scale-105"
-          } active:scale-95`}
-        >
-          {voiceMode === "voice_commands" ? (
-            <>
-              <MicOff className="w-4 h-4" />
-              Stop
-            </>
-          ) : (
-            <>
-              <Mic className="w-4 h-4" />
-              Start
-            </>
-          )}
-        </button>
-
-        {voiceMode === "voice_commands" && (
-          <div className="mt-2 space-y-1">
-            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 transition-all duration-100"
-                style={{ width: `${audioLevel * 100}%` }}
-              />
-            </div>
-            <p className="text-xs text-blue-300/80 flex items-center gap-1">
-              <Headphones className="w-3 h-3" />
-              Listening...
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Type 3: Walkie-Talkie */}
-      <div className="glass-card-light rounded-xl p-2.5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
+        {/* Voice Modes Section */}
+        <div className="glass-card-light rounded-xl p-3 space-y-3">
+          <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-green-400" />
-            <h3 className="text-sm font-semibold text-white">Walkie-Talkie</h3>
+            <h3 className="text-sm font-semibold text-white">Voice Modes</h3>
+            {voiceMode !== "idle" && (
+              <IconBadge
+                icon={voiceMode === "voice_commands" ? Mic : Headphones}
+                label={voiceMode === "voice_commands" ? "Commands" : "Walkie"}
+                color="text-green-400"
+                size="sm"
+                animated
+              />
+            )}
           </div>
-          {voiceMode === "walkie_talkie" && (
-            <span className="text-xs text-green-400 font-mono">
-              {(audioLevel * 100).toFixed(0)}%
-            </span>
+
+          {/* Voice Commands */}
+          <div className="glass-card-light rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-semibold text-white">Voice Commands</span>
+              </div>
+              <StatusBadge
+                variant={voiceMode === "voice_commands" ? "online" : "offline"}
+                animated={voiceMode === "voice_commands"}
+              />
+            </div>
+            <p className="text-xs text-white/60">Use voice to control the rover</p>
+            <button
+              onClick={() => {
+                if (voiceMode === "voice_commands") {
+                  stopVoiceMode();
+                } else {
+                  if (voiceMode !== "idle") stopVoiceMode();
+                  startVoiceCommands();
+                }
+              }}
+              disabled={!isConnected}
+              className={`w-full py-2 px-4 rounded-lg font-semibold transition-all duration-300 ${
+                voiceMode === "voice_commands"
+                  ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {voiceMode === "voice_commands" ? "Stop" : "Start"}
+            </button>
+          </div>
+
+          {/* Walkie-Talkie */}
+          <div className="glass-card-light rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-semibold text-white">Walkie-Talkie</span>
+              </div>
+              <StatusBadge
+                variant={voiceMode === "walkie_talkie" ? "online" : "offline"}
+                animated={voiceMode === "walkie_talkie"}
+              />
+            </div>
+            <p className="text-xs text-white/60">Stream audio directly to rover</p>
+            <button
+              onClick={() => {
+                if (voiceMode === "walkie_talkie") {
+                  stopVoiceMode();
+                } else {
+                  if (voiceMode !== "idle") stopVoiceMode();
+                  startWalkieTalkie();
+                }
+              }}
+              disabled={!isConnected}
+              className={`w-full py-2 px-4 rounded-lg font-semibold transition-all duration-300 ${
+                voiceMode === "walkie_talkie"
+                  ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {voiceMode === "walkie_talkie" ? "Stop" : "Start"}
+            </button>
+          </div>
+
+          {/* Audio Level Visualization */}
+          {voiceMode !== "idle" && (
+            <div className="mt-2">
+              <div className="flex justify-between text-xs text-white/60 mb-1">
+                <span>Audio Level</span>
+                <span>{(audioLevel * 100).toFixed(0)}%</span>
+              </div>
+              <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-100"
+                  style={{ width: `${audioLevel * 100}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
 
-        <button
-          disabled={!isConnected || voiceMode === "voice_commands"}
-          onClick={voiceMode === "walkie_talkie" ? stopVoiceMode : startWalkieTalkie}
-          className={`w-full py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            voiceMode === "walkie_talkie"
-              ? "bg-gradient-to-br from-red-600 to-orange-500 text-white animate-pulse"
-              : "btn-gradient-green hover:scale-105"
-          } active:scale-95`}
-        >
-          {voiceMode === "walkie_talkie" ? (
-            <>
-              <MicOff className="w-4 h-4" />
-              Stop
-            </>
-          ) : (
-            <>
-              <Mic className="w-4 h-4" />
-              Talk
-            </>
-          )}
-        </button>
-
-        {voiceMode === "walkie_talkie" && (
-          <div className="mt-2 space-y-1">
-            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-100"
-                style={{ width: `${audioLevel * 100}%` }}
-              />
-            </div>
-            <p className="text-xs text-green-300/80 flex items-center gap-1">
-              <Radio className="w-3 h-3" />
-              Streaming...
-            </p>
-          </div>
-        )}
+        {/* Help Text */}
+        <div className="text-xs text-white/40 space-y-1">
+          <p>• <strong>Voice Commands:</strong> Say "move forward", "turn left", "track person", etc.</p>
+          <p>• <strong>Walkie-Talkie:</strong> Direct audio streaming for communication</p>
+          <p>• <strong>TTS:</strong> Type text for rover to speak</p>
+        </div>
       </div>
-    </div>
+    </DraggablePanel>
   );
 };
+
+export default VoiceControls;

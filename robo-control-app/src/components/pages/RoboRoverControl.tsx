@@ -13,8 +13,6 @@ import {
   Activity,
   AlertTriangle,
   Camera,
-  ChevronDown,
-  ChevronUp,
   Eye,
   EyeOff,
   Gauge,
@@ -31,7 +29,6 @@ import {
   ArmTelemetry,
   ConnectionState,
   createHomePosition,
-  JOINT_LIMITS,
   JointPositions,
   LogEntry,
   RoverTelemetry,
@@ -41,7 +38,10 @@ import {
   validateJointPositions,
   WebArmCommand,
   WebRoverCommand,
-} from "../../types/robo.ts";
+} from "../../types";
+import { IconBadge } from "../atoms";
+import { CollapsibleSection } from "../molecules";
+import { JointControlPanel } from "../organisms";
 
 // Load configuration from environment variables
 const SOCKET_URL = import.meta.env.VITE_SOCKET_IO_URL || "http://localhost:3030";
@@ -757,138 +757,77 @@ const RoboRoverController: React.FC = () => {
 
             {/* RIGHT COLUMN: ARM CONTROL */}
             <div className="space-y-3 md:space-y-4">
-              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+              <CollapsibleSection
+                title="ARM JOINTS"
+                isExpanded={expandedSections.armJoints}
+                onToggle={() =>
+                  setExpandedSections((prev) => ({
+                    ...prev,
+                    armJoints: !prev.armJoints,
+                  }))
+                }
+                headerRight={
+                  <IconBadge icon={Gauge} color="text-purple-400" size="md" />
+                }
+              >
+                <JointControlPanel
+                  jointPositions={jointPositions}
+                  onJointChange={updateJoint}
+                  disabled={!connection.isConnected}
+                />
                 <button
-                  onClick={() =>
-                    setExpandedSections((prev) => ({
-                      ...prev,
-                      armJoints: !prev.armJoints,
-                    }))
-                  }
-                  className="w-full flex items-center justify-between mb-4"
+                  onClick={sendHome}
+                  disabled={!connection.isConnected}
+                  className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
-                  <div className="flex items-center gap-2">
-                    <Gauge className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
-                    <h2 className="text-2xl md:text-3xl font-bold text-white">
-                      ARM JOINTS
-                    </h2>
-                  </div>
-                  <div>
-                    {expandedSections.armJoints ? (
-                      <ChevronUp className="w-5 h-5 text-white/70" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-white/70" />
-                    )}
-                  </div>
+                  <Home className="w-5 h-5" />
+                  HOME POSITION
                 </button>
-
-                {expandedSections.armJoints && (
-                  <div className="space-y-3 md:space-y-4">
-                    {Object.entries(JOINT_LIMITS).map(([joint, limits]) => (
-                      <div
-                        key={joint}
-                        className="glass-card-light rounded-2xl p-3 md:p-4 space-y-2"
-                      >
-                        <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
-                          <span className="capitalize">
-                            {joint.replace("_", " ")}
-                          </span>
-                          <span className="text-purple-300 font-mono">
-                            {jointPositions[
-                              joint as keyof JointPositions
-                            ].toFixed(2)}{" "}
-                            rad
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min={limits.min}
-                          max={limits.max}
-                          step="0.01"
-                          value={jointPositions[joint as keyof JointPositions]}
-                          onChange={(e) =>
-                            updateJoint(
-                              joint as keyof JointPositions,
-                              parseFloat(e.target.value),
-                            )
-                          }
-                          className="glass-slider w-full"
-                        />
-                        <div className="flex justify-between text-xs text-white/50 font-mono">
-                          <span>{limits.min.toFixed(2)}</span>
-                          <span>0.00</span>
-                          <span>{limits.max.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    ))}
-
-                    <button
-                      onClick={sendHome}
-                      disabled={!connection.isConnected}
-                      className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Home className="w-5 h-5" />
-                      HOME POSITION
-                    </button>
-                  </div>
-                )}
-              </div>
+              </CollapsibleSection>
             </div>
           </div>
 
           {/* Activity Logs */}
-          <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
-            <button
-              onClick={() =>
-                setExpandedSections((prev) => ({
-                  ...prev,
-                  logs: !prev.logs,
-                }))
-              }
-              className="w-full flex items-center justify-between"
-            >
-              <h2 className="text-xl md:text-2xl font-bold text-white">
-                ACTIVITY LOG ({logs.length})
-              </h2>
-              <div>
-                {expandedSections.logs ? (
-                  <ChevronUp className="w-5 h-5 text-white/70" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-white/70" />
-                )}
+          <CollapsibleSection
+            title={`ACTIVITY LOG (${logs.length})`}
+            isExpanded={expandedSections.logs}
+            onToggle={() =>
+              setExpandedSections((prev) => ({
+                ...prev,
+                logs: !prev.logs,
+              }))
+            }
+            headerRight={
+              <IconBadge icon={Activity} color="text-cyan-400" size="md" />
+            }
+            contentClassName="backdrop-blur-md bg-black/40 rounded-2xl p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/10"
+          >
+            {logs.length === 0 ? (
+              <div className="text-white/30 text-center py-8">
+                No activity yet...
               </div>
-            </button>
-
-            {expandedSections.logs && (
-              <div className="backdrop-blur-md bg-black/40 rounded-2xl p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/10">
-                {logs.length === 0 ? (
-                  <div className="text-white/30 text-center py-8">
-                    No activity yet...
-                  </div>
-                ) : (
-                  logs.slice(0, 10).map((log, idx) => (
-                    <div
-                      key={idx}
-                      className={`${
-                        log.type === "error"
-                          ? "text-red-300"
-                          : log.type === "success"
-                            ? "text-green-300"
-                            : log.type === "warning"
-                              ? "text-yellow-300"
-                              : "text-cyan-200"
-                      }`}
-                    >
-                      <span className="text-white/40">
-                        [{new Date(log.timestamp).toLocaleTimeString()}]
-                      </span>{" "}
-                      {log.message}
-                    </div>
-                  ))
-                )}
-              </div>
+            ) : (
+              logs.slice(0, 10).map((log, idx) => (
+                <div
+                  key={idx}
+                  className={`${
+                    log.type === "error"
+                      ? "text-red-300"
+                      : log.type === "success"
+                        ? "text-green-300"
+                        : log.type === "warning"
+                          ? "text-yellow-300"
+                          : "text-cyan-200"
+                  }`}
+                >
+                  <span className="text-white/40">
+                    [{new Date(log.timestamp).toLocaleTimeString()}]
+                  </span>{" "}
+                  {log.message}
+                </div>
+              ))
             )}
-          </div>
+          </CollapsibleSection>
 
           {/* Quick Info */}
           <div className="glass-card rounded-3xl shadow-2xl p-3 md:p-4">
