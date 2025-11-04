@@ -671,6 +671,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "audio_converter"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "dora-node-api",
+ "eyre",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "audio_playback"
 version = "0.1.0"
 dependencies = [
@@ -6142,6 +6155,19 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "video_encoder"
+version = "0.1.0"
+dependencies = [
+ "dora-node-api",
+ "eyre",
+ "image",
+ "robo_rover_lib",
+ "serde",
+ "serde_json",
+ "tracing",
+]
 
 [[package]]
 name = "visual_servo_controller"

@@ -17,6 +17,8 @@ members = [
     "command_parser",
     "kokoro_tts",
     "performance_monitor",
+    "video_encoder",    # NEW: Video encoding (JPEG/H.264) for distributed deployment
+    "audio_converter",  # NEW: Audio format conversion (Float32 → Int16LE)
 ]
 
 [workspace.dependencies]

@@ -1,10 +1,9 @@
 use dora_node_api::{
-    arrow::array::{Array, AsArray, BinaryArray, Float32Array, UInt8Array},
+    arrow::array::{Array, BinaryArray, Float32Array},
     dora_core::config::DataId,
     DoraNode, Event,
 };
 use eyre::Result;
-use image::{ImageBuffer, Rgb, codecs::jpeg::JpegEncoder};
 use robo_rover_lib::{
     ArmCommand, ArmCommandWithMetadata, AudioAction, AudioControl, CameraAction, CameraControl,
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
@@ -12,7 +11,6 @@ use robo_rover_lib::{
 };
 use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription, SystemMetrics};
 use serde::{Deserialize, Serialize};
-use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid;
@@ -785,160 +783,87 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match event {
                 Event::Input { id, data, metadata, .. } => match id.as_str() {
                     "audio_frame" => {
-                        // Handle audio
-                        // Try multiple array types since dora-microphone format may vary
-                        let audio_bytes_opt: Option<Vec<u8>> = if let Some(float32_array) = data.as_any().downcast_ref::<dora_node_api::arrow::array::Float32Array>() {
-                            // Float32Array - normalized audio [-1.0, 1.0]
-                            // Convert to Int16 (S16LE) for transmission
-                            let mut bytes = Vec::with_capacity(float32_array.len() * 2);
-
-                            // Debug: Log first conversion for quality check
-                            // static mut CONVERSION_COUNT: u32 = 0;
-                            // unsafe {
-                            //     if CONVERSION_COUNT < 3 {
-                            //         println!("Converting Float32 -> S16LE: {} samples", float32_array.len());
-                            //         if float32_array.len() > 0 {
-                            //             let first_samples: Vec<f32> = float32_array.values()[..10.min(float32_array.len())].to_vec();
-                            //             println!("   First 10 float samples: {:?}", first_samples);
-                            //         }
-                            //         CONVERSION_COUNT += 1;
-                            //     }
-                            // }
-
-                            for &sample in float32_array.values() {
-                                // Convert float32 [-1.0, 1.0] to int16 [-32768, 32767]
-                                let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                                bytes.extend_from_slice(&sample_i16.to_le_bytes());
-                            }
-
-                            // Debug: Log first conversion result
-                            // unsafe {
-                            //     if CONVERSION_COUNT <= 3 && bytes.len() >= 20 {
-                            //         let first_bytes: Vec<u8> = bytes[..20].to_vec();
-                            //         println!("   First 20 S16LE bytes: {:?}", first_bytes);
-                            //     }
-                            // }
-
-                            Some(bytes)
-                        } else if let Some(list_array) = data.as_list_opt::<i32>() {
-                            // ListArray containing audio data
-                            if list_array.len() > 0 {
-                                let values = list_array.value(0);
-                                if let Some(uint8_array) = values.as_any().downcast_ref::<UInt8Array>() {
-                                    Some(uint8_array.values().to_vec())
-                                } else if let Some(int16_array) = values.as_any().downcast_ref::<dora_node_api::arrow::array::Int16Array>() {
-                                    // Convert i16 to bytes
-                                    let mut bytes = Vec::with_capacity(int16_array.len() * 2);
-                                    for sample in int16_array.values() {
-                                        bytes.extend_from_slice(&sample.to_le_bytes());
-                                    }
-                                    Some(bytes)
-                                } else if let Some(float32_array) = values.as_any().downcast_ref::<dora_node_api::arrow::array::Float32Array>() {
-                                    // Float32 in list
-                                    let mut bytes = Vec::with_capacity(float32_array.len() * 2);
-                                    for &sample in float32_array.values() {
-                                        let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                                        bytes.extend_from_slice(&sample_i16.to_le_bytes());
-                                    }
-                                    Some(bytes)
-                                } else {
-                                    tracing::warn!("Audio list values type: {:?}", values.data_type());
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else if let Some(int16_array) = data.as_any().downcast_ref::<dora_node_api::arrow::array::Int16Array>() {
-                            // Direct Int16Array
-                            let mut bytes = Vec::with_capacity(int16_array.len() * 2);
-                            for sample in int16_array.values() {
-                                bytes.extend_from_slice(&sample.to_le_bytes());
-                            }
-                            Some(bytes)
-                        } else if let Some(uint8_array) = data.as_any().downcast_ref::<UInt8Array>() {
-                            // Direct UInt8Array
-                            Some(uint8_array.values().to_vec())
-                        } else if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
-                            // BinaryArray
+                        // Now receives pre-converted Int16LE PCM from audio-converter
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
                             if binary_array.len() > 0 {
-                                Some(binary_array.value(0).to_vec())
-                            } else {
-                                None
-                            }
-                        } else if let Some(fixed_binary) = data.as_any().downcast_ref::<dora_node_api::arrow::array::FixedSizeBinaryArray>() {
-                            // FixedSizeBinaryArray
-                            if fixed_binary.len() > 0 {
-                                Some(fixed_binary.value(0).to_vec())
-                            } else {
-                                None
-                            }
-                        } else {
-                            tracing::warn!("Unknown audio array type: {:?}", data.data_type());
-                            None
-                        };
+                                let audio_bytes = binary_array.value(0).to_vec();
 
-                        if let Some(audio_bytes) = audio_bytes_opt {
-                            // Extract audio metadata
-                            let sample_rate = metadata.parameters.get("sample_rate")
-                                .and_then(|v| match v {
-                                    dora_node_api::Parameter::Integer(i) => Some(*i as u32),
-                                    _ => None,
-                                })
-                                .unwrap_or(16000);
+                                // Extract metadata
+                                let format = metadata.parameters.get("format")
+                                    .and_then(|v| match v {
+                                        dora_node_api::Parameter::String(s) => Some(s.clone()),
+                                        _ => None,
+                                    })
+                                    .unwrap_or_else(|| "s16le".to_string());
 
-                            let channels = metadata.parameters.get("channels")
-                                .and_then(|v| match v {
-                                    dora_node_api::Parameter::Integer(i) => Some(*i as u16),
-                                    _ => None,
-                                })
-                                .unwrap_or(1);
+                                let sample_rate = metadata.parameters.get("sample_rate")
+                                    .and_then(|v| match v {
+                                        dora_node_api::Parameter::Integer(i) => Some(*i as u32),
+                                        _ => None,
+                                    })
+                                    .unwrap_or(16000);
 
-                            frame_counter += 1;
+                                let channels = metadata.parameters.get("channels")
+                                    .and_then(|v| match v {
+                                        dora_node_api::Parameter::Integer(i) => Some(*i as u16),
+                                        _ => None,
+                                    })
+                                    .unwrap_or(1);
 
-                            // Create audio frame for JSON transport
-                            let timestamp = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64;
+                                tracing::debug!(
+                                    "Received pre-converted audio: {} format, {} Hz, {} channels, {} bytes",
+                                    format, sample_rate, channels, audio_bytes.len()
+                                );
 
-                            let audio_frame_data = serde_json::json!({
-                                "timestamp": timestamp,
-                                "frame_id": frame_counter,
-                                "sample_rate": sample_rate,
-                                "channels": channels,
-                                "format": "s16le",
-                                "data": audio_bytes,
-                            });
+                                // Broadcast pre-converted audio to all clients
+                                frame_counter += 1;
 
-                            // Send audio to all connected clients
-                            if let Ok(clients) = state_for_video.video_clients.lock() {
-                                for client in clients.iter() {
-                                    if client.should_send_audio() {
-                                        if let Some(ref io) = *io_for_video.lock().unwrap() {
-                                            if let Some(socket) = io
-                                                .of("/")
-                                                .unwrap()
-                                                .get_socket((&client.socket_id).parse().unwrap())
-                                            {
-                                                let _ = socket.emit("audio_frame", audio_frame_data.clone());
-                                                client.mark_audio_sent();
+                                let timestamp = SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64;
+
+                                let audio_frame_data = serde_json::json!({
+                                    "timestamp": timestamp,
+                                    "frame_id": frame_counter,
+                                    "sample_rate": sample_rate,
+                                    "channels": channels,
+                                    "format": format,
+                                    "data": audio_bytes,
+                                });
+
+                                if let Ok(clients) = state_for_video.video_clients.lock() {
+                                    for client in clients.iter() {
+                                        if client.should_send_audio() {
+                                            if let Some(ref io) = *io_for_video.lock().unwrap() {
+                                                if let Some(socket) = io
+                                                    .of("/")
+                                                    .unwrap()
+                                                    .get_socket((&client.socket_id).parse().unwrap())
+                                                {
+                                                    let _ = socket.emit("audio_frame", audio_frame_data.clone());
+                                                    client.mark_audio_sent();
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                        } else {
+                            tracing::error!("Invalid audio frame data type (expected BinaryArray from audio-converter)");
                         }
                     }
                     "video_frame" => {
                         frame_counter += 1;
 
-                        // Extract metadata (width, height, encoding)
+                        // Extract metadata (added by video-encoder)
                         let width = metadata.parameters.get("width")
                             .and_then(|v| match v {
                                 dora_node_api::Parameter::Integer(i) => Some(*i as u32),
                                 _ => None,
                             })
                             .unwrap_or(640);
+
                         let height = metadata.parameters.get("height")
                             .and_then(|v| match v {
                                 dora_node_api::Parameter::Integer(i) => Some(*i as u32),
@@ -946,37 +871,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             })
                             .unwrap_or(480);
 
-                        // Get RGB8 data from gst-camera (sent as raw bytes)
-                        if let Some(rgb_data) = data.as_any().downcast_ref::<UInt8Array>() {
-                            let rgb_bytes = rgb_data.values().as_ref();
+                        let codec = metadata.parameters.get("codec")
+                            .and_then(|v| match v {
+                                dora_node_api::Parameter::String(s) => Some(s.clone()),
+                                _ => None,
+                            })
+                            .unwrap_or_else(|| "jpeg".to_string());
 
-                            // Verify expected size
-                            let expected_size = (width * height * 3) as usize; // RGB8 = 3 bytes per pixel
-                            if rgb_bytes.len() != expected_size {
-                                tracing::error!("Frame size mismatch: got {} bytes, expected {}",
-                                          rgb_bytes.len(), expected_size);
-                                continue;
-                            }
+                        // Get pre-encoded JPEG data from video-encoder (sent as BinaryArray)
+                        if let Some(binary_array) = data.as_any().downcast_ref::<BinaryArray>() {
+                            if binary_array.len() > 0 {
+                                let jpeg_data = binary_array.value(0).to_vec();
 
-                            // Create image buffer from RGB data
-                            if let Some(img_buf) = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, rgb_bytes) {
-                                // Encode to JPEG
-                                let mut jpeg_data = Vec::new();
-                                {
-                                    let mut cursor = Cursor::new(&mut jpeg_data);
-                                    let mut encoder = JpegEncoder::new_with_quality(&mut cursor, 80);
-                                    if let Err(e) = encoder.encode(
-                                        &img_buf,
-                                        width,
-                                        height,
-                                        image::ExtendedColorType::Rgb8
-                                    ) {
-                                        tracing::error!("JPEG encoding error: {}", e);
-                                        continue;
-                                    }
-                                }
+                                tracing::debug!(
+                                    "Received pre-encoded frame {}: {}x{} {} ({} bytes)",
+                                    frame_counter, width, height, codec, jpeg_data.len()
+                                );
 
-                                // Send JPEG to all connected clients
+                                // Send pre-encoded JPEG to all connected clients
                                 if let Ok(clients) = state_for_video.video_clients.lock() {
                                     for client in clients.iter() {
                                         if client.should_send_video() {
@@ -991,8 +903,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     "frame_id": frame_counter,
                                                     "width": width,
                                                     "height": height,
-                                                    "codec": "jpeg",
-                                                    "data": jpeg_data, // JPEG binary data
+                                                    "codec": codec,
+                                                    "data": jpeg_data,  // Pre-encoded JPEG
                                                 });
 
                                                 if let Some(socket) = io
@@ -1010,6 +922,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 }
                             }
+                        } else {
+                            tracing::error!("Invalid video frame data type (expected BinaryArray from video-encoder)");
                         }
                     }
                     "detections" => {
