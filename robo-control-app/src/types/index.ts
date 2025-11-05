@@ -59,6 +59,15 @@ export type {
   ClientToServerEvents,
 } from "./socket";
 
+// Fleet
+export type {
+  FleetStatus,
+  FleetSelectCommand,
+  RoverStatus,
+  FleetRosterUpdate,
+} from "./fleet";
+export { createFleetSelectCommand } from "./fleet";
+
 // Keep robo.ts for backwards compatibility by re-exporting everything
 export * from "./commands";
 export * from "./telemetry";
@@ -67,3 +76,4 @@ export * from "./voice";
 export * from "./performance";
 export * from "./ui";
 export * from "./socket";
+export * from "./fleet";

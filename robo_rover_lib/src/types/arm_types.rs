@@ -34,6 +34,7 @@ pub struct ArmCommandWithMetadata {
 pub enum InputSource {
     Keyboard,
     WebBridge,
+    Zenoh,
     Autonomous,
     RoverController,
     VisualServo,

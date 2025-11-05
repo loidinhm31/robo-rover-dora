@@ -5,52 +5,64 @@
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
-      <package file="$PROJECT_DIR$/arm_controller">
+      <package file="$PROJECT_DIR$/rover-kiwi/arm_controller">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/audio_capture">
+      <package file="$PROJECT_DIR$/rover-kiwi/audio_capture">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/audio_playback">
+      <package file="$PROJECT_DIR$/orchestra/audio_converter">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/command_parser">
+      <package file="$PROJECT_DIR$/rover-kiwi/audio_playback">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/dispatcher_keyboard">
+      <package file="$PROJECT_DIR$/orchestra/command_parser">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/kokoro_tts">
+      <package file="$PROJECT_DIR$/rover-kiwi/dispatcher_keyboard">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/kornia_capture">
+      <package file="$PROJECT_DIR$/rover-kiwi/kokoro_tts">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/object_detector">
+      <package file="$PROJECT_DIR$/rover-kiwi/kornia_capture">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/object_tracker">
+      <package file="$PROJECT_DIR$/orchestra/object_detector">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/performance_monitor">
+      <package file="$PROJECT_DIR$/orchestra/object_tracker">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/orchestra/zenoh_bridge">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rover-kiwi/performance_monitor">
         <feature name="default" enabled="true" />
       </package>
       <package file="$PROJECT_DIR$/robo_rover_lib">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/rover_controller">
+      <package file="$PROJECT_DIR$/rover-kiwi/rover_controller">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/sim_interface">
+      <package file="$PROJECT_DIR$/rover-kiwi/zenoh_bridge">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/speech_recognizer">
+      <package file="$PROJECT_DIR$/orchestra/sim_interface">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/visual_servo_controller">
+      <package file="$PROJECT_DIR$/orchestra/speech_recognizer">
         <feature name="default" enabled="true" />
       </package>
-      <package file="$PROJECT_DIR$/web_bridge">
+      <package file="$PROJECT_DIR$/orchestra/video_encoder">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/rover-kiwi/visual_servo_controller">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/orchestra/web_bridge">
         <feature name="default" enabled="true" />
       </package>
     </cargoProject>
@@ -61,14 +73,64 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Minimize voice interfaces">
-      <change afterPath="$PROJECT_DIR$/web_bridge/src/security.rs" afterDir="false" />
+    <list default="true" id="c826e566-ae53-4371-8a1b-6e725a1e3daf" name="Changes" comment="Implement replacement for zenoh">
+      <change afterPath="$PROJECT_DIR$/ARCHITECTURE.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deployments/orchestra/zenoh_config.json5" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deployments/rover-kiwi/zenoh_config.json5" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/orchestra/orchestra-dataflow.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/orchestra/zenoh_bridge/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/orchestra/zenoh_bridge/src/main.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rover-kiwi/rover-kiwi-dataflow.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rover-kiwi/zenoh_bridge/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rover-kiwi/zenoh_bridge/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/arm_controller/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/arm_controller/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/arm_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/arm_controller/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/audio_capture/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/audio_capture/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_converter/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/audio_converter/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_converter/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/audio_converter/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_playback/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/audio_playback/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_playback/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/audio_playback/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/command_parser/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/command_parser/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/command_parser/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/command_parser/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/arm_4dof.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/config/arm_4dof.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/arm_6dof.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/config/arm_6dof.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/simulation.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/config/simulation.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dispatcher_keyboard/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/dispatcher_keyboard/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dispatcher_keyboard/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/dispatcher_keyboard/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kokoro_tts/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/kokoro_tts/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kokoro_tts/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/kokoro_tts/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia_capture/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/kornia_capture/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kornia_capture/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/kornia_capture/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_detector/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/object_detector/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_detector/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/object_detector/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_tracker/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/object_tracker/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/object_tracker/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/object_tracker/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/performance_monitor/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/performance_monitor/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/performance_monitor/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/performance_monitor/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/organisms/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/organisms/index.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/components/pages/RoboRoverControl.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" afterPath="$PROJECT_DIR$/web-dataflow.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/web_bridge/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo-control-app/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/robo-control-app/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/arm_types.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/robo_rover_lib/src/types/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rover_controller/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/rover_controller/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rover_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/rover_controller/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sim_interface/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/sim_interface/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sim_interface/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/sim_interface/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/speech_recognizer/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/speech_recognizer/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/speech_recognizer/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/speech_recognizer/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/video_encoder/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/video_encoder/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/video_encoder/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/video_encoder/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/visual_servo_controller/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/visual_servo_controller/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/visual_servo_controller/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/visual_servo_controller/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/visual_servo_controller/src/pid.rs" beforeDir="false" afterPath="$PROJECT_DIR$/rover-kiwi/visual_servo_controller/src/pid.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web-dataflow.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/web_bridge/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/web_bridge/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_bridge/src/security.rs" beforeDir="false" afterPath="$PROJECT_DIR$/orchestra/web_bridge/src/security.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,7 +168,7 @@
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/loidinh/ws/robo-rover-dora/robo-control-app/src/components/pages&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/loidinh/ws/alie-center&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -116,7 +178,7 @@
     &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
     &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
     &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;G:\\ws\\robo-rover-dora\\robo-rover-app\\node_modules\\prettier&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust.cargo.check&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
     &quot;ts.external.directory.path&quot;: &quot;/home/loidinh/ws/robo-rover-dora/robo-control-app/node_modules/typescript/lib&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
@@ -130,11 +192,11 @@
       <recent name="$PROJECT_DIR$/robo-control-app/src/components" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/rover-kiwi" />
+      <recent name="$PROJECT_DIR$/orchestra" />
       <recent name="$PROJECT_DIR$/models/scripts" />
       <recent name="$PROJECT_DIR$/models/.cache/yolo" />
       <recent name="$PROJECT_DIR$/models/.cache/ggml" />
-      <recent name="$PROJECT_DIR$/models/.cache/kokoros" />
-      <recent name="$PROJECT_DIR$/models" />
     </key>
   </component>
   <component name="RunManager">
@@ -196,15 +258,13 @@
       <workItem from="1762059527991" duration="10146000" />
       <workItem from="1762070592640" duration="1934000" />
       <workItem from="1762072906607" duration="19763000" />
-      <workItem from="1762134636763" duration="24414000" />
-    </task>
-    <task id="LOCAL-00001" summary="Try to add rover control">
-      <option name="closed" value="true" />
-      <created>1750937249281</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1750937249281</updated>
+      <workItem from="1762134636763" duration="30499000" />
+      <workItem from="1762226445834" duration="2986000" />
+      <workItem from="1762229519825" duration="2882000" />
+      <workItem from="1762255269809" duration="15509000" />
+      <workItem from="1762306951956" duration="17617000" />
+      <workItem from="1762339539577" duration="709000" />
+      <workItem from="1762344276002" duration="11066000" />
     </task>
     <task id="LOCAL-00002" summary="Try to implement web-bridge">
       <option name="closed" value="true" />
@@ -566,7 +626,39 @@
       <option name="project" value="LOCAL" />
       <updated>1762173509367</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="Improve security features">
+      <option name="closed" value="true" />
+      <created>1762182145373</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1762182145373</updated>
+    </task>
+    <task id="LOCAL-00048" summary="Split converter/encoder to reduce complexity in web_bridge">
+      <option name="closed" value="true" />
+      <created>1762270885052</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1762270885052</updated>
+    </task>
+    <task id="LOCAL-00049" summary="test">
+      <option name="closed" value="true" />
+      <created>1762309212095</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1762309212095</updated>
+    </task>
+    <task id="LOCAL-00050" summary="Implement replacement for zenoh">
+      <option name="closed" value="true" />
+      <created>1762325392652</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1762325392653</updated>
+    </task>
+    <option name="localTasksCounter" value="51" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -586,10 +678,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="Update for arm controller base on LeKiwi" />
-    <MESSAGE value="Update for rover controller base on LeKiw" />
-    <MESSAGE value="Update app to control LeKiwi" />
-    <MESSAGE value="Update Glassmorphic style for app" />
     <MESSAGE value="Change control layout for app" />
     <MESSAGE value="Create visualization for LeKiwi urdf" />
     <MESSAGE value="Update stream with video and audio" />
@@ -611,7 +699,11 @@
     <MESSAGE value="Update README" />
     <MESSAGE value="Update control for camera metrics" />
     <MESSAGE value="Minimize voice interfaces" />
-    <option name="LAST_COMMIT_MESSAGE" value="Minimize voice interfaces" />
+    <MESSAGE value="Improve security features" />
+    <MESSAGE value="Split converter/encoder to reduce complexity in web_bridge" />
+    <MESSAGE value="test" />
+    <MESSAGE value="Implement replacement for zenoh" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement replacement for zenoh" />
     <option name="NON_MODAL_COMMIT_POSTPONE_SLOW_CHECKS" value="false" />
   </component>
   <component name="XDebuggerManager">

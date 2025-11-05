@@ -8,6 +8,7 @@ pub mod speech_types;
 pub mod nlu_types;
 pub mod tts_types;
 pub mod performance_types;
+pub mod fleet_types;
 
 use serde::{Deserialize, Serialize};
 pub use arm_types::*;
@@ -20,6 +21,7 @@ pub use speech_types::*;
 pub use nlu_types::*;
 pub use tts_types::*;
 pub use performance_types::*;
+pub use fleet_types::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandMetadata {

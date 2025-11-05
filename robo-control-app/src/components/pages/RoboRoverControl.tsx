@@ -29,6 +29,8 @@ import {
   ArmTelemetry,
   ConnectionState,
   createHomePosition,
+  createFleetSelectCommand,
+  FleetStatus,
   JointPositions,
   LogEntry,
   RoverTelemetry,
@@ -41,7 +43,7 @@ import {
 } from "../../types";
 import { IconBadge } from "../atoms";
 import { CollapsibleSection } from "../molecules";
-import { JointControlPanel } from "../organisms";
+import { FleetSelector, JointControlPanel } from "../organisms";
 
 // Load configuration from environment variables
 const SOCKET_URL = import.meta.env.VITE_SOCKET_IO_URL || "http://localhost:3030";
@@ -92,6 +94,9 @@ const RoboRoverController: React.FC = () => {
   const [performanceMetrics, setPerformanceMetrics] = useState<SystemMetrics | null>(
     null,
   );
+
+  // Fleet status state
+  const [fleetStatus, setFleetStatus] = useState<FleetStatus | null>(null);
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showCamera, setShowCamera] = useState(false);
@@ -235,6 +240,12 @@ const RoboRoverController: React.FC = () => {
       setPerformanceMetrics(data);
     });
 
+    // Listen for fleet status updates
+    socket.on("fleet_status", (data: FleetStatus) => {
+      setFleetStatus(data);
+      addLog(`Fleet status: Selected rover is ${data.selected_entity}`, "info");
+    });
+
     socketRef.current = socket;
   }, [addLog]);
 
@@ -246,6 +257,21 @@ const RoboRoverController: React.FC = () => {
       addLog("Manually disconnected", "info");
     }
   }, [addLog]);
+
+  // Select rover from fleet
+  const selectRover = useCallback(
+    (entityId: string) => {
+      if (!connection.isConnected || !socketRef.current) {
+        addLog("Cannot select rover - not connected", "error");
+        return;
+      }
+
+      const selectCommand = createFleetSelectCommand(entityId);
+      socketRef.current.emit("fleet_select", selectCommand);
+      addLog(`Switching to rover: ${entityId}`, "info");
+    },
+    [connection.isConnected, addLog],
+  );
 
   // Send ARM command
   const sendArmCommand = useCallback(
@@ -586,6 +612,13 @@ const RoboRoverController: React.FC = () => {
         </div>
 
         <div className="p-3 md:p-4 space-y-3 md:space-y-4 pt-3 md:pt-4">
+          {/* Fleet Selector */}
+          <FleetSelector
+            fleetStatus={fleetStatus}
+            onSelectRover={selectRover}
+            className="max-w-md"
+          />
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Location Map Viewer */}
             {showLocationMap && (

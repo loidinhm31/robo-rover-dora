@@ -1,24 +1,31 @@
 [workspace]
 resolver = "2"
 members = [
-    "arm_controller",
-    "sim_interface",
-    "dispatcher_keyboard",
-    "robo_rover_lib",  # Shared library for common types and utilities
-    "rover_controller",
-    "web_bridge",
-    "kornia_capture",
-    "audio_capture",
-    "audio_playback",
-    "object_detector",
-    "object_tracker",
-    "visual_servo_controller",
-    "speech_recognizer",
-    "command_parser",
-    "kokoro_tts",
-    "performance_monitor",
-    "video_encoder",    # NEW: Video encoding (JPEG/H.264) for distributed deployment
-    "audio_converter",  # NEW: Audio format conversion (Float32 → Int16LE)
+    # Shared library
+    "robo_rover_lib",
+
+    # Orchestra (Workstation) - Fleet control hub
+    "orchestra/web_bridge",
+    "orchestra/object_detector",
+    "orchestra/object_tracker",
+    "orchestra/speech_recognizer",
+    "orchestra/command_parser",
+    "orchestra/audio_converter",
+    "orchestra/video_encoder",
+    "orchestra/sim_interface",
+    "orchestra/zenoh_bridge",
+
+    # Rover-kiwi - On-robot nodes
+    "rover-kiwi/rover_controller",
+    "rover-kiwi/arm_controller",
+    "rover-kiwi/kornia_capture",
+    "rover-kiwi/audio_capture",
+    "rover-kiwi/audio_playback",
+    "rover-kiwi/visual_servo_controller",
+    "rover-kiwi/kokoro_tts",
+    "rover-kiwi/performance_monitor",
+    "rover-kiwi/zenoh_bridge",
+    "rover-kiwi/dispatcher_keyboard",
 ]
 
 [workspace.dependencies]
@@ -32,5 +39,6 @@ nalgebra = "0.33"
 eyre = "0.6.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-clap = { version = "4.0", features = ["derive"] }
 uuid = { version = "1.0", features = ["v4"] }
+zenoh = "1.0"
+zenoh-config = "1.0"
