@@ -148,3 +148,4 @@ nodes:
       RUST_LOG: info
       ZENOH_MODE: "peer"
       ENTITY_ID: "rover-kiwi"  # This rover's unique ID in the fleet
+      ZENOH_CONFIG: "/home/loidinh/ws/robo-rover-dora/rover-kiwi/zenoh_bridge/zenoh_config.json5"
