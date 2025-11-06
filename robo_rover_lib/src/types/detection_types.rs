@@ -92,6 +92,8 @@ impl DetectionResult {
 /// Frame containing all detections at a given timestamp
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DetectionFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
     pub frame_id: u64,
     pub timestamp: u64,
     pub width: u32,
@@ -102,6 +104,7 @@ pub struct DetectionFrame {
 impl DetectionFrame {
     pub fn new(frame_id: u64, width: u32, height: u32, detections: Vec<DetectionResult>) -> Self {
         Self {
+            entity_id: None,
             frame_id,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -242,6 +245,8 @@ pub enum ControlMode {
 /// Telemetry data sent to web UI about tracking status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackingTelemetry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,  // Source rover entity ID (for multi-rover support)
     pub state: TrackingState,
     pub target: Option<TrackingTarget>,
     pub distance_estimate: Option<f32>,  // Distance in meters (from visual servo)
@@ -253,6 +258,7 @@ pub struct TrackingTelemetry {
 impl TrackingTelemetry {
     pub fn new(state: TrackingState, target: Option<TrackingTarget>) -> Self {
         Self {
+            entity_id: None,
             state,
             target,
             distance_estimate: None,

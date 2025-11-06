@@ -7,22 +7,6 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-/// Setup models from local directory to cache
-fn setup_local_models() -> Result<()> {
-    // Set KOKORO_CACHE_DIR to project's models/.cache directory
-    // This tells kokoro-tiny where to find/store models
-    let cache_dir = PathBuf::from("models/.cache/kokoro");
-
-    // Ensure cache directory exists
-    fs::create_dir_all(&cache_dir)?;
-
-    // Set environment variable for kokoro-tiny to use this cache directory
-    std::env::set_var("KOKORO_CACHE_DIR", cache_dir.to_string_lossy().to_string());
-
-    tracing::info!("Kokoro cache directory set to: {}", cache_dir.display());
-
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,12 +14,6 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting Kokoro TTS node...");
     tracing::info!("Using Kokoro-82M model for high-quality speech synthesis");
-
-    // Setup local models to cache directory
-    if let Err(e) = setup_local_models() {
-        tracing::warn!("Could not setup local models: {}", e);
-        tracing::info!("Will attempt to download models at runtime...");
-    }
 
     // Get configuration from environment variables
     let default_voice = env::var("TTS_VOICE").unwrap_or_else(|_| "af_sky".to_string());

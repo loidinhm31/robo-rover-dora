@@ -19,19 +19,27 @@ nodes:
       audio_command_web: web-bridge/audio_command
       audio_stream_web: web-bridge/audio_stream
       voice_audio_web: web-bridge/voice_command_audio
+      fleet_subscription_command: web-bridge/fleet_subscription_command
+      fleet_select_command: web-bridge/fleet_select_command
     outputs:
-      # Data FROM selected rover via Zenoh (subscribers)
-      - video_frame         # RGB8 frames from rover camera
-      - audio_frame         # Float32 audio from rover microphone
-      - rover_telemetry     # Rover position/velocity telemetry
-      - arm_telemetry       # Arm joint positions
-      - servo_telemetry     # Visual servoing telemetry
-      - performance_metrics # System metrics from rover
+      # Data FROM active rovers via Zenoh (subscribers)
+      - video_frame         # RGB8 frames from rover camera (with entity_id in metadata)
+      - audio_frame         # Float32 audio from rover microphone (with entity_id in metadata)
+      - rover_telemetry     # Rover position/velocity telemetry (with entity_id)
+      - arm_telemetry       # Arm joint positions (with entity_id)
+      - servo_telemetry     # Visual servoing telemetry (with entity_id)
+      - tracking_telemetry  # Object tracking telemetry (with entity_id)
+      - performance_metrics # System metrics from rover (with entity_id)
     env:
       RUST_LOG: info
       ZENOH_MODE: "peer"
-      ENTITY_ID: "orchestra"              # This node's ID
-      SELECTED_ENTITY: "rover-kiwi"       # Which rover to communicate with
+      ENTITY_ID: "orchestra"                    # This node's ID
+      ACTIVE_ROVERS: "rover-kiwi"               # Comma-separated list of rovers to subscribe to initially
+      ZENOH_CONFIG: "orchestra/zenoh_bridge/zenoh_config.json5"
+      VIDEO_WIDTH: "640"
+      VIDEO_HEIGHT: "480"
+      AUDIO_SAMPLE_RATE: "16000"
+      AUDIO_CHANNELS: "1"
 
   # Object detector - YOLOv12n inference
   - id: object-detector
@@ -157,6 +165,8 @@ nodes:
       - tts_command
       - audio_stream          # Direct audio to rover speakers
       - voice_command_audio   # Audio for STT processing
+      - fleet_subscription_command  # Fleet subscription management (activate/deactivate rovers)
+      - fleet_select_command        # Fleet selection (which rover receives commands)
     env:
       RUST_LOG: info
 

@@ -27,6 +27,8 @@ pub struct NodeMetrics {
 /// System-wide performance metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
     /// Overall system CPU usage percentage (0-100)
     pub total_cpu_percent: f32,
     /// Total memory usage in megabytes
@@ -49,6 +51,7 @@ impl SystemMetrics {
     /// Create a new SystemMetrics instance
     pub fn new() -> Self {
         Self {
+            entity_id: None,
             total_cpu_percent: 0.0,
             total_memory_mb: 0.0,
             available_memory_mb: 0.0,

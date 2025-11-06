@@ -1,6 +1,6 @@
 import React from "react";
 import { Radio, Server } from "lucide-react";
-import { FleetStatus, createFleetSelectCommand } from "../../types";
+import { FleetStatus } from "../../types";
 
 interface FleetSelectorProps {
   fleetStatus: FleetStatus | null;

@@ -5,6 +5,7 @@
 //! with Dora's own tracing infrastructure.
 
 use tracing::subscriber::DefaultGuard;
+use tracing_subscriber::EnvFilter;
 
 /// Initialize tracing with thread-local subscriber.
 ///
@@ -27,12 +28,19 @@ use tracing::subscriber::DefaultGuard;
 /// }
 /// ```
 pub fn init_tracing() -> DefaultGuard {
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()))
+    use tracing_subscriber::layer::SubscriberExt;
+
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+
+    let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
         .with_file(false)
-        .with_line_number(false)
-        .finish();
+        .with_line_number(false);
+
+    let subscriber = tracing_subscriber::Registry::default()
+        .with(env_filter)
+        .with(fmt_layer);
 
     tracing::subscriber::set_default(subscriber)
 }

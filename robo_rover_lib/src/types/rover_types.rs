@@ -101,6 +101,9 @@ impl RoverCommand {
 /// Rover Telemetry - feedback from simulation/hardware
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoverTelemetry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
+
     // Position and orientation
     pub position: (f64, f64),  // (x, y) in meters
     pub yaw: f64,              // Rotation about z-axis (rad)
@@ -127,6 +130,7 @@ pub struct RoverTelemetry {
 impl RoverTelemetry {
     pub fn new() -> Self {
         Self {
+            entity_id: None,
             position: (0.0, 0.0),
             yaw: 0.0,
             pitch: 0.0,

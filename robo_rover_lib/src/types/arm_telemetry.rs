@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 /// Arm telemetry data received from Unity simulation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArmTelemetry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
     /// End effector position and orientation [x, y, z, roll, pitch, yaw]
     pub end_effector_pose: [f64; 6],
 
@@ -25,6 +27,7 @@ pub struct ArmTelemetry {
 impl ArmTelemetry {
     pub fn new() -> Self {
         Self {
+            entity_id: None,
             end_effector_pose: [0.5, 0.0, 0.3, 0.0, 0.0, 0.0],
             is_moving: false,
             timestamp: std::time::SystemTime::now()

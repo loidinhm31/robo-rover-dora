@@ -112,3 +112,84 @@ impl FleetRosterUpdate {
         }
     }
 }
+
+/// Fleet subscription command for controlling which rovers to subscribe to
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FleetSubscriptionCommand {
+    /// Activate subscription to a specific rover
+    ActivateRover {
+        entity_id: String,
+        timestamp: u64,
+    },
+    /// Deactivate subscription to a specific rover
+    DeactivateRover {
+        entity_id: String,
+        timestamp: u64,
+    },
+    /// Set the complete list of active rovers (replaces current subscriptions)
+    SetActiveRovers {
+        entity_ids: Vec<String>,
+        timestamp: u64,
+    },
+}
+
+impl FleetSubscriptionCommand {
+    pub fn activate_rover(entity_id: String) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        Self::ActivateRover {
+            entity_id,
+            timestamp,
+        }
+    }
+
+    pub fn deactivate_rover(entity_id: String) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        Self::DeactivateRover {
+            entity_id,
+            timestamp,
+        }
+    }
+
+    pub fn set_active_rovers(entity_ids: Vec<String>) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        Self::SetActiveRovers {
+            entity_ids,
+            timestamp,
+        }
+    }
+}
+
+/// Active rovers status (which rovers are currently subscribed)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveRoversStatus {
+    /// List of currently active (subscribed) rover entity IDs
+    pub active_rovers: Vec<String>,
+    /// Timestamp when status was generated
+    pub timestamp: u64,
+}
+
+impl ActiveRoversStatus {
+    pub fn new(active_rovers: Vec<String>) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        Self {
+            active_rovers,
+            timestamp,
+        }
+    }
+}

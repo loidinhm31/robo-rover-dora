@@ -9,7 +9,7 @@ use robo_rover_lib::{
     CommandMetadata, CommandPriority, InputSource, RoverCommand, RoverCommandWithMetadata,
     init_tracing,
 };
-use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription, SystemMetrics, FleetStatus, FleetSelectCommand};
+use robo_rover_lib::types::{DetectionFrame, TrackingCommand, TrackingTelemetry, SpeechTranscription, SystemMetrics, FleetStatus, FleetSelectCommand, FleetSubscriptionCommand, ActiveRoversStatus};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -153,6 +153,13 @@ pub struct WebAudioStream {
     pub audio_data: Vec<f32>,  // Float32 audio samples from Web UI microphone
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WebFleetSubscriptionCommand {
+    pub action: String,  // "activate", "deactivate", "set_active"
+    pub entity_id: Option<String>,  // For activate/deactivate
+    pub entity_ids: Option<Vec<String>>,  // For set_active
+}
+
 #[derive(Clone)]
 struct SharedState {
     pub arm_command_queue: Arc<Mutex<Vec<WebArmCommand>>>,
@@ -163,11 +170,14 @@ struct SharedState {
     pub tts_command_queue: Arc<Mutex<Vec<WebTtsCommand>>>,
     pub audio_stream_queue: Arc<Mutex<Vec<WebAudioStream>>>,
     pub voice_command_audio_queue: Arc<Mutex<Vec<WebAudioStream>>>,
+    pub fleet_subscription_command_queue: Arc<Mutex<Vec<WebFleetSubscriptionCommand>>>,
+    pub fleet_select_command_queue: Arc<Mutex<Vec<FleetSelectCommand>>>,
     pub video_clients: Arc<Mutex<Vec<ClientState>>>,
     pub performance_monitoring_enabled: Arc<Mutex<bool>>,
     pub auth_rate_limiter: Arc<AuthRateLimiter>,
     pub command_rate_limiter: Arc<CommandRateLimiter>,
     pub fleet_status: Arc<Mutex<FleetStatus>>,
+    pub active_rovers_status: Arc<Mutex<ActiveRoversStatus>>,
 }
 
 impl SharedState {
@@ -183,7 +193,20 @@ impl SharedState {
             .filter(|s| !s.is_empty())
             .collect();
 
+        // Read active rovers configuration (defaults to selected entity)
+        let active_rovers_str = env::var("ACTIVE_ROVERS")
+            .unwrap_or_else(|_| selected_entity.clone());
+        let active_rovers: Vec<String> = active_rovers_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
         let fleet_status = FleetStatus::new(selected_entity, fleet_roster);
+        let active_rovers_status = ActiveRoversStatus::new(active_rovers);
+
+        tracing::info!("Fleet roster: {:?}", fleet_status.fleet_roster);
+        tracing::info!("Active rovers: {:?}", active_rovers_status.active_rovers);
 
         Self {
             arm_command_queue: Arc::new(Mutex::new(Vec::new())),
@@ -194,11 +217,14 @@ impl SharedState {
             tts_command_queue: Arc::new(Mutex::new(Vec::new())),
             audio_stream_queue: Arc::new(Mutex::new(Vec::new())),
             voice_command_audio_queue: Arc::new(Mutex::new(Vec::new())),
+            fleet_subscription_command_queue: Arc::new(Mutex::new(Vec::new())),
+            fleet_select_command_queue: Arc::new(Mutex::new(Vec::new())),
             video_clients: Arc::new(Mutex::new(Vec::new())),
             performance_monitoring_enabled: Arc::new(Mutex::new(true)),
             auth_rate_limiter: Arc::new(AuthRateLimiter::new()),
             command_rate_limiter: Arc::new(CommandRateLimiter::new()),
             fleet_status: Arc::new(Mutex::new(fleet_status)),
+            active_rovers_status: Arc::new(Mutex::new(active_rovers_status)),
         }
     }
 }
@@ -222,6 +248,7 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
 
     // Clone io for use inside the closure
     let io_for_fleet = io.clone();
+    let io_for_active_rovers = io.clone();
 
     io.ns("/", move |socket: SocketRef, TryData::<AuthCredentials>(auth)| {
         let socket_id = socket.id.to_string();
@@ -478,6 +505,11 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
                         fleet_status.selected_entity = select_cmd.entity_id.clone();
                         fleet_status.timestamp = select_cmd.timestamp;
 
+                        // Queue command to send to orchestra-bridge
+                        if let Ok(mut queue) = shared_state_clone.fleet_select_command_queue.lock() {
+                            queue.push(select_cmd.clone());
+                        }
+
                         // Broadcast updated fleet status to all clients
                         let status_clone = fleet_status.clone();
                         drop(fleet_status); // Release lock before async operation
@@ -487,6 +519,70 @@ fn setup_socketio(shared_state: SharedState) -> (SocketIo, socketioxide::layer::
                     } else {
                         tracing::warn!("Invalid entity_id selection: {}", select_cmd.entity_id);
                     }
+                }
+            },
+        );
+
+        let shared_state_clone = shared_state.clone();
+        let io_for_active_rovers = io_for_active_rovers.clone();
+        socket.on(
+            "fleet_subscription",
+            move |_socket: SocketRef, Data::<Value>(data)| {
+                if let Ok(sub_cmd) = serde_json::from_value::<WebFleetSubscriptionCommand>(data) {
+                    tracing::info!("Fleet subscription command: action={}", sub_cmd.action);
+
+                    // Add to queue for processing by Dora task
+                    if let Ok(mut queue) = shared_state_clone.fleet_subscription_command_queue.lock() {
+                        queue.push(sub_cmd.clone());
+                    }
+
+                    // Update active rovers status in memory
+                    let mut active_rovers = shared_state_clone.active_rovers_status.lock().unwrap();
+
+                    match sub_cmd.action.as_str() {
+                        "activate" => {
+                            if let Some(entity_id) = &sub_cmd.entity_id {
+                                if !active_rovers.active_rovers.contains(entity_id) {
+                                    active_rovers.active_rovers.push(entity_id.clone());
+                                    active_rovers.timestamp = SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_millis() as u64;
+                                    tracing::info!("Activated rover: {}", entity_id);
+                                }
+                            }
+                        }
+                        "deactivate" => {
+                            if let Some(entity_id) = &sub_cmd.entity_id {
+                                active_rovers.active_rovers.retain(|id| id != entity_id);
+                                active_rovers.timestamp = SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64;
+                                tracing::info!("Deactivated rover: {}", entity_id);
+                            }
+                        }
+                        "set_active" => {
+                            if let Some(entity_ids) = &sub_cmd.entity_ids {
+                                active_rovers.active_rovers = entity_ids.clone();
+                                active_rovers.timestamp = SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64;
+                                tracing::info!("Set active rovers: {:?}", entity_ids);
+                            }
+                        }
+                        _ => {
+                            tracing::warn!("Unknown fleet subscription action: {}", sub_cmd.action);
+                        }
+                    }
+
+                    // Broadcast updated active rovers status to all clients
+                    let status_clone = active_rovers.clone();
+                    drop(active_rovers); // Release lock before async operation
+
+                    io_for_active_rovers.emit("active_rovers_status", status_clone).ok();
+                    tracing::info!("Active rovers status updated and broadcast");
                 }
             },
         );
@@ -521,6 +617,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tts_command_output = DataId::from("tts_command".to_owned());
     let audio_stream_output = DataId::from("audio_stream".to_owned());
     let voice_command_audio_output = DataId::from("voice_command_audio".to_owned());
+    let fleet_subscription_command_output = DataId::from("fleet_subscription_command".to_owned());
+    let fleet_select_command_output = DataId::from("fleet_select_command".to_owned());
 
     let shared_state = SharedState::new();
     let (io, layer) = setup_socketio(shared_state.clone());
@@ -593,6 +691,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_clone_tts = node_clone_arm.clone();
     let node_clone_audio_stream = node_clone_arm.clone();
     let node_clone_voice_command = node_clone_arm.clone();
+    let node_clone_fleet_sub = node_clone_arm.clone();
     let state_clone_arm = shared_state.clone();
 
     let arm_command_processor = tokio::spawn(async move {
@@ -815,6 +914,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Default::default(),
                             arrow_data,
                         );
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process fleet subscription commands
+    let state_clone_fleet_sub = shared_state.clone();
+    let node_for_fleet_sub = node_clone_fleet_sub.clone();
+    let _fleet_subscription_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_fleet_sub.fleet_subscription_command_queue.lock() {
+                if !queue.is_empty() {
+                    let web_cmd = queue.remove(0);
+                    tracing::debug!("Processing fleet subscription command: action={}", web_cmd.action);
+
+                    // Convert Web command to FleetSubscriptionCommand
+                    let fleet_cmd = match web_cmd.action.as_str() {
+                        "activate" => {
+                            if let Some(entity_id) = web_cmd.entity_id {
+                                Some(FleetSubscriptionCommand::activate_rover(entity_id))
+                            } else {
+                                None
+                            }
+                        }
+                        "deactivate" => {
+                            if let Some(entity_id) = web_cmd.entity_id {
+                                Some(FleetSubscriptionCommand::deactivate_rover(entity_id))
+                            } else {
+                                None
+                            }
+                        }
+                        "set_active" => {
+                            if let Some(entity_ids) = web_cmd.entity_ids {
+                                Some(FleetSubscriptionCommand::set_active_rovers(entity_ids))
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+
+                    if let Some(cmd) = fleet_cmd {
+                        if let Ok(serialized) = serde_json::to_vec(&cmd) {
+                            let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                            if let Ok(mut node_guard) = node_for_fleet_sub.lock() {
+                                let _ = node_guard.send_output(
+                                    fleet_subscription_command_output.clone(),
+                                    Default::default(),
+                                    arrow_data,
+                                );
+                                tracing::info!("Sent fleet subscription command to zenoh_bridge");
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+
+    // Process fleet select commands
+    let state_clone_fleet_select = shared_state.clone();
+    let node_clone_fleet_select = node_clone_fleet_sub.clone();
+    let fleet_select_command_output_clone = fleet_select_command_output.clone();
+    let _fleet_select_processor = tokio::spawn(async move {
+        loop {
+            if let Ok(mut queue) = state_clone_fleet_select.fleet_select_command_queue.lock() {
+                if !queue.is_empty() {
+                    let cmd = queue.remove(0);
+                    tracing::debug!("Processing fleet select command: entity_id={}", cmd.entity_id);
+
+                    if let Ok(serialized) = serde_json::to_vec(&cmd) {
+                        let arrow_data = BinaryArray::from_vec(vec![serialized.as_slice()]);
+                        if let Ok(mut node_guard) = node_clone_fleet_select.lock() {
+                            let _ = node_guard.send_output(
+                                fleet_select_command_output_clone.clone(),
+                                Default::default(),
+                                arrow_data,
+                            );
+                            tracing::info!("Sent fleet select command to orchestra-bridge: {}", cmd.entity_id);
+                        }
                     }
                 }
             }

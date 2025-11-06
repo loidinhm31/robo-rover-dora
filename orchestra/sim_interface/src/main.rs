@@ -177,6 +177,7 @@ impl UnifiedRobotController {
         let z = l1 * theta2.sin() + l2 * (theta2 + theta3).sin() + 0.1;
 
         ArmTelemetry {
+            entity_id: None,
             end_effector_pose: [
                 x,
                 y,

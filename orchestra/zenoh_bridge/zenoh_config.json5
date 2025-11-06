@@ -1,0 +1,33 @@
+// Zenoh Configuration for Orchestra (Workstation)
+// Connects to local Zenoh router or operates in peer mode
+{
+  "mode": "peer",  // peer mode for direct P2P with rover
+
+  // Optional: Uncomment to use router mode
+  // "connect": {
+  //   "endpoints": ["tcp/127.0.0.1:7447"]  // Local router
+  // },
+
+  "transport": {
+    "link": {
+      "tx": {
+        "lease": 10000,       // 10s keep-alive
+        "keep_alive": 4,
+        "batch_size": 65535   // Large batch for workstation
+      }
+    }
+  },
+
+  "scouting": {
+    "multicast": {
+      "enabled": true,        // Enable multicast discovery on LAN
+      "address": "224.0.0.224:7446",
+      "interface": "auto"
+    }
+  },
+
+  // Logging
+  "log": {
+    "level": "info"
+  }
+}

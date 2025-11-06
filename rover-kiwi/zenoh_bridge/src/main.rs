@@ -23,10 +23,23 @@ async fn main() -> Result<()> {
     // Initialize Dora node
     let (mut node, mut events) = DoraNode::init_from_env()?;
 
-    // Initialize Zenoh session
-    let mut config = Config::default();
-    config.insert_json5("mode", "\"peer\"")
-        .map_err(|e| eyre::eyre!("Failed to set Zenoh mode: {}", e))?;
+    // Initialize Zenoh session with config file
+    let config_path = std::env::var("ZENOH_CONFIG")
+        .unwrap_or_else(|_| "rover-kiwi/zenoh_bridge/zenoh_config.json5".to_string());
+
+    tracing::info!("Loading Zenoh config from: {}", config_path);
+
+    let config = if std::path::Path::new(&config_path).exists() {
+        Config::from_file(&config_path)
+            .map_err(|e| eyre::eyre!("Failed to load Zenoh config from {}: {}", config_path, e))?
+    } else {
+        tracing::warn!("Config file not found at {}, using default config with peer mode", config_path);
+        let mut config = Config::default();
+        config.insert_json5("mode", "\"peer\"")
+            .map_err(|e| eyre::eyre!("Failed to set Zenoh mode: {}", e))?;
+        config
+    };
+
     let session = zenoh::open(config).await
         .map_err(|e| eyre::eyre!("Failed to open Zenoh session: {}", e))?;
 

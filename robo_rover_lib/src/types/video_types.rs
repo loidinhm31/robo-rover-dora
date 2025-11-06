@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 /// Raw audio frame data from microphone
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
     pub timestamp: u64,
     pub frame_id: u64,
     pub sample_rate: u32,     // e.g., 48000 Hz
@@ -34,6 +36,8 @@ impl AudioFrame {
 /// Encoded audio frame (Opus, AAC, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncodedAudioFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,  // Source rover entity ID (for multi-rover support)
     pub timestamp: u64,
     pub frame_id: u64,
     pub sample_rate: u32,
@@ -55,6 +59,8 @@ pub enum AudioCodec {
 /// Raw camera frame with optional audio
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CameraFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,  // Source rover entity ID (for multi-rover support)
     pub timestamp: u64,
     pub frame_id: u64,
     pub width: u32,
@@ -66,6 +72,8 @@ pub struct CameraFrame {
 /// H.264 encoded video frame
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct H264Frame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,  // Source rover entity ID (for multi-rover support)
     pub timestamp: u64,
     pub frame_id: u64,
     pub width: u32,
@@ -79,6 +87,8 @@ pub struct H264Frame {
 /// Processed video frame with H.264 or JPEG
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessedVideoFrame {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,  // Source rover entity ID (for multi-rover support)
     pub timestamp: u64,
     pub frame_id: u64,
     pub width: u32,
