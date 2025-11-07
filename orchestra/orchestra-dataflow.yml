@@ -6,7 +6,6 @@ nodes:
     path: target/release/orchestra_zenoh_bridge
     inputs:
       # Processed data TO send to selected rover via Zenoh
-      detections: object-tracker/tracked_detections
       tracking_command_parser: command-parser/tracking_command
       rover_command_parser: command-parser/rover_command
       camera_control_parser: command-parser/camera_control
@@ -28,7 +27,8 @@ nodes:
       - rover_telemetry     # Rover position/velocity telemetry (with entity_id)
       - arm_telemetry       # Arm joint positions (with entity_id)
       - servo_telemetry     # Visual servoing telemetry (with entity_id)
-      - tracking_telemetry  # Object tracking telemetry (with entity_id)
+      - tracked_detections  # DetectionFrame with tracking IDs from rover (with entity_id)
+      - tracking_telemetry  # Object tracking telemetry from rover (with entity_id)
       - performance_metrics # System metrics from rover (with entity_id)
     env:
       RUST_LOG: info
@@ -40,39 +40,6 @@ nodes:
       VIDEO_HEIGHT: "480"
       AUDIO_SAMPLE_RATE: "16000"
       AUDIO_CHANNELS: "1"
-
-  # Object detector - YOLOv12n inference
-  - id: object-detector
-    build: cargo build --release -p object_detector
-    path: target/release/object_detector
-    inputs:
-      frame: orchestra-bridge/video_frame  # RGB8 from rover
-    outputs:
-      - detections  # DetectionFrame with bounding boxes
-    env:
-      RUST_LOG: info
-      MODEL_PATH: "../models/.cache/yolo/yolo12n.onnx"
-      CONFIDENCE_THRESHOLD: "0.5"
-      NMS_THRESHOLD: "0.4"
-      TARGET_CLASSES: ""
-      ORT_DYLIB_PATH: "/usr/local/lib/libonnxruntime.so"
-
-  # Object tracker - SORT algorithm
-  - id: object-tracker
-    build: cargo build --release -p object_tracker
-    path: target/release/object_tracker
-    inputs:
-      detections: object-detector/detections
-      tracking_command: web-bridge/tracking_command
-      tracking_command_voice: command-parser/tracking_command
-    outputs:
-      - tracked_detections  # DetectionFrame with tracking IDs
-      - tracking_telemetry  # Tracking state and target info
-    env:
-      RUST_LOG: info
-      MAX_TRACKING_AGE: "30"
-      MIN_HITS: "3"
-      IOU_THRESHOLD: "0.3"
 
   # Speech recognizer - Whisper.cpp STT
   - id: speech-recognizer
@@ -150,9 +117,9 @@ nodes:
       servo_telemetry: orchestra-bridge/servo_telemetry
       performance_metrics: orchestra-bridge/performance_metrics
 
-      # Processed data (from orchestra compute nodes)
-      tracked_detections: object-tracker/tracked_detections
-      tracking_telemetry: object-tracker/tracking_telemetry
+      # Processed data (from rovers via orchestra-bridge)
+      tracked_detections: orchestra-bridge/tracked_detections
+      tracking_telemetry: orchestra-bridge/tracking_telemetry
       transcription: speech-recognizer/transcription
       command_feedback: command-parser/feedback
     outputs:

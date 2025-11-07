@@ -25,6 +25,7 @@ struct RoverSubscriptions {
     rover_telemetry_sub: ZenohSubscriber,
     arm_telemetry_sub: ZenohSubscriber,
     servo_telemetry_sub: ZenohSubscriber,
+    tracked_detections_sub: ZenohSubscriber,
     tracking_telemetry_sub: ZenohSubscriber,
     metrics_sub: ZenohSubscriber,
 }
@@ -40,43 +41,49 @@ async fn subscribe_to_rover(
     let video_sub = session.declare_subscriber(&video_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", video_topic, e))?;
-    tracing::info!("  ✓ {}", video_topic);
+    tracing::info!("{}", video_topic);
 
     let audio_topic = format!("rover/{}/audio/raw", entity_id);
     let audio_sub = session.declare_subscriber(&audio_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", audio_topic, e))?;
-    tracing::info!("  ✓ {}", audio_topic);
+    tracing::info!("{}", audio_topic);
 
     let rover_telemetry_topic = format!("rover/{}/telemetry/rover", entity_id);
     let rover_telemetry_sub = session.declare_subscriber(&rover_telemetry_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", rover_telemetry_topic, e))?;
-    tracing::info!("  ✓ {}", rover_telemetry_topic);
+    tracing::info!("{}", rover_telemetry_topic);
 
     let arm_telemetry_topic = format!("rover/{}/telemetry/arm", entity_id);
     let arm_telemetry_sub = session.declare_subscriber(&arm_telemetry_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", arm_telemetry_topic, e))?;
-    tracing::info!("  ✓ {}", arm_telemetry_topic);
+    tracing::info!("{}", arm_telemetry_topic);
 
     let servo_telemetry_topic = format!("rover/{}/telemetry/servo", entity_id);
     let servo_telemetry_sub = session.declare_subscriber(&servo_telemetry_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", servo_telemetry_topic, e))?;
-    tracing::info!("  ✓ {}", servo_telemetry_topic);
+    tracing::info!("{}", servo_telemetry_topic);
+
+    let tracked_detections_topic = format!("rover/{}/video/detections", entity_id);
+    let tracked_detections_sub = session.declare_subscriber(&tracked_detections_topic)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", tracked_detections_topic, e))?;
+    tracing::info!("{}", tracked_detections_topic);
 
     let tracking_telemetry_topic = format!("rover/{}/telemetry/tracking", entity_id);
     let tracking_telemetry_sub = session.declare_subscriber(&tracking_telemetry_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", tracking_telemetry_topic, e))?;
-    tracing::info!("  ✓ {}", tracking_telemetry_topic);
+    tracing::info!("{}", tracking_telemetry_topic);
 
     let metrics_topic = format!("rover/{}/metrics", entity_id);
     let metrics_sub = session.declare_subscriber(&metrics_topic)
         .await
         .map_err(|e| eyre::eyre!("Failed to subscribe to {}: {}", metrics_topic, e))?;
-    tracing::info!("  ✓ {}", metrics_topic);
+    tracing::info!("{}", metrics_topic);
 
     Ok(RoverSubscriptions {
         entity_id: entity_id.to_string(),
@@ -85,6 +92,7 @@ async fn subscribe_to_rover(
         rover_telemetry_sub,
         arm_telemetry_sub,
         servo_telemetry_sub,
+        tracked_detections_sub,
         tracking_telemetry_sub,
         metrics_sub,
     })
@@ -272,6 +280,7 @@ async fn main() -> Result<()> {
     let rover_telemetry_output = DataId::from("rover_telemetry".to_owned());
     let arm_telemetry_output = DataId::from("arm_telemetry".to_owned());
     let servo_telemetry_output = DataId::from("servo_telemetry".to_owned());
+    let tracked_detections_output = DataId::from("tracked_detections".to_owned());
     let tracking_telemetry_output = DataId::from("tracking_telemetry".to_owned());
     let performance_metrics_output = DataId::from("performance_metrics".to_owned());
 
@@ -387,9 +396,6 @@ async fn main() -> Result<()> {
                                                     }
                                                     "tts_command_web" | "tts_command_parser" => {
                                                         Some(format!("rover/{}/cmd/tts", entity_id))
-                                                    }
-                                                    "detections" => {
-                                                        Some(format!("rover/{}/video/detections", entity_id))
                                                     }
                                                     _ => None,
                                                 };
@@ -513,6 +519,18 @@ async fn main() -> Result<()> {
                     forward_telemetry_with_entity_id(
                         &mut node,
                         &servo_telemetry_output,
+                        entity_id,
+                        sample
+                    );
+                }
+            }
+
+            // Receive from all active rovers' tracked detections
+            result = receive_from_rovers(&active_rovers, |subs| &subs.tracked_detections_sub) => {
+                if let Some((entity_id, sample)) = result {
+                    forward_telemetry_with_entity_id(
+                        &mut node,
+                        &tracked_detections_output,
                         entity_id,
                         sample
                     );

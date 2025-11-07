@@ -6,8 +6,8 @@ members = [
 
     # Orchestra (Workstation) - Fleet control hub
     "orchestra/web_bridge",
-    "orchestra/object_detector",
-    "orchestra/object_tracker",
+    "rover-kiwi/object_detector",
+    "rover-kiwi/object_tracker",
     "orchestra/speech_recognizer",
     "orchestra/command_parser",
     "orchestra/audio_converter",

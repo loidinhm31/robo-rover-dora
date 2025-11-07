@@ -24,27 +24,31 @@ Communication between machines uses **Zenoh** (pub/sub protocol) for efficient r
 │  │   web-bridge     │           │          │  └────────┬─────────┘           │
 │  └────────┬─────────┘           │          │           │                     │
 │           │                     │          │  ┌────────▼─────────┐           │
-│  ┌────────▼─────────┐           │          │  │ Controllers      │           │
-│  │  Heavy Compute   │           │   Zenoh  │  │ - rover          │           │
-│  │  - YOLO Detect   │◄──────────┼──────────┤►│ - arm            │           │
-│  │  - SORT Track    │   P2P     │          │  │ - visual servo   │           │
-│  │  - Whisper STT   │           │          │  └────────┬─────────┘           │
-│  │  - Video Encode  │           │          │           │                     │
-│  │  - Audio Convert │           │          │  ┌────────▼─────────┐           │
-│  └────────┬─────────┘           │          │  │  zenoh-bridge    │           │
-│           │                     │          │  │  (rover mode)    │           │
-│  ┌────────▼─────────┐           │          │  └──────────────────┘           │
-│  │  orchestra-      │           │          │                                 │
-│  │  bridge          │           │          │  Publishes:                     │
-│  │  (orchestra mode)│           │          │  - Raw video (RGB8)             │
-│  └──────────────────┘           │          │  - Raw audio (Float32)          │
+│  ┌────────▼─────────┐           │          │  │  ML Inference    │           │
+│  │  Heavy Compute   │           │   Zenoh  │  │  - YOLO Detect   │           │
+│  │  - Whisper STT   │◄──────────┼──────────┤►│  - SORT Track    │           │
+│  │  - Video Encode  │   P2P     │          │  └────────┬─────────┘           │
+│  │  - Audio Convert │           │          │           │                     │
+│  └────────┬─────────┘           │          │  ┌────────▼─────────┐           │
+│           │                     │          │  │ Controllers      │           │
+│  ┌────────▼─────────┐           │          │  │ - rover          │           │
+│  │  orchestra-      │           │          │  │ - arm            │           │
+│  │  bridge          │           │          │  │ - visual servo   │           │
+│  │  (orchestra mode)│           │          │  └────────┬─────────┘           │
+│  └──────────────────┘           │          │           │                     │
+│                                 │          │  ┌────────▼─────────┐           │
+│  Subscribes:                    │          │  │  zenoh-bridge    │           │
+│  - Raw data from rover          │          │  │  (rover mode)    │           │
+│  - Processed detections         │          │  └──────────────────┘           │
+│                                 │          │                                 │
+│  Publishes:                     │          │  Publishes:                     │
+│  - Commands to rover            │          │  - Raw video (RGB8)             │
+│                                 │          │  - Raw audio (Float32)          │
 │                                 │          │  - Telemetry                    │
-│  Subscribes:                    │          │                                 │
-│  - Raw data from rover          │          │  Subscribes:                    │
+│                                 │          │  - Detections (tracked)         │
+│                                 │          │                                 │
+│                                 │          │  Subscribes:                    │
 │                                 │          │  - Commands from orchestra      │
-│  Publishes:                     │          │                                 │
-│  - Commands to rover            │          │                                 │
-│  - Processed detections         │          │                                 │
 └─────────────────────────────────┘          └─────────────────────────────────┘
 ```
 
@@ -53,8 +57,6 @@ Communication between machines uses **Zenoh** (pub/sub protocol) for efficient r
 ```
 robo-rover-dora/
 ├── orchestra/                      # Workstation nodes (heavy compute)
-│   ├── object_detector/            # YOLOv12n inference
-│   ├── object_tracker/             # SORT tracking
 │   ├── speech_recognizer/          # Whisper.cpp STT
 │   ├── command_parser/             # NLU pattern matching
 │   ├── audio_converter/            # Float32 → Int16LE
@@ -64,10 +66,12 @@ robo-rover-dora/
 │   ├── zenoh_bridge/               # Orchestra Zenoh bridge (orchestra-only)
 │   └── orchestra-dataflow.yml      # Orchestra Dora dataflow
 │
-├── rover-kiwi/                     # Raspberry Pi nodes (hardware I/O)
+├── rover-kiwi/                     # Raspberry Pi nodes (hardware I/O + ML)
 │   ├── audio_capture/              # Microphone (cpal)
 │   ├── audio_playback/             # Speaker output
 │   ├── kornia_capture/             # Camera (GStreamer)
+│   ├── object_detector/            # YOLOv12n inference (moved from orchestra)
+│   ├── object_tracker/             # SORT tracking (moved from orchestra)
 │   ├── arm_controller/             # Arm servo control
 │   ├── rover_controller/           # Motor control
 │   ├── visual_servo_controller/    # PID autonomous following
@@ -93,12 +97,14 @@ The system uses **two separate zenoh_bridge implementations** for clean separati
 **Runs on**: Raspberry Pi
 
 **Behavior**:
-- **Publishes TO Zenoh**: Raw sensor data for orchestra processing
+- **Publishes TO Zenoh**: Raw sensor data and processed detections
   - `rover/{entity_id}/video/raw` - RGB8 frames (640×480×3)
   - `rover/{entity_id}/audio/raw` - Float32 audio (16kHz, mono)
   - `rover/{entity_id}/telemetry/rover` - Position/velocity
   - `rover/{entity_id}/telemetry/arm` - Joint angles
   - `rover/{entity_id}/telemetry/servo` - Visual servo state
+  - `rover/{entity_id}/video/detections` - Tracked detections (YOLO + SORT)
+  - `rover/{entity_id}/telemetry/tracking` - Tracking state and target info
   - `rover/{entity_id}/metrics` - System performance
 
 - **Subscribes FROM Zenoh**: Commands from orchestra
@@ -106,7 +112,7 @@ The system uses **two separate zenoh_bridge implementations** for clean separati
   - `rover/{entity_id}/cmd/arm` - Joint commands
   - `rover/{entity_id}/cmd/camera` - Camera on/off
   - `rover/{entity_id}/cmd/audio` - Microphone on/off
-  - `rover/{entity_id}/cmd/tracking_telemetry` - Tracking results
+  - `rover/{entity_id}/cmd/tracking` - Tracking commands (Enable/Disable/SelectTarget)
   - `rover/{entity_id}/cmd/tts` - TTS commands
   - `rover/{entity_id}/cmd/audio_stream` - Web UI audio stream
 
@@ -117,15 +123,15 @@ The system uses **two separate zenoh_bridge implementations** for clean separati
 **Runs on**: Workstation
 
 **Behavior**:
-- **Subscribes FROM Zenoh**: Raw data from selected rover
-  - `rover/{selected_entity}/video/raw` - RGB8 for ML inference
+- **Subscribes FROM Zenoh**: Raw data and processed detections from selected rover
+  - `rover/{selected_entity}/video/raw` - RGB8 for video encoding
   - `rover/{selected_entity}/audio/raw` - Float32 for STT
-  - `rover/{selected_entity}/telemetry/*` - All telemetry
+  - `rover/{selected_entity}/video/detections` - Tracked detections from rover
+  - `rover/{selected_entity}/telemetry/*` - All telemetry (including tracking)
   - `rover/{selected_entity}/metrics` - Performance data
 
-- **Publishes TO Zenoh**: Commands and processed results to rover
-  - `rover/{selected_entity}/cmd/*` - All command types
-  - `rover/{selected_entity}/video/detections` - YOLO detections
+- **Publishes TO Zenoh**: Commands to rover
+  - `rover/{selected_entity}/cmd/*` - All command types (movement, arm, camera, tracking, etc.)
 
 ### Environment Variables
 
@@ -142,14 +148,15 @@ ZENOH_MODE=peer
 
 ## Data Flow
 
-### Rover → Orchestra (Sensor Data)
+### Rover → Orchestra (Sensor Data & Processed Detections)
 
 1. **Hardware capture** (gst-camera, audio-capture)
-2. **Raw data** → `rover/{entity_id}/*` topics via Zenoh
-3. **Orchestra receives** and forwards to compute nodes:
-   - RGB8 → object-detector → object-tracker
+2. **Local ML processing** (object-detector → object-tracker)
+3. **Raw data & detections** → `rover/{entity_id}/*` topics via Zenoh
+4. **Orchestra receives** and forwards:
+   - RGB8 → video-encoder (JPEG for web UI)
    - Float32 audio → speech-recognizer → command-parser
-4. **Processing results** published back to Zenoh
+   - Tracked detections → web-bridge (for web UI display)
 
 ### Orchestra → Rover (Commands)
 
@@ -162,22 +169,21 @@ ZENOH_MODE=peer
 ## Performance Characteristics
 
 ### Rover (Raspberry Pi 5)
-- **CPU**: ~35% (down from 110% on single machine)
+- **CPU**: ~60% (includes local ML inference)
   - Hardware I/O: 10%
   - Control loops: 15%
-  - Video encoding: 0% (moved to orchestra)
-  - No ML inference
-- **Memory**: ~350MB
-- **Network**: ~27 MB/s upload (RGB8 @ 30fps)
-- **Latency**: <20ms command response
+  - YOLO inference: 25%
+  - SORT tracking: 10%
+- **Memory**: ~800MB (includes YOLO model)
+- **Network**: ~27 MB/s upload (RGB8 @ 30fps + detections)
+- **Latency**: <5ms visual servo response (local tracking)
 
 ### Orchestra (Workstation)
-- **CPU**: ~80% (with GPU acceleration)
-  - YOLO: 25% CPU (or GPU)
+- **CPU**: ~55% (no ML inference)
   - Whisper: 20% CPU (or GPU)
   - Video encoding: 30%
   - Audio conversion: 5%
-- **Memory**: ~1.5GB (ML models)
+- **Memory**: ~700MB (Whisper model only)
 - **Network**: ~27 MB/s download + 1 MB/s upload
 - **Latency**: 1-5ms Zenoh overhead
 
@@ -198,13 +204,14 @@ cargo install dora-cli
 ```
 
 **On Orchestra**:
-- ONNX Runtime for YOLO
 - Whisper model for STT
 - Kokoro TTS models (optional)
 
 **On Rover-Kiwi**:
 - GStreamer for camera
 - cpal for audio
+- ONNX Runtime for YOLO
+- YOLO model (yolo12n.onnx)
 - Kokoro TTS models for local feedback
 
 ### Build and Deploy
@@ -259,12 +266,23 @@ Socket.IO connects to `<workstation-ip>:3030`
 3. Build and deploy rover-b on second Raspberry Pi
 4. Orchestra can switch between rovers using `SELECTED_ENTITY` variable
 
-### Adding Heavy Compute Node
+### Adding Heavy Compute Node (Orchestra)
+
+For CPU-intensive tasks that don't require low latency:
 
 1. Create node in `orchestra/` directory
 2. Add to `orchestra-dataflow.yml`
 3. Connect inputs from orchestra-bridge outputs
 4. Publish results back to orchestra-bridge for Zenoh transmission
+
+### Adding Real-Time Processing Node (Rover)
+
+For latency-sensitive tasks (e.g., visual servoing, obstacle avoidance):
+
+1. Create node in `rover-kiwi/` directory
+2. Add to `rover-kiwi-dataflow.yml`
+3. Connect to local sensors and controllers
+4. Optionally publish telemetry via zenoh-bridge
 
 ### Fleet Management (Future)
 
@@ -288,16 +306,19 @@ Future: Orchestra processes MULTIPLE rovers in parallel with:
 
 **Tradeoff**: Not suitable for WAN deployment (would need H.264 encoding)
 
-### Why Visual Servoing on Rover?
+### Why Object Detection & Tracking on Rover?
 
-**Decision**: PID control runs on rover, not orchestra
+**Decision**: YOLO + SORT run on rover, not orchestra
 
 **Rationale**:
-- Low-latency control loop (<5ms required)
-- Network latency too high for PID (10-20ms)
-- Tracking telemetry sent from orchestra is sufficient
+- Low-latency visual servoing requires local tracking data (<5ms)
+- Network round-trip (rover → orchestra → rover) adds 10-20ms latency
+- Raspberry Pi 5 has sufficient CPU for YOLOv12n (nano variant)
+- Better autonomy: rover can track and follow even if network drops
 
-**Implementation**: Tracking runs on orchestra, servo control on rover
+**Tradeoff**: Increases rover CPU usage from ~35% to ~60%
+
+**Implementation**: Full detection/tracking/servo pipeline runs locally on rover
 
 ## References
 

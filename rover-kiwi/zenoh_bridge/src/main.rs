@@ -97,6 +97,20 @@ async fn main() -> Result<()> {
         .map_err(|e| eyre::eyre!("Failed to declare publisher {}: {}", metrics_topic, e))?;
     tracing::info!("Publisher: {}", metrics_topic);
 
+    let tracked_detections_topic = format!("rover/{}/video/detections", entity_id);
+    let tracked_detections_pub = session
+        .declare_publisher(&tracked_detections_topic)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to declare publisher {}: {}", tracked_detections_topic, e))?;
+    tracing::info!("Publisher: {}", tracked_detections_topic);
+
+    let tracking_telemetry_topic = format!("rover/{}/telemetry/tracking", entity_id);
+    let tracking_telemetry_pub = session
+        .declare_publisher(&tracking_telemetry_topic)
+        .await
+        .map_err(|e| eyre::eyre!("Failed to declare publisher {}: {}", tracking_telemetry_topic, e))?;
+    tracing::info!("Publisher: {}", tracking_telemetry_topic);
+
     // =========================================================================
     // SUBSCRIBERS: Receive commands FROM orchestra via Zenoh
     // =========================================================================
@@ -129,12 +143,12 @@ async fn main() -> Result<()> {
         .map_err(|e| eyre::eyre!("Failed to declare subscriber {}: {}", audio_cmd_topic, e))?;
     tracing::info!("Subscriber: {}", audio_cmd_topic);
 
-    let tracking_telemetry_topic = format!("rover/{}/cmd/tracking_telemetry", entity_id);
-    let tracking_telemetry_sub = session
-        .declare_subscriber(&tracking_telemetry_topic)
+    let tracking_cmd_topic = format!("rover/{}/cmd/tracking", entity_id);
+    let tracking_cmd_sub = session
+        .declare_subscriber(&tracking_cmd_topic)
         .await
-        .map_err(|e| eyre::eyre!("Failed to declare subscriber {}: {}", tracking_telemetry_topic, e))?;
-    tracing::info!("Subscriber: {}", tracking_telemetry_topic);
+        .map_err(|e| eyre::eyre!("Failed to declare subscriber {}: {}", tracking_cmd_topic, e))?;
+    tracing::info!("Subscriber: {}", tracking_cmd_topic);
 
     let tts_cmd_topic = format!("rover/{}/cmd/tts", entity_id);
     let tts_cmd_sub = session
@@ -158,7 +172,7 @@ async fn main() -> Result<()> {
     let arm_command_output = DataId::from("arm_command".to_owned());
     let camera_command_output = DataId::from("camera_command".to_owned());
     let audio_command_output = DataId::from("audio_command".to_owned());
-    let tracking_telemetry_output = DataId::from("tracking_telemetry".to_owned());
+    let tracking_command_output = DataId::from("tracking_command".to_owned());
     let tts_command_output = DataId::from("tts_command".to_owned());
     let audio_stream_output = DataId::from("audio_stream".to_owned());
 
@@ -241,6 +255,12 @@ async fn main() -> Result<()> {
                                             "performance_metrics" => {
                                                 let _ = metrics_pub.put(bytes).await;
                                             }
+                                            "tracked_detections" => {
+                                                let _ = tracked_detections_pub.put(bytes).await;
+                                            }
+                                            "tracking_telemetry" => {
+                                                let _ = tracking_telemetry_pub.put(bytes).await;
+                                            }
                                             _ => {}
                                         }
                                     }
@@ -306,10 +326,10 @@ async fn main() -> Result<()> {
                 let _ = node.send_output(audio_command_output.clone(), Default::default(), arrow_data);
             }
 
-            Ok(sample) = tracking_telemetry_sub.recv_async() => {
+            Ok(sample) = tracking_cmd_sub.recv_async() => {
                 let payload = sample.payload().to_bytes();
                 let arrow_data = BinaryArray::from_vec(vec![payload.as_ref()]);
-                let _ = node.send_output(tracking_telemetry_output.clone(), Default::default(), arrow_data);
+                let _ = node.send_output(tracking_command_output.clone(), Default::default(), arrow_data);
             }
 
             Ok(sample) = tts_cmd_sub.recv_async() => {

@@ -6,7 +6,7 @@
   // Connect to specific orchestra IP
   "connect": {
     "endpoints": [
-      "tcp/192.168.47.249:7447"        // Orchestra local network IP
+      "tcp/192.168.1.77:7447"        // Orchestra local network IP
     ]
   },
 
