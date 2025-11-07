@@ -13,10 +13,13 @@ export interface NodeMetrics {
 }
 
 export interface SystemMetrics {
+  entity_id?: string;
   total_cpu_percent: number;
   total_memory_mb: number;
   available_memory_mb: number;
   total_system_memory_mb: number;
+  battery_level?: number;
+  battery_voltage?: number;
   dataflow_fps: number;
   end_to_end_latency_ms: number;
   node_metrics: Record<string, NodeMetrics>;

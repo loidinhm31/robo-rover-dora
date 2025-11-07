@@ -4,3 +4,4 @@ export { StatCard, type StatCardProps } from "./StatCard";
 export { IconBadge, type IconBadgeProps } from "./IconBadge";
 export { ValueDisplay, type ValueDisplayProps } from "./ValueDisplay";
 export { LoadingSpinner, type LoadingSpinnerProps } from "./LoadingSpinner";
+export { BatteryIndicator } from "./BatteryIndicator";

@@ -90,9 +90,9 @@ const RoboRoverController: React.FC = () => {
   );
   const [isAudioActive, setIsAudioActive] = useState(false);
 
-  // Performance metrics state
-  const [performanceMetrics, setPerformanceMetrics] = useState<SystemMetrics | null>(
-    null,
+  // Performance metrics state - now per robot (entity_id -> metrics)
+  const [performanceMetrics, setPerformanceMetrics] = useState<Map<string, SystemMetrics>>(
+    new Map()
   );
 
   // Fleet status state
@@ -235,9 +235,24 @@ const RoboRoverController: React.FC = () => {
       addLog(`Transcription: "${data.text}" (${(data.confidence * 100).toFixed(0)}%)`, "info");
     });
 
-    // Listen for performance metrics
+    // Listen for performance metrics (now includes entity_id)
     socket.on("performance_metrics", (data: SystemMetrics) => {
-      setPerformanceMetrics(data);
+      if (data.entity_id) {
+        setPerformanceMetrics((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(data.entity_id!, data);
+          return newMap;
+        });
+      } else {
+        // Fallback: if no entity_id, use selected entity
+        if (fleetStatus?.selected_entity) {
+          setPerformanceMetrics((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(fleetStatus.selected_entity, data);
+            return newMap;
+          });
+        }
+      }
     });
 
     // Listen for fleet status updates
@@ -615,6 +630,7 @@ const RoboRoverController: React.FC = () => {
           {/* Fleet Selector */}
           <FleetSelector
             fleetStatus={fleetStatus}
+            metricsMap={performanceMetrics}
             onSelectRover={selectRover}
             className="max-w-md"
           />
