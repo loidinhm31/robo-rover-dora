@@ -3,10 +3,12 @@
 {
   "mode": "peer",  // peer mode for direct P2P with orchestra
 
-  // Optional: Uncomment to connect to specific orchestra IP
-  // "connect": {
-  //   "endpoints": ["tcp/192.168.1.100:7447"]  // Orchestra workstation IP
-  // },
+  // Connect to specific orchestra IP
+  "connect": {
+    "endpoints": [
+      "tcp/192.168.47.249:7447"        // Orchestra local network IP
+    ]
+  },
 
   "transport": {
     "link": {
@@ -24,10 +26,5 @@
       "address": "224.0.0.224:7446",
       "interface": "auto"
     }
-  },
-
-  // Logging
-  "log": {
-    "level": "info"
   }
 }
