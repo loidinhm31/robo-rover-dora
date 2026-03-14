@@ -1,0 +1,471 @@
+@import './fonts.css';
+@import 'tailwindcss';
+
+/* Tell Tailwind to scan components for utility classes */
+@source "../**/*.{ts,tsx}";
+
+/* Tailwind Theme Configuration */
+@theme {
+  /* Font Families */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* Border Radius */
+  --radius: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+
+  /* Developer Tool Dark Theme - Syntax Highlighting Colors */
+  /* Background Colors */
+  --color-background: 222 47% 5%;      /* #0F172A - Deep slate */
+  --color-foreground: 210 40% 98%;     /* #F1F5F9 - Light text */
+
+  /* Card Colors */
+  --color-card: 217 33% 11%;           /* #1E293B - Dark panel */
+  --color-card-foreground: 210 40% 98%;
+
+  /* Popover Colors */
+  --color-popover: 217 33% 11%;
+  --color-popover-foreground: 210 40% 98%;
+
+  /* Primary - Syntax Blue */
+  --color-primary: 217 91% 60%;        /* #3B82F6 - VS Code blue */
+  --color-primary-foreground: 0 0% 100%;
+
+  /* Secondary - Muted slate */
+  --color-secondary: 215 25% 27%;      /* #334155 - Border color */
+  --color-secondary-foreground: 210 40% 98%;
+
+  /* Muted - Darker panels */
+  --color-muted: 217 33% 17%;          /* #1E293B lighter */
+  --color-muted-foreground: 215 20% 65%;
+
+  /* Accent - Syntax Orange */
+  --color-accent: 25 95% 53%;          /* #F97316 - Orange */
+  --color-accent-foreground: 0 0% 100%;
+
+  /* Destructive - Error red */
+  --color-destructive: 0 84% 60%;
+  --color-destructive-foreground: 0 0% 100%;
+
+  /* Border & Input */
+  --color-border: 215 25% 27%;         /* #334155 */
+  --color-input: 217 33% 11%;          /* #1E293B */
+  --color-ring: 217 91% 60%;           /* #3B82F6 */
+
+  /* Syntax Highlighting Accent Colors */
+  --color-syntax-blue: 217 91% 60%;    /* #3B82F6 - Keywords, functions */
+  --color-syntax-cyan: 189 94% 43%;    /* #06B6D4 - Variables, properties */
+  --color-syntax-green: 142 76% 36%;   /* #10B981 - Success, strings */
+  --color-syntax-yellow: 48 96% 53%;   /* #FACC15 - Warnings, numbers */
+  --color-syntax-orange: 25 95% 53%;   /* #F97316 - Constants, tags */
+  --color-syntax-purple: 271 81% 56%;  /* #A855F7 - Classes, types */
+  --color-syntax-red: 0 72% 51%;       /* #DC2626 - Errors, deletion */
+  --color-syntax-pink: 330 81% 60%;    /* #EC4899 - Special keywords */
+
+  /* Semantic UI Colors */
+  --color-success: 142 76% 36%;        /* #10B981 - Green */
+  --color-warning: 48 96% 53%;         /* #FACC15 - Yellow */
+  --color-error: 0 72% 51%;            /* #DC2626 - Red */
+  --color-info: 189 94% 43%;           /* #06B6D4 - Cyan */
+
+  /* Custom Animations */
+  --animate-pulse-slow: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+}
+
+/* Base Styles — wrapped in @layer base to prevent leaking into qm-hub-app light DOM */
+@layer base {
+  * {
+    border-color: hsl(var(--color-border));
+  }
+
+  body {
+    background-color: hsl(var(--color-background));
+    color: hsl(var(--color-foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom Keyframes */
+@keyframes scanline {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes glow {
+  0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.2), 0 0 10px rgba(59, 130, 246, 0.1); }
+  100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.4), 0 0 20px rgba(59, 130, 246, 0.2); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Component Styles */
+.glass-card {
+  background-color: rgb(30 41 59 / 0.9);
+  border: 1px solid rgb(51 65 85);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+}
+
+.glass-card-light {
+  background-color: rgb(15 23 42 / 0.7);
+  border: 1px solid rgb(51 65 85 / 0.8);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Solid Button Variants - Tailwind v4 Best Practices */
+
+/* Primary Button - Blue accent */
+.btn-primary {
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-primary-foreground));
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-primary));
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: hsl(217 91% 65%);
+  border-color: hsl(217 91% 65%);
+}
+
+.btn-primary:active {
+  background-color: hsl(217 91% 55%);
+}
+
+/* Secondary Button - Muted */
+.btn-secondary {
+  background-color: hsl(var(--color-secondary));
+  color: hsl(var(--color-secondary-foreground));
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-border));
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: hsl(215 25% 32%);
+}
+
+.btn-secondary:active {
+  background-color: hsl(215 25% 22%);
+}
+
+/* Success Button - Green */
+.btn-success {
+  background-color: hsl(var(--color-success));
+  color: white;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-success));
+  cursor: pointer;
+}
+
+.btn-success:hover {
+  background-color: hsl(142 76% 41%);
+  border-color: hsl(142 76% 41%);
+}
+
+.btn-success:active {
+  background-color: hsl(142 76% 31%);
+}
+
+/* Warning Button - Orange */
+.btn-warning {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-accent-foreground));
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-accent));
+  cursor: pointer;
+}
+
+.btn-warning:hover {
+  background-color: hsl(25 95% 58%);
+  border-color: hsl(25 95% 58%);
+}
+
+.btn-warning:active {
+  background-color: hsl(25 95% 48%);
+}
+
+/* Destructive Button - Red */
+.btn-destructive {
+  background-color: hsl(var(--color-destructive));
+  color: hsl(var(--color-destructive-foreground));
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-destructive));
+  cursor: pointer;
+}
+
+.btn-destructive:hover {
+  background-color: hsl(0 84% 65%);
+  border-color: hsl(0 84% 65%);
+}
+
+.btn-destructive:active {
+  background-color: hsl(0 84% 55%);
+}
+
+/* Info Button - Cyan */
+.btn-info {
+  background-color: hsl(var(--color-info));
+  color: white;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 150ms;
+  border: 1px solid hsl(var(--color-info));
+  cursor: pointer;
+}
+
+.btn-info:hover {
+  background-color: hsl(189 94% 48%);
+  border-color: hsl(189 94% 48%);
+}
+
+.btn-info:active {
+  background-color: hsl(189 94% 38%);
+}
+
+/* Grid background pattern - like IDE/terminal */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Scan line effect for terminal aesthetic */
+.scanline-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline-effect::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: rgba(59, 130, 246, 0.15);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+}
+
+/* Dark OLED background with subtle grid pattern */
+.gradient-bg {
+  background-color: hsl(var(--color-background));
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Terminal-style input fields */
+.glass-input {
+  background-color: rgb(15 23 42);
+  border: 1px solid rgb(51 65 85);
+  color: rgb(241 245 249);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  transition: all 200ms;
+}
+
+.glass-input::placeholder {
+  color: rgb(100 116 139);
+}
+
+.glass-input:focus {
+  background-color: rgb(15 23 42);
+  border-color: rgb(59 130 246);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
+}
+
+/* Slider with syntax color */
+.glass-slider {
+  height: 0.5rem;
+  background-color: rgb(30 41 59);
+  border-radius: 0.25rem;
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid rgb(51 65 85);
+}
+
+.glass-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  background-color: rgb(59 130 246);
+  box-shadow: 0 10px 15px -3px rgb(59 130 246 / 0.5), 0 4px 6px -4px rgb(59 130 246 / 0.5);
+  cursor: pointer;
+  border: 2px solid rgb(96 165 250);
+  transition: background-color 150ms;
+}
+
+.glass-slider::-webkit-slider-thumb:hover {
+  background-color: rgb(96 165 250);
+}
+
+.glass-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  background-color: rgb(59 130 246);
+  box-shadow: 0 10px 15px -3px rgb(59 130 246 / 0.5), 0 4px 6px -4px rgb(59 130 246 / 0.5);
+  cursor: pointer;
+  border: 2px solid rgb(96 165 250);
+  transition: background-color 150ms;
+}
+
+.glass-slider::-moz-range-thumb:hover {
+  background-color: rgb(96 165 250);
+}
+
+/* Code block styling */
+.code-block {
+  background-color: rgb(2 6 23);
+  border: 1px solid rgb(30 41 59);
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.75rem;
+  color: rgb(203 213 225);
+  overflow-x: auto;
+}
+
+/* Status indicator with glow */
+.status-glow-green {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.6), 0 0 4px rgba(16, 185, 129, 0.4);
+}
+
+.status-glow-blue {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6), 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+.status-glow-red {
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.6), 0 0 4px rgba(220, 38, 38, 0.4);
+}
+
+.status-glow-orange {
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.6), 0 0 4px rgba(249, 115, 22, 0.4);
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--color-card));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--color-muted-foreground));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--color-secondary-foreground));
+}
+
+/* Full glassmorphism utility with blur */
+.glass {
+  background-color: rgb(30 41 59 / 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Glassmorphism card with backdrop blur - for floating/overlay elements */
+.glass-card-blur {
+  background-color: rgb(30 41 59 / 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgb(51 65 85 / 0.8);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+/* Alternative gradient background */
+.qm-app-root {
+  background: linear-gradient(135deg, hsl(var(--color-background)) 0%, #0a0e27 50%, #1e1b4b 100%);
+  color: hsl(var(--color-foreground));
+  min-height: 100vh;
+}
+
+/* Neon glow effects */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Enhanced FAB button glow with multi-layer depth */
+.glow-fab {
+  box-shadow:
+    0 0 20px rgba(59, 130, 246, 0.4),
+    0 0 40px rgba(59, 130, 246, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(96, 165, 250, 0.3);
+}
+
+.glow-fab:hover {
+  box-shadow:
+    0 0 24px rgba(59, 130, 246, 0.5),
+    0 0 48px rgba(59, 130, 246, 0.3),
+    0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+/* Brighter text colors for cyberpunk/terminal aesthetic */
+.text-cyan-200 {
+  color: rgb(165 243 252);
+}
+
+.text-cyan-300 {
+  color: rgb(103 232 249);
+}
+
+.text-cyan-400 {
+  color: rgb(34 211 238);
+}
+
+.text-green-400 {
+  color: rgb(74 222 128);
+}
+
+.text-amber-400 {
+  color: rgb(251 191 36);
+}
+
+.text-emerald-400 {
+  color: rgb(52 211 153);
+}
