@@ -17,8 +17,6 @@ import {
   EyeOff,
   Gauge,
   Home,
-  Radio,
-  Zap,
 } from "lucide-react";
 import { CameraViewer } from "../CameraViewer.tsx";
 import { RobotLocationMap } from "../LocationMap.tsx";
@@ -508,90 +506,68 @@ const RoboRoverController: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen gradient-bg relative">
-      {/* Animated background elements - fixed positioning */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="cube-decoration top-20 left-10 bg-cyan-400"
-          style={{ animationDelay: "0s" }}
-        ></div>
-        <div
-          className="cube-decoration top-40 right-20 bg-blue-500"
-          style={{ animationDelay: "2s" }}
-        ></div>
-        <div
-          className="cube-decoration bottom-20 left-1/4 bg-orange-400"
-          style={{ animationDelay: "4s" }}
-        ></div>
-        <div
-          className="cube-decoration bottom-40 right-1/3 bg-yellow-400"
-          style={{ animationDelay: "1s" }}
-        ></div>
-        <div
-          className="cube-decoration top-1/2 left-1/2 bg-pink-400"
-          style={{ animationDelay: "3s" }}
-        ></div>
-      </div>
-
+    <div className="min-h-screen gradient-bg relative scanline-effect">
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header - Sticky on scroll - Compact design */}
-        <div className="sticky top-0 z-50 glass-card shadow-xl p-2 md:p-3 backdrop-blur-xl border-b border-white/10">
+        {/* Header - Terminal-style status bar */}
+        <div className="sticky top-0 z-50 glass-card shadow-xl p-2 md:p-3 border-b-2 border-syntax-blue/30">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
             {/* Left: Title and Status Indicators */}
             <div className="flex items-center gap-2 md:gap-3 flex-wrap w-full md:w-auto">
-              <Zap className="w-6 h-6 text-yellow-400 animate-pulse" />
-              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight">
-                LEKIWI ROBOT
-              </h1>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-syntax-blue rounded-full animate-pulse"></div>
+                <h1 className="text-base md:text-lg font-mono font-bold text-syntax-cyan tracking-tight">
+                  robot@fleet-control:~$
+                </h1>
+              </div>
 
-              {/* Connection Status - Inline */}
-              <div className="glass-card-light rounded-lg px-2 py-1 flex items-center gap-1.5">
+              {/* Connection Status - Terminal style */}
+              <div className="bg-slate-900/80 border border-slate-700 rounded px-2 py-1 flex items-center gap-1.5">
                 {connection.isConnected ? (
                   <>
-                    <Radio className="w-3 h-3 text-green-400 animate-pulse" />
-                    <span className="text-xs font-semibold text-green-300">
-                      ONLINE
+                    <div className="w-2 h-2 bg-syntax-green rounded-full status-glow-green"></div>
+                    <span className="text-xs font-mono font-semibold text-syntax-green">
+                      [ONLINE]
                     </span>
                   </>
                 ) : (
                   <>
-                    <Radio className="w-3 h-3 text-red-400" />
-                    <span className="text-xs font-semibold text-red-300">
-                      OFFLINE
+                    <div className="w-2 h-2 bg-syntax-red rounded-full status-glow-red"></div>
+                    <span className="text-xs font-mono font-semibold text-syntax-red">
+                      [OFFLINE]
                     </span>
                   </>
                 )}
               </div>
 
-              {/* Control Mode - Inline */}
+              {/* Control Mode - Syntax colored */}
               {servoTelemetry && (
-                <div className="glass-card-light rounded-lg px-2 py-1 flex items-center gap-1.5">
+                <div className="bg-slate-900/80 border border-slate-700 rounded px-2 py-1 flex items-center gap-1.5">
                   {servoTelemetry.control_mode === "Autonomous" ? (
                     <>
-                      <Zap className="w-3 h-3 text-blue-400 animate-pulse" />
-                      <span className="text-xs font-semibold text-blue-300">
-                        AUTO
+                      <div className="w-2 h-2 bg-syntax-blue rounded-full status-glow-blue"></div>
+                      <span className="text-xs font-mono font-semibold text-syntax-blue">
+                        [AUTO]
                       </span>
                     </>
                   ) : (
                     <>
-                      <Gauge className="w-3 h-3 text-purple-400" />
-                      <span className="text-xs font-semibold text-purple-300">
-                        MANUAL
+                      <div className="w-2 h-2 bg-syntax-purple rounded-full"></div>
+                      <span className="text-xs font-mono font-semibold text-syntax-purple">
+                        [MANUAL]
                       </span>
                     </>
                   )}
                   {servoTelemetry.distance_estimate !== null && (
-                    <span className="text-xs text-white/80 font-mono ml-1">
-                      {servoTelemetry.distance_estimate.toFixed(1)}m
+                    <span className="text-xs text-syntax-cyan font-mono ml-1">
+                      {servoTelemetry.distance_estimate?.toFixed(1)}m
                     </span>
                   )}
                 </div>
               )}
 
               {/* Commands Count */}
-              <div className="text-xs text-white/50 font-mono hidden md:block">
-                {connection.commandsSent} cmd
+              <div className="text-xs text-slate-500 font-mono hidden md:block">
+                tx: <span className="text-syntax-orange">{connection.commandsSent}</span>
               </div>
             </div>
 
@@ -600,27 +576,25 @@ const RoboRoverController: React.FC = () => {
               {!connection.isConnected && (
                 <button
                   onClick={connect}
-                  className="btn-gradient-cyan px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap"
+                  className="btn-info px-4 py-2 rounded text-sm font-mono font-bold whitespace-nowrap"
                 >
-                  CONNECT
+                  <span>{">"} CONNECT</span>
                 </button>
               )}
 
-              {/* Emergency Stop Button - Compact */}
+              {/* Emergency Stop Button - Terminal style */}
               <button
                 onClick={emergencyStop}
                 disabled={!connection.isConnected}
-                className="group relative px-4 md:px-6 py-2 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white rounded-xl font-black text-sm md:text-base shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.7)] transition-all duration-300 hover:scale-105 disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none border border-red-300/50 active:scale-95 flex-1 md:flex-none"
+                className="group relative px-4 md:px-6 py-2 bg-linear-to-r from-red-600 to-red-500 text-white rounded font-black text-sm md:text-base shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transition-all duration-200 hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 disabled:shadow-none border-2 border-red-400/50 active:scale-95 flex-1 md:flex-none font-mono"
                 style={{
-                  animation: connection.isConnected ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                  animation: connection.isConnected ? 'pulse-slow 3s infinite' : 'none'
                 }}
               >
                 <div className="flex items-center gap-2 justify-center">
-                  <AlertTriangle className="w-4 h-4 animate-pulse" />
-                  <span className="tracking-wide">E-STOP</span>
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="tracking-wider">[ STOP ]</span>
                 </div>
-                {/* Shine effect */}
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
               </button>
             </div>
           </div>
@@ -638,27 +612,27 @@ const RoboRoverController: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Location Map Viewer */}
             {showLocationMap && (
-              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+              <div className="glass-card rounded-lg shadow-2xl p-4 md:p-6 border-l-4 border-syntax-purple">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Eye className="w-6 h-6 text-purple-400" />
-                    <h2 className="text-2xl md:text-3xl font-bold text-white">
-                      LOCATION MAP
+                    <Eye className="w-5 h-5 text-syntax-purple" />
+                    <h2 className="text-xl md:text-2xl font-mono font-bold text-syntax-purple">
+                      {"<"} LOCATION_MAP {"/>"}
                     </h2>
                   </div>
                   <button
                     onClick={() => setShowLocationMap(false)}
-                    className="btn-gradient px-4 py-2 rounded-xl text-sm flex items-center gap-2"
+                    className="btn-warning px-3 py-2 rounded text-xs font-mono flex items-center gap-2"
                   >
-                    <EyeOff className="w-4 h-4" />
-                    Hide
+                    <EyeOff className="w-3 h-3" />
+                    close()
                   </button>
                 </div>
-                <div className="glass-card-light rounded-2xl p-2 md:p-4">
+                <div className="bg-slate-900/70 border border-slate-700 rounded-lg p-2 md:p-4">
                   <Suspense
                     fallback={
-                      <div className="h-96 flex items-center justify-center text-white/60">
-                        Loading Location Map...
+                      <div className="h-96 flex items-center justify-center text-slate-500 font-mono text-sm">
+                        // loading map...
                       </div>
                     }
                   >
@@ -667,26 +641,26 @@ const RoboRoverController: React.FC = () => {
 
                   </Suspense>
                 </div>
-                <div className="mt-3 text-xs text-white/60 text-center">
-                  Use mouse to rotate • Scroll to zoom • Drag to pan
+                <div className="mt-3 text-xs text-slate-500 text-center font-mono">
+                  // mouse: rotate • scroll: zoom • drag: pan
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                  <div className="glass-card-light p-2 rounded-lg">
-                    <div className="text-white/50">Wheel 1 (Bottom)</div>
-                    <div className="text-cyan-300 font-mono">
-                      {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} rad
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="bg-slate-900/70 border border-slate-700 p-2 rounded">
+                    <div className="text-slate-500">wheel[0]</div>
+                    <div className="text-syntax-cyan">
+                      {(jointPositions.wheel1 % (2 * Math.PI)).toFixed(2)} <span className="text-slate-600">rad</span>
                     </div>
                   </div>
-                  <div className="glass-card-light p-2 rounded-lg">
-                    <div className="text-white/50">Wheel 2 (Right)</div>
-                    <div className="text-cyan-300 font-mono">
-                      {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} rad
+                  <div className="bg-slate-900/70 border border-slate-700 p-2 rounded">
+                    <div className="text-slate-500">wheel[1]</div>
+                    <div className="text-syntax-cyan">
+                      {(jointPositions.wheel2 % (2 * Math.PI)).toFixed(2)} <span className="text-slate-600">rad</span>
                     </div>
                   </div>
-                  <div className="glass-card-light p-2 rounded-lg">
-                    <div className="text-white/50">Wheel 3 (Left)</div>
-                    <div className="text-cyan-300 font-mono">
-                      {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} rad
+                  <div className="bg-slate-900/70 border border-slate-700 p-2 rounded">
+                    <div className="text-slate-500">wheel[2]</div>
+                    <div className="text-syntax-cyan">
+                      {(jointPositions.wheel3 % (2 * Math.PI)).toFixed(2)} <span className="text-slate-600">rad</span>
                     </div>
                   </div>
                 </div>
@@ -707,19 +681,25 @@ const RoboRoverController: React.FC = () => {
             {!showLocationMap && (
               <button
                 onClick={() => setShowLocationMap(true)}
-                className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-slate-900/70 border border-slate-700 rounded-lg text-slate-300 hover:text-syntax-purple hover:border-syntax-purple/50 transition-all font-mono text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Eye className="w-5 h-5" />
-                Show Location Map
+                <Eye className="w-4 h-4" />
+                <span className="text-syntax-purple">show</span>
+                <span className="text-slate-500">(</span>
+                <span className="text-syntax-orange">"location_map"</span>
+                <span className="text-slate-500">)</span>
               </button>
             )}
             {!showCamera && (
               <button
                 onClick={() => setShowCamera(true)}
-                className="w-full py-3 glass-card-light rounded-2xl text-white/80 hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-slate-900/70 border border-slate-700 rounded-lg text-slate-300 hover:text-syntax-cyan hover:border-syntax-cyan/50 transition-all font-mono text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Camera className="w-5 h-5" />
-                Show Camera Feed
+                <Camera className="w-4 h-4" />
+                <span className="text-syntax-cyan">show</span>
+                <span className="text-slate-500">(</span>
+                <span className="text-syntax-orange">"camera_feed"</span>
+                <span className="text-slate-500">)</span>
               </button>
             )}
           </div>
@@ -746,39 +726,39 @@ const RoboRoverController: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             {/* LEFT COLUMN: ROVER CONTROL */}
             <div className="space-y-3 md:space-y-4">
-              <div className="glass-card rounded-3xl shadow-2xl p-4 md:p-6">
+              <div className="glass-card rounded-lg shadow-2xl p-4 md:p-6 border-l-4 border-syntax-cyan">
                 <div className="flex items-center gap-2 mb-4 md:mb-6">
-                  <Activity className="w-6 h-6 md:w-8 md:h-8 text-cyan-400" />
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">
-                    ROVER
+                  <Activity className="w-5 h-5 md:w-6 md:h-6 text-syntax-cyan" />
+                  <h2 className="text-xl md:text-2xl font-mono font-bold text-syntax-cyan">
+                    {"<"} ROVER_CONTROL {"/>"}
                   </h2>
                 </div>
 
                 {/* Joystick Control */}
                 <div className="flex flex-col items-center space-y-4">
-                  <div className="glass-card-light rounded-full p-4 md:p-6 relative">
+                  <div className="bg-slate-900/50 border-2 border-syntax-cyan/30 rounded-full p-4 md:p-6 relative">
                     <Joystick
                       size={window.innerWidth < 768 ? 180 : 240}
-                      baseColor="rgba(255, 255, 255, 0.1)"
+                      baseColor="rgba(30, 41, 59, 0.8)"
                       stickColor="linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)"
                       move={handleJoystickMove}
                       stop={handleJoystickStop}
                       throttle={50}
                     />
-                    <div className="absolute inset-0 rounded-full border-4 border-cyan-400/30 pointer-events-none"></div>
+                    <div className="absolute inset-0 rounded-full border-2 border-syntax-cyan/40 pointer-events-none shadow-inner"></div>
                   </div>
 
-                  <div className="text-white/90 text-center font-medium text-sm">
-                    Drag to control rover movement
+                  <div className="text-slate-400 text-center font-mono text-xs">
+                    // drag joystick to move
                   </div>
                 </div>
 
                 {/* Rotation Control */}
-                <div className="mt-4 glass-card-light rounded-2xl p-4 md:p-5 space-y-3">
-                  <div className="flex justify-between text-xs md:text-sm font-semibold text-white">
-                    <span>Rotation (ω)</span>
-                    <span className="text-cyan-300 font-mono">
-                      {roverVelocity.omega_z.toFixed(2)} rad/s
+                <div className="mt-4 bg-slate-900/70 border border-slate-700 rounded-lg p-4 md:p-5 space-y-3">
+                  <div className="flex justify-between text-xs md:text-sm font-mono text-slate-300">
+                    <span className="text-syntax-orange">omega_z:</span>
+                    <span className="text-syntax-cyan">
+                      {roverVelocity.omega_z.toFixed(2)} <span className="text-slate-500">rad/s</span>
                     </span>
                   </div>
                   <input
@@ -795,9 +775,9 @@ const RoboRoverController: React.FC = () => {
                     }
                     className="glass-slider w-full"
                   />
-                  <div className="flex justify-between text-xs text-white/50 font-mono">
+                  <div className="flex justify-between text-xs text-slate-600 font-mono">
                     <span>-1.0</span>
-                    <span>0.0</span>
+                    <span className="text-slate-500">0.0</span>
                     <span>+1.0</span>
                   </div>
                 </div>
@@ -827,18 +807,18 @@ const RoboRoverController: React.FC = () => {
                 <button
                   onClick={sendHome}
                   disabled={!connection.isConnected}
-                  className="w-full py-3 md:py-4 btn-gradient rounded-2xl font-semibold text-base md:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                  className="w-full py-3 md:py-4 btn-warning rounded-lg font-mono font-bold text-sm md:text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
-                  <Home className="w-5 h-5" />
-                  HOME POSITION
+                  <Home className="w-4 h-4" />
+                  <span>{">"} HOME_POSITION()</span>
                 </button>
               </CollapsibleSection>
             </div>
           </div>
 
-          {/* Activity Logs */}
+          {/* Activity Logs - Terminal style */}
           <CollapsibleSection
-            title={`ACTIVITY LOG (${logs.length})`}
+            title={`SYSTEM_LOG [${logs.length}]`}
             isExpanded={expandedSections.logs}
             onToggle={() =>
               setExpandedSections((prev) => ({
@@ -847,13 +827,13 @@ const RoboRoverController: React.FC = () => {
               }))
             }
             headerRight={
-              <IconBadge icon={Activity} color="text-cyan-400" size="md" />
+              <IconBadge icon={Activity} color="text-syntax-cyan" size="md" />
             }
-            contentClassName="backdrop-blur-md bg-black/40 rounded-2xl p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1 border border-white/10"
+            contentClassName="bg-slate-950 border-2 border-slate-800 rounded-lg p-3 md:p-4 max-h-48 overflow-y-auto font-mono text-xs space-y-1"
           >
             {logs.length === 0 ? (
-              <div className="text-white/30 text-center py-8">
-                No activity yet...
+              <div className="text-slate-600 text-center py-8">
+                // no logs yet
               </div>
             ) : (
               logs.slice(0, 10).map((log, idx) => (
@@ -861,45 +841,50 @@ const RoboRoverController: React.FC = () => {
                   key={idx}
                   className={`${
                     log.type === "error"
-                      ? "text-red-300"
+                      ? "text-syntax-red"
                       : log.type === "success"
-                        ? "text-green-300"
+                        ? "text-syntax-green"
                         : log.type === "warning"
-                          ? "text-yellow-300"
-                          : "text-cyan-200"
+                          ? "text-syntax-yellow"
+                          : "text-syntax-cyan"
                   }`}
                 >
-                  <span className="text-white/40">
+                  <span className="text-slate-600">
                     [{new Date(log.timestamp).toLocaleTimeString()}]
                   </span>{" "}
-                  {log.message}
+                  <span className={log.type === "error" ? "font-bold" : ""}>
+                    {log.message}
+                  </span>
                 </div>
               ))
             )}
           </CollapsibleSection>
 
-          {/* Quick Info */}
-          <div className="glass-card rounded-3xl shadow-2xl p-3 md:p-4">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-xs md:text-sm text-white/80">
+          {/* System Info Bar - Terminal style */}
+          <div className="glass-card rounded-lg shadow-2xl p-3 md:p-4 border-t-2 border-syntax-blue/30">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-xs font-mono text-slate-400">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                <span>
-                  <span className="font-bold text-white">Real-time Control</span>{" "}
-                  - Arm + Wheels active
+                <div className="w-2 h-2 bg-syntax-green rounded-full status-glow-green"></div>
+                <span className="text-syntax-cyan">
+                  realtime_control
                 </span>
+                <span className="text-slate-600">=</span>
+                <span className="text-syntax-green">true</span>
               </div>
-              <div className="hidden md:block w-px h-6 bg-white/20"></div>
+              <div className="hidden md:block w-px h-6 bg-slate-700"></div>
               <div>
-                <span className="font-bold text-white">Throttle:</span>{" "}
-                {THROTTLE_DELAY}ms
+                <span className="text-syntax-orange">throttle</span>
+                <span className="text-slate-600">:</span>{" "}
+                <span className="text-syntax-yellow">{THROTTLE_DELAY}</span>
+                <span className="text-slate-500">ms</span>
               </div>
-              <div className="hidden md:block w-px h-6 bg-white/20"></div>
+              <div className="hidden md:block w-px h-6 bg-slate-700"></div>
               <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                <span className="font-bold text-white">
-                  Location Map:
-                </span>{" "}
-                {showLocationMap ? "Active" : "Hidden"}
+                <span className="text-syntax-purple">map_visible</span>
+                <span className="text-slate-600">:</span>{" "}
+                <span className={showLocationMap ? "text-syntax-green" : "text-syntax-red"}>
+                  {showLocationMap ? "true" : "false"}
+                </span>
               </div>
             </div>
           </div>
