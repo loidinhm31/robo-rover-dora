@@ -28,16 +28,20 @@ pnpm lint             # Linting
 
 ## Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory (or per-app in `apps/web/.env`, `apps/native/.env`):
 
 ```env
 # Socket.IO backend connection (orchestra/web_bridge)
+# Local:      http://localhost:3030
+# Production: https://robo-fleet.dms-study.cloud  (use https:// not wss://)
 VITE_SOCKET_IO_URL=http://localhost:3030
 
 # Basic auth credentials (must match web_bridge config)
 VITE_AUTH_USERNAME=user
 VITE_AUTH_PASSWORD=pass
 ```
+
+> **Production deployment**: browsers on HTTPS pages block `ws://` connections (mixed content). Use a `wss://` endpoint via Cloudflare Tunnel. See **[Cloudflare Tunnel Deployment](./docs/deployment-cloudflare-tunnel.md)** for setup steps.
 
 ## Monorepo Structure
 
@@ -124,6 +128,7 @@ See `/docs/architecture.md` for full event type definitions.
 - **[Project Overview & PDR](./docs/project-overview-pdr.md)** — Product vision, requirements, capabilities
 - **[Code Standards](./docs/code-standards.md)** — Conventions, naming, styling, patterns
 - **[Codebase Summary](./docs/codebase-summary.md)** — File inventory, LOC breakdown, key files
+- **[Cloudflare Tunnel Deployment](./docs/deployment-cloudflare-tunnel.md)** — Expose `web_bridge` via `wss://` for HTTPS pages (mixed content fix)
 
 ## Further Reading
 
