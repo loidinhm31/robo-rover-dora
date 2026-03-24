@@ -30,12 +30,10 @@ import {
 
 // Import types from shared package
 import type {
-  ArmTelemetry,
   ConnectionState,
   FleetStatus,
   JointPositions,
   LogEntry,
-  RoverTelemetry,
   SpeechTranscription,
   SystemMetrics,
   TrackingTelemetry,
@@ -109,8 +107,6 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
   });
 
   // Telemetry state
-  const [, setArmTelemetry] = useState<ArmTelemetry | null>(null);
-  const [roverTelemetry, setRoverTelemetry] = useState<RoverTelemetry | null>(null);
   const [servoTelemetry, setServoTelemetry] = useState<TrackingTelemetry | null>(null);
 
   // Speech recognition state
@@ -229,27 +225,6 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
         ...prev,
         commandsReceived: prev.commandsReceived + 1,
       }));
-    });
-
-    socket.on("rover_core_telemetry", (data: RoverTelemetry) => {
-      setRoverTelemetry(data);
-    });
-
-    socket.on("arm_telemetry", (data: ArmTelemetry) => {
-      setArmTelemetry(data);
-      if (data.joint_angles && data.joint_angles.length === 6) {
-        setJointPositions((prev) => ({
-          shoulder_pan: data.joint_angles![0] as number,
-          shoulder_lift: data.joint_angles![1] as number,
-          elbow_flex: data.joint_angles![2] as number,
-          wrist_flex: data.joint_angles![3] as number,
-          wrist_roll: data.joint_angles![4] as number,
-          gripper: data.joint_angles![5] as number,
-          wheel1: prev.wheel1 as number,
-          wheel2: prev.wheel2 as number,
-          wheel3: prev.wheel3 as number,
-        }));
-      }
     });
 
     socket.on("servo_telemetry", (data: TrackingTelemetry) => {
@@ -660,7 +635,7 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
                       </div>
                     }
                   >
-                    <RobotLocationMap telemetry={roverTelemetry} />
+                    <RobotLocationMap telemetry={null} />
                   </Suspense>
                 </div>
                 <div className="mt-3 text-xs text-slate-500 text-center font-mono">
