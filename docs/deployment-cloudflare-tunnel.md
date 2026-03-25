@@ -14,7 +14,7 @@ Orchestra web_bridge (Rust Socket.IO)
 
 ## Prerequisites
 
-- Cloudflare Tunnel already running for the main domain (e.g. `dms-study.cloud`)
+- Cloudflare Tunnel already running for the main domain (e.g. `qm-hub-v001.cloud`)
 - `cloudflared` installed and authenticated on the server
 - `cloudflared` service managed by `systemd`
 
@@ -24,11 +24,11 @@ Run from the **server** hosting `cloudflared` (not local dev machine):
 
 ```bash
 cd /path/to/qm-sync/qm-hub-server
-./scripts/setup-cloudflare-tunnel.sh qm-hub "" "" robo-fleet.dms-study.cloud --patch
+./scripts/setup-cloudflare-tunnel.sh qm-hub "" "" robo-fleet.qm-hub-v001.cloud --patch
 ```
 
 The script:
-1. Routes DNS `robo-fleet.dms-study.cloud` → `<tunnel-id>.cfargotunnel.com` via `cloudflared tunnel route dns`
+1. Routes DNS `robo-fleet.qm-hub-v001.cloud` → `<tunnel-id>.cfargotunnel.com` via `cloudflared tunnel route dns`
 2. Injects ingress rule into `/etc/cloudflared/config.yml` before the catch-all (idempotent — skips if hostname already present)
 3. Validates the patched config
 4. Restarts `cloudflared` via `systemctl`
@@ -42,7 +42,7 @@ The script:
 cloudflared tunnel list
 
 # Route DNS
-cloudflared tunnel route dns <TUNNEL_NAME> robo-fleet.dms-study.cloud
+cloudflared tunnel route dns <TUNNEL_NAME> robo-fleet.qm-hub-v001.cloud
 ```
 
 Alternatively: Cloudflare Dashboard → DNS → Add CNAME `robo-fleet` → `<tunnel-id>.cfargotunnel.com` (Proxied).
@@ -53,7 +53,7 @@ Add before the catch-all line (`- service: http_status:404`):
 
 ```yaml
   # Orchestra web_bridge (WebSocket + HTTP)
-  - hostname: robo-fleet.dms-study.cloud
+  - hostname: robo-fleet.qm-hub-v001.cloud
     service: http://localhost:3030
     originRequest:
       connectTimeout: 30s
@@ -75,10 +75,10 @@ sudo journalctl -u cloudflared -f --since "1 min ago"
 
 ```bash
 # HTTP polling transport
-curl -v "https://robo-fleet.dms-study.cloud/socket.io/?EIO=4&transport=polling"
+curl -v "https://robo-fleet.qm-hub-v001.cloud/socket.io/?EIO=4&transport=polling"
 
 # WebSocket transport (requires wscat: npm i -g wscat)
-wscat -c "wss://robo-fleet.dms-study.cloud/socket.io/?EIO=4&transport=websocket"
+wscat -c "wss://robo-fleet.qm-hub-v001.cloud/socket.io/?EIO=4&transport=websocket"
 ```
 
 Both should connect without TLS errors.
@@ -88,7 +88,7 @@ Both should connect without TLS errors.
 After the tunnel is confirmed live, update `apps/web/.env` (and `apps/native/.env` if deploying Tauri):
 
 ```env
-VITE_SOCKET_IO_URL=https://robo-fleet.dms-study.cloud
+VITE_SOCKET_IO_URL=https://robo-fleet.qm-hub-v001.cloud
 ```
 
 > Use `https://` (not `wss://`) — Socket.IO auto-upgrades the transport to WebSocket. Passing `https://` also avoids mixed content issues if Socket.IO falls back to polling.
@@ -101,11 +101,11 @@ pnpm build
 
 ## Update CORS on Orchestra Side
 
-The browser's `Origin` header is set to the **page** origin (e.g. `https://dms-study.cloud`), not the WebSocket target. Ensure orchestra's `ALLOWED_ORIGINS` includes the page origin:
+The browser's `Origin` header is set to the **page** origin (e.g. `https://qm-hub-v001.cloud`), not the WebSocket target. Ensure orchestra's `ALLOWED_ORIGINS` includes the page origin:
 
 ```yaml
 # robo-fleet-dora-rs/docker/docker-compose.yml
-ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-https://dms-study.cloud,http://localhost:1420,http://localhost:3000,http://localhost:5173}"
+ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-https://app.qm-hub-v001.cloud,http://localhost:1420,http://localhost:3000,http://localhost:5173}"
 ```
 
 Rebuild orchestra after changing:
@@ -116,7 +116,7 @@ docker compose --profile orchestra up -d --build
 
 ## Domain Portability
 
-If the domain changes from `dms-study.cloud`:
+If the domain changes from `qm-hub-v001.cloud`:
 
 | Location | What to change |
 |----------|---------------|

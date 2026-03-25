@@ -33,7 +33,7 @@ Create a `.env` file in the root directory (or per-app in `apps/web/.env`, `apps
 ```env
 # Socket.IO backend connection (orchestra/web_bridge)
 # Local:      http://localhost:3030
-# Production: https://robo-fleet.dms-study.cloud  (use https:// not wss://)
+# Production: https://robo-fleet.qm-hub-v001.cloud  (use https:// not wss://)
 VITE_SOCKET_IO_URL=http://localhost:3030
 
 # Basic auth credentials (must match web_bridge config)

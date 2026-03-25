@@ -683,6 +683,11 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
       command: newState ? "start" : "stop"
     });
 
+    // Camera off → hard-off detection and tracking
+    if (!newState && pipelineState !== "Disabled") {
+      sendTrackingCommand({ command_type: "disable_detection" });
+    }
+
     console.log(newState ? "Camera enabled" : "Camera disabled");
   };
 
@@ -724,15 +729,17 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
     if (pipelineState === "Disabled") {
       sendTrackingCommand({ command_type: "enable_detection" });
     } else {
-      sendTrackingCommand({ command_type: "disable" });
+      // disable_detection returns to camera-only and also kills tracking
+      sendTrackingCommand({ command_type: "disable_detection" });
     }
   };
 
   const toggleTracking = () => {
-    if (pipelineState === "Disabled" || pipelineState === "DetectionOnly") {
+    if (pipelineState === "DetectionOnly") {
       sendTrackingCommand({ command_type: "enable" });
     } else {
-      sendTrackingCommand({ command_type: "enable_detection" });
+      // disable goes to detection-only (tracking off, detection stays on)
+      sendTrackingCommand({ command_type: "disable" });
     }
   };
 
@@ -875,7 +882,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                     onClick={toggleDetection}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
                     title={pipelineState === "Disabled" ? "Enable Detection" : "Disable Detection"}
-                    disabled={!isConnected}
+                    disabled={!isConnected || !cameraEnabled}
                 >
                   <Scan className={`w-5 h-5 ${pipelineState !== "Disabled" ? "text-yellow-400" : "text-gray-400"}`} />
                 </button>
@@ -885,7 +892,7 @@ export const CameraViewer: React.FC<CameraViewerProps> = ({
                     onClick={toggleTracking}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md transition"
                     title={
-                      pipelineState === "Disabled" || pipelineState === "DetectionOnly"
+                      pipelineState === "DetectionOnly"
                         ? "Enable Tracking"
                         : "Disable Tracking (→ Detection Only)"
                     }
