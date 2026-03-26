@@ -2,16 +2,17 @@ import React, { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Link, Plug, Settings, Unplug, X } from "lucide-react";
 import { detectMixedContent, suggestSecureUrl } from "../../utils/url-validation";
+import type { SocketAuth } from "../../adapters/factory/interfaces";
 
-export interface SocketAuth {
-  username: string;
-  password: string;
-}
+// Re-exported for barrel consumers — source of truth is ISocketService.ts
+export type { SocketAuth };
 
 export interface ServerSettingsProps {
   currentUrl: string;
   currentAuth?: SocketAuth;
   isConnected: boolean;
+  sessionActive?: boolean;
+  authError?: string;
   onConnect: (url: string, auth: SocketAuth | undefined) => void;
   onDisconnect: () => void;
 }
@@ -20,6 +21,8 @@ export const ServerSettings: React.FC<ServerSettingsProps> = ({
   currentUrl,
   currentAuth,
   isConnected,
+  sessionActive,
+  authError,
   onConnect,
   onDisconnect,
 }) => {
@@ -40,7 +43,7 @@ export const ServerSettings: React.FC<ServerSettingsProps> = ({
   const buildAuth = (): SocketAuth | undefined => {
     const u = draftUsername.trim();
     const p = draftPassword.trim();
-    return u && p ? { username: u, password: p } : undefined;
+    return u || p ? { username: u, password: p } : undefined;
   };
 
   const handleConnect = () => {
@@ -93,27 +96,43 @@ export const ServerSettings: React.FC<ServerSettingsProps> = ({
 
           {/* Current connection status */}
           <div className="bg-slate-900/80 border border-slate-700 rounded px-3 py-2 space-y-1">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  isConnected
-                    ? "bg-syntax-green status-glow-green"
-                    : "bg-syntax-red status-glow-red"
-                }`}
-              />
-              <span
-                className={`text-xs font-mono font-semibold ${
-                  isConnected ? "text-syntax-green" : "text-syntax-red"
-                }`}
-              >
-                {isConnected ? "[ONLINE]" : "[OFFLINE]"}
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    isConnected
+                      ? "bg-syntax-green status-glow-green"
+                      : "bg-syntax-red status-glow-red"
+                  }`}
+                />
+                <span
+                  className={`text-xs font-mono font-semibold ${
+                    isConnected ? "text-syntax-green" : "text-syntax-red"
+                  }`}
+                >
+                  {isConnected ? "[ONLINE]" : "[OFFLINE]"}
+                </span>
+              </div>
+              {sessionActive && (
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-syntax-green" />
+                  <span className="text-xs font-mono text-syntax-green">Session active</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400 min-w-0">
               <Link className="w-3 h-3 flex-shrink-0 text-slate-500" />
               <span className="truncate">{currentUrl}</span>
             </div>
           </div>
+
+          {/* Auth error */}
+          {authError && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded px-2.5 py-2 text-xs font-mono">
+              <span className="text-red-400 flex-shrink-0 mt-0.5">✗</span>
+              <span className="text-red-300">{authError}</span>
+            </div>
+          )}
 
           {/* URL input */}
           <div className="space-y-1.5">
@@ -201,7 +220,7 @@ export const ServerSettings: React.FC<ServerSettingsProps> = ({
           </div>
 
           <p className="text-xs font-mono text-slate-600">
-            // persisted in localStorage
+            // credentials: localStorage | token: sessionStorage
           </p>
 
           <Popover.Arrow className="fill-slate-700" />

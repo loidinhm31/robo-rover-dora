@@ -41,7 +41,12 @@ export type { NodeMetrics, SystemMetrics } from "./performance";
 export type { LogEntry, ConnectionState } from "./ui";
 
 // Socket
-export type { ServerToClientEvents, ClientToServerEvents } from "./socket";
+export type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  AuthErrorReason,
+  AuthErrorEvent,
+} from "./socket";
 
 // Fleet
 export type {

@@ -30,6 +30,7 @@ import {
 
 // Import types from shared package
 import type {
+  AuthErrorEvent,
   ConnectionState,
   FleetStatus,
   JointPositions,
@@ -78,6 +79,7 @@ export interface RoboRoverControlProps {
 
 const STORAGE_KEY = "robo-fleet-server-url";
 const AUTH_STORAGE_KEY = "robo-fleet-auth";
+const TOKEN_STORAGE_KEY = "robo_auth_token";
 
 const getStoredAuth = (): SocketAuth | undefined => {
   try {
@@ -146,10 +148,28 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
     logs: false,
   });
 
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionActive, setSessionActive] = useState(false);
+
   const socketRef = useRef<Socket | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCommandTime = useRef<number>(0);
   const lastUpdateTime = useRef<number>(Date.now());
   const MAX_LOGS = 50;
+
+  const scheduleRefresh = useCallback((token: string) => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { exp: number };
+      const refreshAt = payload.exp * 1000 - Date.now() - 5 * 60 * 1000;
+      refreshTimerRef.current = setTimeout(() => {
+        socketRef.current?.emit("auth_refresh", { token });
+      }, Math.max(0, refreshAt));
+    } catch {
+      // malformed token — skip refresh scheduling, clear to force re-auth
+      try { sessionStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* private browsing */ }
+    }
+  }, []);
 
   // Add log entry
   const addLog = useCallback(
@@ -187,16 +207,45 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
       return;
     }
 
+    let storedToken: string | null = null;
+    try { storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY); } catch { /* private browsing */ }
+    const connectAuth = storedToken
+      ? { ...socketAuth, token: storedToken }
+      : socketAuth;
+
     const socket = io(serverUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
-      auth: socketAuth,
+      auth: connectAuth,
+    });
+
+    socket.on("auth_token", (token: string) => {
+      try { sessionStorage.setItem(TOKEN_STORAGE_KEY, token); } catch { /* private browsing */ }
+      setSessionActive(true);
+      setAuthError(null);
+      scheduleRefresh(token);
+    });
+
+    socket.on("auth_error", (event: AuthErrorEvent) => {
+      const messages: Record<string, string> = {
+        invalid_credentials: "Authentication failed. Check username and password.",
+        token_expired: "Session expired. Please reconnect.",
+        rate_limited: "Too many attempts. Please wait.",
+        idle_timeout: "Disconnected due to inactivity.",
+      };
+      if (event.reason === "token_expired" || event.reason === "idle_timeout") {
+        try { sessionStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* private browsing */ }
+        setSessionActive(false);
+      }
+      setAuthError(messages[event.reason] ?? "Authentication error.");
+      addLog(messages[event.reason] ?? "Auth error", "error");
     });
 
     socket.on("connect", () => {
       addLog(`Connected (ID: ${socket.id})`, "success");
+      setAuthError(null);
       setConnection((prev) => ({
         ...prev,
         isConnected: true,
@@ -258,7 +307,7 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
     });
 
     socketRef.current = socket;
-  }, [serverUrl, socketAuth, addLog, fleetStatus?.selected_entity]);
+  }, [serverUrl, socketAuth, addLog, fleetStatus?.selected_entity, scheduleRefresh]);
 
   // Disconnect from Socket.IO server
   const disconnect = useCallback(() => {
@@ -267,6 +316,11 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
       socketRef.current = null;
       addLog("Manually disconnected", "info");
     }
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    setSessionActive(false);
   }, [addLog]);
 
   // Select rover from fleet
@@ -577,6 +631,8 @@ export const RoboRoverControl: React.FC<RoboRoverControlProps> = ({
                 currentUrl={serverUrl}
                 currentAuth={socketAuth}
                 isConnected={connection.isConnected}
+                sessionActive={sessionActive}
+                authError={authError ?? undefined}
                 onConnect={handleConnectSettings}
                 onDisconnect={disconnect}
               />

@@ -1,5 +1,15 @@
 // Socket.IO event types — web_bridge/src/main.rs is source of truth
 
+export type AuthErrorReason =
+  | "invalid_credentials"
+  | "token_expired"
+  | "rate_limited"
+  | "idle_timeout";
+
+export interface AuthErrorEvent {
+  reason: AuthErrorReason;
+}
+
 import type { VideoFrame } from "./telemetry";
 import type { DetectionFrame, TrackingTelemetry } from "./tracking";
 import type { WebArmCommand, WebRoverCommand, WebTrackingCommand } from "./commands";
